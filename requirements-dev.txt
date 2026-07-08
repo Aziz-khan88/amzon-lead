@@ -1,0 +1,11 @@
+-r requirements.txt
+
+# Tests
+pytest>=8.4
+pytest-django>=4.11
+
+# Local quality tools
+black>=25.1
+isort>=6.0
+flake8>=7.3
+pre-commit>=4.3

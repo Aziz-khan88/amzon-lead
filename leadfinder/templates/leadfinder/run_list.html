@@ -1,0 +1,228 @@
+{% extends "base.html" %}
+{% block title %}Research Runs - Book Trailer Lead Finder{% endblock %}
+{% block content %}
+<div class="runs-page">
+  <div class="runs-command">
+    <div>
+      <h1>Research Runs</h1>
+      <p class="page-subtitle">Track and manage all your research runs and their results.</p>
+    </div>
+    <div class="runs-toolbar">
+      <button class="runs-map-button" type="button" title="Run health" aria-label="Run health">
+        <i class="fa-solid fa-location-dot"></i>
+      </button>
+      <a class="btn btn-primary" href="{% url 'leadfinder:run_new' %}">
+        <i class="fa-solid fa-plus"></i> New Research Run
+      </a>
+      <a class="btn btn-secondary" href="{% url 'leadfinder:isbn_search' %}">
+        <i class="fa-solid fa-database"></i> Batch ISBN Run
+      </a>
+    </div>
+  </div>
+
+  <div class="run-stat-grid">
+    <div class="run-stat-card stat-runs-total">
+      <span class="run-stat-icon"><i class="fa-solid fa-wave-square"></i></span>
+      <span class="run-stat-label">Total Runs</span>
+      <strong>{{ stats.total }}</strong>
+      <small>All time</small>
+    </div>
+    <div class="run-stat-card stat-runs-completed">
+      <span class="run-stat-icon"><i class="fa-solid fa-check"></i></span>
+      <span class="run-stat-label">Completed</span>
+      <strong>{{ stats.completed }}</strong>
+      <small>{% widthratio stats.completed stats.total 100 %}%</small>
+    </div>
+    <div class="run-stat-card stat-runs-review">
+      <span class="run-stat-icon"><i class="fa-regular fa-clock"></i></span>
+      <span class="run-stat-label">Needs Review</span>
+      <strong>{{ stats.running }}</strong>
+      <small>{% widthratio stats.running stats.total 100 %}%</small>
+    </div>
+    <div class="run-stat-card stat-runs-failed">
+      <span class="run-stat-icon"><i class="fa-solid fa-exclamation"></i></span>
+      <span class="run-stat-label">Failed / Blocked</span>
+      <strong>{{ stats.failed }}</strong>
+      <small>{% widthratio stats.failed stats.total 100 %}%</small>
+    </div>
+  </div>
+
+  <section class="runs-filter-panel">
+    <div class="runs-search-row">
+      <div class="runs-search-field">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="search" id="run-search" placeholder="Search runs by name or source..." autocomplete="off">
+        <kbd>⌘K</kbd>
+      </div>
+    </div>
+    <div class="runs-filter-grid">
+      <label>Provider
+        <select id="run-provider-filter">
+          <option>All Providers</option>
+          <option>BookLife</option>
+          <option>Open Library</option>
+          <option>Manual</option>
+        </select>
+      </label>
+      <label>Status
+        <select id="run-status-filter">
+          <option>All Statuses</option>
+          <option>Completed</option>
+          <option>Running</option>
+          <option>Failed</option>
+          <option>Canceled</option>
+        </select>
+      </label>
+      <label>Date Range
+        <span class="runs-date-field">All Time <i class="fa-regular fa-calendar"></i></span>
+      </label>
+      <button class="btn btn-secondary runs-more-filters" type="button">
+        <i class="fa-solid fa-filter"></i> More Filters
+      </button>
+      <a class="runs-reset" href="{% url 'leadfinder:run_list' %}">Reset</a>
+    </div>
+  </section>
+
+  <div class="runs-list-controls">
+    <div class="runs-tabs" role="tablist" aria-label="Run status filters">
+      <a class="runs-tab active" href="{% url 'leadfinder:run_list' %}">All Runs <span>{{ stats.total }}</span></a>
+      <a class="runs-tab" href="{% url 'leadfinder:run_list' %}?status=active">Active <span>{{ stats.running }}</span></a>
+      <a class="runs-tab" href="{% url 'leadfinder:run_list' %}?status=completed">Completed <span>{{ stats.completed }}</span></a>
+      <a class="runs-tab" href="{% url 'leadfinder:run_list' %}?status=failed">Failed <span>{{ stats.failed }}</span></a>
+    </div>
+    <div class="runs-table-tools">
+      <button class="btn btn-secondary btn-sm" type="button"><i class="fa-solid fa-download"></i> Export</button>
+      <button class="view-toggle active" type="button" title="Table view" aria-label="Table view"><i class="fa-solid fa-list"></i></button>
+      <button class="view-toggle" type="button" title="Compact view" aria-label="Compact view"><i class="fa-solid fa-table-list"></i></button>
+      <button class="view-toggle" type="button" title="Table settings" aria-label="Table settings"><i class="fa-solid fa-gear"></i></button>
+    </div>
+  </div>
+
+  <section class="runs-table-panel">
+    <div class="table-responsive runs-table-wrap">
+      <table class="table align-middle runs-reference-table">
+        <thead>
+          <tr>
+            <th class="select-cell"><input type="checkbox" class="form-check-input" aria-label="Select all runs"></th>
+            <th>Run Name / Source <i class="fa-solid fa-sort"></i></th>
+            <th>Provider <i class="fa-solid fa-sort"></i></th>
+            <th>Status <i class="fa-solid fa-sort"></i></th>
+            <th>Created <i class="fa-solid fa-sort"></i></th>
+            <th>Records <i class="fa-solid fa-sort"></i></th>
+            <th>Results <i class="fa-solid fa-sort"></i></th>
+            <th class="text-end">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for run in runs %}
+          <tr>
+            <td class="select-cell" data-label="Select"><input type="checkbox" class="form-check-input" aria-label="Select {{ run.keyword|default:run.source_provider }}"></td>
+            <td data-label="Run Name / Source">
+              <div class="run-name-cell">
+                <strong>{{ run.keyword|default:"Untitled run" }}</strong>
+                <span>
+                  {% if run.source_provider == "booklife" %}
+                    BookLife
+                  {% elif run.source_provider == "csv" %}
+                    Import CSV
+                  {% elif run.source_provider == "manual" %}
+                    Batch ISBN
+                  {% else %}
+                    {{ run.source_provider|title }}
+                  {% endif %}
+                </span>
+              </div>
+            </td>
+            <td data-label="Provider">
+              <span class="run-provider-pill">
+                {% if run.source_provider == "booklife" %}BookLife{% elif run.source_provider == "csv" %}Open Library{% elif run.source_provider == "manual" %}Open Library{% else %}{{ run.source_provider|title }}{% endif %}
+              </span>
+            </td>
+            <td data-label="Status">
+              <span class="run-status-pill run-status-{{ run.status }}">
+                {% if run.status == "completed" %}
+                  Completed
+                {% elif run.status == "running" %}
+                  Processing <i class="fa-solid fa-spinner fa-spin"></i>
+                {% elif run.status == "pending" %}
+                  Processing <i class="fa-solid fa-spinner fa-spin"></i>
+                {% elif run.status == "failed" %}
+                  Failed
+                {% elif run.status == "canceled" %}
+                  Cancelled
+                {% else %}
+                  {{ run.status|title }}
+                {% endif %}
+              </span>
+            </td>
+            <td data-label="Created">
+              <span class="run-date">{{ run.created_at|date:"M d, Y" }}</span>
+              <small>{{ run.created_at|date:"h:i A" }}</small>
+            </td>
+            <td data-label="Records"><strong>{{ run.total_books }}</strong></td>
+            <td data-label="Results">
+              {% if run.status == "running" or run.status == "pending" %}
+                <span class="muted">-</span>
+              {% else %}
+                <strong>{{ run.total_leads }}</strong>
+              {% endif %}
+            </td>
+            <td data-label="Actions" class="text-end">
+              <div class="runs-row-actions">
+                <a class="btn btn-secondary btn-sm run-open-button" href="{% url 'leadfinder:run_detail' run.id %}">
+                  <i class="fa-regular fa-folder-open"></i> Open
+                </a>
+                {% if run.status == "pending" or run.status == "running" %}
+                  <form method="post" action="{% url 'leadfinder:run_stop' run.id %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                    <button class="btn btn-sm btn-danger" onclick="return confirm('Stop this research run? Work already saved will remain.');">
+                      <i class="fa-solid fa-circle-stop"></i>
+                    </button>
+                  </form>
+                {% elif run.status == "canceled" or run.status == "failed" %}
+                  <form method="post" action="{% url 'leadfinder:run_retry' run.id %}">
+                    {% csrf_token %}
+                    <button class="btn btn-sm btn-secondary"><i class="fa-solid fa-rotate-right"></i> Retry</button>
+                  </form>
+                {% endif %}
+                <button class="btn btn-secondary btn-sm icon-only" type="button" title="More actions" aria-label="More actions"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+              </div>
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="8" class="empty-state">
+              <i class="fa-solid fa-list-check"></i>
+              <strong>No research runs yet.</strong>
+              <span>Start a keyword, BookLife, ISBN, or CSV run.</span>
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="runs-table-footer">
+      <span>Showing 1 to {{ runs|length }} of {{ stats.total }} runs</span>
+      <label>
+        <select aria-label="Rows per page">
+          <option selected>15 per page</option>
+          <option>25 per page</option>
+          <option>50 per page</option>
+        </select>
+      </label>
+      <div class="runs-pagination" aria-label="Pagination">
+        <button class="btn btn-secondary btn-sm icon-only" type="button" aria-label="Previous page"><i class="fa-solid fa-chevron-left"></i></button>
+        <span>1</span>
+        <button type="button">2</button>
+        <button type="button">3</button>
+        <button type="button">4</button>
+        <button type="button">5</button>
+        <em>...</em>
+        <button type="button">8</button>
+        <button class="btn btn-secondary btn-sm icon-only" type="button" aria-label="Next page"><i class="fa-solid fa-chevron-right"></i></button>
+      </div>
+    </div>
+  </section>
+</div>
+{% endblock %}

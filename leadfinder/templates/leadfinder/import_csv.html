@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}Import CSV - Book Trailer Lead Finder{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <p class="eyebrow"><i class="fa-solid fa-file-import text-teal"></i> Seed data</p>
+    <h1>Import CSV</h1>
+    <p class="page-subtitle">Upload client-supplied book seeds, preview the first rows, and start enrichment.</p>
+  </div>
+</div>
+<form method="post" enctype="multipart/form-data" class="narrow-form form-grid">
+  {% csrf_token %}
+  
+  <div class="panel mb-4">
+    <div class="section-heading">
+      <h2><i class="fa-solid fa-file-csv text-teal"></i> Upload Lead Seeds</h2>
+    </div>
+    
+    <div class="alert alert-info mb-4">
+      <i class="fa-solid fa-circle-info me-2"></i>
+      <strong>CSV Format:</strong> Needs <code>title</code> (or <code>book_title</code>) and <code>author</code> (or <code>author_name</code>) columns. <code>asin</code>/<code>amazon_book_url</code> is optional but highly recommended.
+    </div>
+
+    <!-- Styled File Input Wrapper -->
+    <div class="field-row mb-4">
+      <label for="id_csv_file" class="form-label text-white">Select CSV File</label>
+      <div class="csv-upload-dropzone">
+        <i class="fa-solid fa-cloud-arrow-up upload-icon text-teal mb-2"></i>
+        <div class="upload-text text-white" id="upload-filename">Drag & drop your CSV file here, or click to browse</div>
+        <div class="upload-subtext small text-muted">Supports standard .csv format with headers</div>
+        {{ form.csv_file }}
+      </div>
+      {% for error in form.csv_file.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+    </div>
+
+    <!-- Advanced Enrichment Options -->
+    <div class="form-check-grid mt-3" style="grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); padding: 1rem;">
+      <div class="field-checkbox">
+        {{ form.run_video_search }}
+        {{ form.run_video_search.label_tag }}
+      </div>
+      <div class="field-checkbox">
+        {{ form.run_groq_ai_extraction }}
+        {{ form.run_groq_ai_extraction.label_tag }}
+      </div>
+    </div>
+  </div>
+
+  <div class="form-actions">
+    <button class="btn btn-secondary" name="preview" value="1" type="submit">
+      <i class="fa-solid fa-table-list"></i> Preview First 20 Rows
+    </button>
+    <button class="btn btn-primary" type="submit">
+      <i class="fa-solid fa-file-import"></i> Import and Run Enrichment
+    </button>
+  </div>
+</form>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  const fileInput = document.getElementById("id_csv_file");
+  const filenameLabel = document.getElementById("upload-filename");
+  if (fileInput && filenameLabel) {
+    fileInput.addEventListener("change", function() {
+      if (fileInput.files.length > 0) {
+        filenameLabel.textContent = "Selected: " + fileInput.files[0].name;
+        filenameLabel.style.color = "var(--green)";
+      } else {
+        filenameLabel.textContent = "Drag & drop your CSV file here, or click to browse";
+        filenameLabel.style.color = "var(--ink)";
+      }
+    });
+  }
+});
+</script>
+{% if preview %}
+<section class="panel mt-4">
+  <h2>Preview</h2>
+  <div class="table-responsive">
+    <table class="table table-sm">
+      <tbody>
+        {% for row in preview %}
+          <tr><td><pre>{{ row }}</pre></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+{% endblock %}

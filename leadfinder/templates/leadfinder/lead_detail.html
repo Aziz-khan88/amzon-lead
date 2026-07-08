@@ -1,0 +1,1709 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header align-items-center mb-4">
+  <div>
+    <p class="eyebrow"><i class="fa-solid fa-book-open text-teal"></i> Lead Details & Intelligence</p>
+    <h1>{{ lead.book.title }}</h1>
+  </div>
+  <div>
+    <span class="score-badge score-{{ lead.lead_tier }} p-2.5 px-4" style="font-size: 1.3rem;">
+      <i class="fa-solid fa-fire text-teal"></i> {{ lead.lead_score }} <span class="text-muted mx-1">|</span> <span style="font-size: 0.95rem; text-transform: uppercase;">{{ lead.lead_tier }}</span>
+    </span>
+  </div>
+</div>
+
+<!-- Section 1: Lead Header Info Card -->
+<div class="author-header-card">
+  {% if lead.book.cover_image_url %}
+    <div>
+      <img class="cover" src="{{ lead.book.cover_image_url }}" alt="{{ lead.book.title }} Cover">
+    </div>
+  {% endif %}
+  <div class="flex-grow-1">
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+      <h2 class="border-0 pb-0 mb-0 text-white font-heading" style="font-size: 1.8rem;">
+        {% if lead.author_profile.amazon_author_url %}
+          <a href="{{ lead.author_profile.amazon_author_url }}" target="_blank" class="author-name-link">
+            {{ lead.author_profile.author_name|default:lead.book.author_name|default:"Unknown Author" }} <i class="fa-solid fa-up-right-from-square small text-teal ms-1" style="font-size: 0.85rem;"></i>
+          </a>
+        {% elif lead.author_profile.canonical_website %}
+          <a href="{{ lead.author_profile.canonical_website }}" target="_blank" class="author-name-link">
+            {{ lead.author_profile.author_name|default:lead.book.author_name|default:"Unknown Author" }} <i class="fa-solid fa-up-right-from-square small text-teal ms-1" style="font-size: 0.85rem;"></i>
+          </a>
+        {% else %}
+          {{ lead.author_profile.author_name|default:lead.book.author_name|default:"Unknown Author" }}
+        {% endif %}
+      </h2>
+      {% if lead.book.illustrator_name %}
+        <span class="badge bg-dark border border-secondary text-light">Illustrator: {{ lead.book.illustrator_name }}</span>
+      {% endif %}
+    </div>
+    
+    <div class="row g-3 mt-1">
+      <div class="col-sm-6 col-lg-3">
+        <span class="text-muted d-block small">ASIN</span>
+        <strong class="text-white">{{ lead.book.asin|default:"—" }}</strong>
+      </div>
+      <div class="col-sm-6 col-lg-3">
+        <span class="text-muted d-block small">Category</span>
+        <strong class="text-white">{{ lead.book.category|default:"Children's" }}</strong>
+      </div>
+      <div class="col-sm-6 col-lg-3">
+        <span class="text-muted d-block small mb-1">Reviews & Rating</span>
+        <div class="d-flex align-items-center gap-2">
+          <div class="amazon-rating-stars" style="color: #ffb703; font-size: 1.1rem; filter: drop-shadow(0 0 4px rgba(255, 183, 3, 0.4));">
+            {% if lead.book.rating %}
+              {% if lead.book.rating >= 4.8 %}
+                <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
+              {% elif lead.book.rating >= 4.3 %}
+                <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star-half-stroke"></i>
+              {% elif lead.book.rating >= 3.8 %}
+                <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-regular fa-star"></i>
+              {% elif lead.book.rating >= 3.3 %}
+                <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star-half-stroke"></i><i class="fa-regular fa-star"></i>
+              {% elif lead.book.rating >= 2.8 %}
+                <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-regular fa-star"></i><i class="fa-regular fa-star"></i>
+              {% else %}
+                <i class="fa-solid fa-star"></i><i class="fa-regular fa-star"></i><i class="fa-regular fa-star"></i><i class="fa-regular fa-star"></i><i class="fa-regular fa-star"></i>
+              {% endif %}
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+          </div>
+          {% if lead.book.rating %}
+            <span class="badge bg-warning-subtle text-warning font-weight-700" style="font-size: 0.85rem; border: 1px solid rgba(255, 183, 3, 0.25);">{{ lead.book.rating }}</span>
+          {% endif %}
+        </div>
+        <span class="text-muted small mt-1 d-block">
+          {% if lead.book.review_count %}
+            <span class="badge bg-secondary-subtle text-light border border-secondary-subtle" style="font-size: 0.75rem;"><i class="fa-solid fa-comments"></i> {{ lead.book.review_count }} reviews</span>
+          {% else %}
+            0 reviews
+          {% endif %}
+        </span>
+      </div>
+      <div class="col-sm-6 col-lg-3">
+        <span class="text-muted d-block small">Publisher & Date</span>
+        <strong class="text-white">{{ lead.book.publisher|default:"Self-published" }} <span class="text-muted">({{ lead.book.publication_date|default:"—" }})</span></strong>
+      </div>
+    </div>
+    
+    <div class="mt-4">
+      <span class="text-muted d-block small mb-2">Active Contact Channels</span>
+      <div class="contact-badge-grid">
+        {% if lead.public_email %}
+          <a href="mailto:{{ lead.public_email }}" class="contact-badge badge-email"><i class="fa-solid fa-envelope"></i> {{ lead.public_email }}</a>
+        {% endif %}
+        {% if lead.author_profile.canonical_website %}
+          <a href="{{ lead.author_profile.canonical_website }}" target="_blank" class="contact-badge badge-web"><i class="fa-solid fa-globe"></i> Website</a>
+        {% endif %}
+        {% if lead.author_profile.instagram_url %}
+          <a href="{{ lead.author_profile.instagram_url }}" target="_blank" class="contact-badge badge-instagram"><i class="fa-brands fa-instagram"></i> Instagram</a>
+        {% endif %}
+        {% if lead.author_profile.tiktok_url %}
+          <a href="{{ lead.author_profile.tiktok_url }}" target="_blank" class="contact-badge badge-tiktok"><i class="fa-brands fa-tiktok"></i> TikTok</a>
+        {% endif %}
+        {% if lead.author_profile.youtube_url %}
+          <a href="{{ lead.author_profile.youtube_url }}" target="_blank" class="contact-badge badge-youtube"><i class="fa-brands fa-youtube"></i> YouTube</a>
+        {% endif %}
+        {% if lead.author_profile.facebook_url %}
+          <a href="{{ lead.author_profile.facebook_url }}" target="_blank" class="contact-badge badge-facebook"><i class="fa-brands fa-facebook"></i> Facebook</a>
+        {% endif %}
+        {% if lead.author_profile.linkedin_url %}
+          <a href="{{ lead.author_profile.linkedin_url }}" target="_blank" class="contact-badge badge-linkedin"><i class="fa-brands fa-linkedin"></i> LinkedIn</a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4">
+  <!-- Left Side: Pitch Brief & Review -->
+  <div class="col-lg-8">
+    <section class="panel">
+      <div class="detail-section-title">
+        <i class="fa-solid fa-briefcase"></i> Outreach Sales Brief
+      </div>
+      <p class="text-light lead mb-4" style="line-height: 1.6; font-size: 1.05rem;">{{ lead.sales_agent_summary }}</p>
+      
+      <div class="row g-3">
+        <div class="col-md-6">
+          <div class="p-3 h-100" style="background: rgba(15, 23, 42, 0.4); border: 1px solid var(--line); border-radius: 10px;">
+            <div class="text-teal font-heading font-weight-700 small uppercase mb-1">
+              <i class="fa-solid fa-bullseye"></i> Why This Lead Fits
+            </div>
+            <p class="text-white mb-0 small">{{ lead.fit_reason }}</p>
+          </div>
+        </div>
+        
+        <div class="col-md-6">
+          <div class="p-3 h-100" style="background: rgba(15, 23, 42, 0.4); border: 1px solid var(--line); border-radius: 10px;">
+            <div class="text-info font-heading font-weight-700 small uppercase mb-1">
+              <i class="fa-solid fa-compass"></i> Suggested Pitch Angle
+            </div>
+            <p class="text-white mb-0 small">{{ lead.suggested_pitch_angle }}</p>
+          </div>
+        </div>
+        
+        <div class="col-12">
+          <div class="p-3" style="background: rgba(20, 184, 166, 0.04); border: 1px dashed rgba(20, 184, 166, 0.3); border-radius: 10px;">
+            <div class="text-teal font-heading font-weight-700 small uppercase mb-1">
+              <i class="fa-solid fa-quote-left"></i> Suggested First Line
+            </div>
+            <blockquote class="text-white mb-0 small font-italic">"{{ lead.suggested_first_line }}"</blockquote>
+          </div>
+        </div>
+
+        <div class="col-md-6">
+          <div class="p-3 h-100" style="background: rgba(52, 211, 153, 0.04); border: 1px solid rgba(52, 211, 153, 0.15); border-radius: 10px;">
+            <div class="text-success font-heading font-weight-700 small uppercase mb-1">
+              <i class="fa-solid fa-circle-check"></i> Compliant: What To Say
+            </div>
+            <p class="text-white mb-0 small">{{ lead.what_to_say }}</p>
+          </div>
+        </div>
+
+        <div class="col-md-6">
+          <div class="p-3 h-100" style="background: rgba(248, 113, 113, 0.04); border: 1px solid rgba(248, 113, 113, 0.15); border-radius: 10px;">
+            <div class="text-danger font-heading font-weight-700 small uppercase mb-1">
+              <i class="fa-solid fa-circle-xmark"></i> Compliant: What NOT To Say
+            </div>
+            <p class="text-white mb-0 small">{{ lead.what_not_to_say }}</p>
+          </div>
+        </div>
+        
+        <div class="col-12">
+          <div class="p-3" style="background: rgba(251, 191, 36, 0.04); border: 1px solid rgba(251, 191, 36, 0.15); border-radius: 10px;">
+            <div class="text-amber font-heading font-weight-700 small uppercase mb-1">
+              <i class="fa-solid fa-arrow-trend-up"></i> Recommended Next Action
+            </div>
+            <p class="text-white mb-0 small">{{ lead.next_best_action }}</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Component 4: Interactive Multi-Angle Outreach Hub -->
+    <section class="panel" style="border-color: rgba(20, 184, 166, 0.25);">
+      <div class="detail-section-title">
+        <i class="fa-solid fa-paper-plane text-teal"></i> Interactive Outreach Pitch Center
+      </div>
+      <p class="text-muted small mb-3">Select the specific target angle depending on the contact channel to copy a pre-drafted outreach pitch tailored to their role.</p>
+      
+      <!-- Hidden Raw Pitch Templates for JS Parsing -->
+      <div style="display:none;">
+        <textarea id="raw-direct">{% if lead.brief.pitch_direct %}{{ lead.brief.pitch_direct }}{% else %}Subject: Video concept for your children's book: {{ lead.book.title }}
+
+Hi {{ lead.book.author_name|default:"Author" }},
+
+I recently came across your children's book, {{ lead.book.title }}, on Amazon. It has a beautiful and highly visual concept that would translate perfectly into short-form animated video ads for Instagram Reels and TikTok.
+
+Many children's book authors are finding that short 15-second animated trailer clips are incredibly effective at capturing parents' attention on social media and directing them to Amazon.
+
+Have you ever considered creating an animated book trailer or promotional video ad for {{ lead.book.title }}? I would love to share a quick storyboard draft we could put together for you to boost discoverability.
+
+Best regards,
+[Your Name]{% endif %}</textarea>
+
+        <textarea id="raw-agent">{% if lead.brief.pitch_agent %}{{ lead.brief.pitch_agent }}{% else %}Subject: Cinematic trailer rights proposal for {{ lead.book.title }} (Author: {{ lead.book.author_name|default:"Author" }})
+
+Dear Agent Team,
+
+I am writing regarding your client, {{ lead.book.author_name|default:"Author" }}. We recently reviewed their stunning children's book, {{ lead.book.title }}, and believe it represents a premium candidate for a cinematic book trailer.
+
+Literary agencies are increasingly leveraging high-prestige, animated visual trailers to generate buzz in rights catalogs, secure international licensing, and elevate author branding in publisher pitches.
+
+If you or {{ lead.book.author_name|default:"Author" }} are planning to pitch this title or showcase it in upcoming rights catalogs, we would be delighted to prepare a custom animated video concept for your team's review.
+
+Sincerely,
+[Your Name]{% endif %}</textarea>
+
+        <textarea id="raw-publicist">{% if lead.brief.pitch_publicist %}{{ lead.brief.pitch_publicist }}{% else %}Subject: School visits & promotional media assets booking support for {{ lead.book.title }}
+
+Dear Publicity Team,
+
+I recently reviewed {{ lead.book.author_name|default:"Author" }}'s book, {{ lead.book.title }}, and wanted to reach out regarding visual promotional assets for school visits, media kits, and local library signings.
+
+We specialize in creating animated promotional video files that publicity desks can leverage for school assembly flyers, local news interview pitches, and author tour promo banners.
+
+If you are currently scheduling school assembly tours or launching bookstore/library events for {{ lead.book.author_name|default:"Author" }}, we would love to share a few animated promo templates that capture educators' attention immediately.
+
+Warm regards,
+[Your Name]{% endif %}</textarea>
+      </div>
+
+      <!-- Pitch Tabs Nav -->
+      <div class="pitch-tabs-container">
+        <button class="pitch-tab active" onclick="switchPitchTab('direct')">
+          <i class="fa-solid fa-user"></i> Direct Author Pitch
+        </button>
+        <button class="pitch-tab" onclick="switchPitchTab('agent')">
+          <i class="fa-solid fa-user-tie"></i> Literary Agent Pitch
+        </button>
+        <button class="pitch-tab" onclick="switchPitchTab('publicist')">
+          <i class="fa-solid fa-bullhorn"></i> Publicist Booking Pitch
+        </button>
+      </div>
+
+      <!-- Tab Content Panes -->
+      <!-- 1. Direct Author Pane -->
+      <div class="pitch-pane active" id="pane-direct">
+        <div class="email-box">
+          <div class="email-header-fields">
+            <div class="email-field align-items-center">
+              <span class="field-label">Subject:</span>
+              <span class="field-value text-info font-weight-700" id="subject-direct">...</span>
+              <button class="btn btn-sm btn-dark border border-secondary text-muted ms-auto copy-btn-compact" onclick="copyPitchField('subject-direct', this)" title="Copy Subject">
+                <i class="fa-solid fa-copy"></i> Copy
+              </button>
+            </div>
+          </div>
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="text-muted small">Outreach Message Body</span>
+            <div class="d-flex gap-2">
+              <button class="btn btn-sm btn-secondary copy-btn" onclick="copyPitchField('body-direct', this)">
+                <i class="fa-solid fa-align-left"></i> Copy Body
+              </button>
+              <button class="btn btn-sm btn-primary copy-btn" onclick="copyFullPitch('direct', this)">
+                <i class="fa-solid fa-envelope"></i> Copy Full Email
+              </button>
+            </div>
+          </div>
+          <div class="email-body" id="body-direct">...</div>
+        </div>
+      </div>
+
+      <!-- 2. Literary Agent Pane -->
+      <div class="pitch-pane" id="pane-agent">
+        <div class="email-box">
+          <div class="email-header-fields">
+            <div class="email-field align-items-center">
+              <span class="field-label">Subject:</span>
+              <span class="field-value text-info font-weight-700" id="subject-agent">...</span>
+              <button class="btn btn-sm btn-dark border border-secondary text-muted ms-auto copy-btn-compact" onclick="copyPitchField('subject-agent', this)" title="Copy Subject">
+                <i class="fa-solid fa-copy"></i> Copy
+              </button>
+            </div>
+          </div>
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="text-muted small">Outreach Message Body</span>
+            <div class="d-flex gap-2">
+              <button class="btn btn-sm btn-secondary copy-btn" onclick="copyPitchField('body-agent', this)">
+                <i class="fa-solid fa-align-left"></i> Copy Body
+              </button>
+              <button class="btn btn-sm btn-primary copy-btn" onclick="copyFullPitch('agent', this)">
+                <i class="fa-solid fa-envelope"></i> Copy Full Email
+              </button>
+            </div>
+          </div>
+          <div class="email-body" id="body-agent">...</div>
+        </div>
+      </div>
+
+      <!-- 3. Publisher Publicist Pane -->
+      <div class="pitch-pane" id="pane-publicist">
+        <div class="email-box">
+          <div class="email-header-fields">
+            <div class="email-field align-items-center">
+              <span class="field-label">Subject:</span>
+              <span class="field-value text-info font-weight-700" id="subject-publicist">...</span>
+              <button class="btn btn-sm btn-dark border border-secondary text-muted ms-auto copy-btn-compact" onclick="copyPitchField('subject-publicist', this)" title="Copy Subject">
+                <i class="fa-solid fa-copy"></i> Copy
+              </button>
+            </div>
+          </div>
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="text-muted small">Outreach Message Body</span>
+            <div class="d-flex gap-2">
+              <button class="btn btn-sm btn-secondary copy-btn" onclick="copyPitchField('body-publicist', this)">
+                <i class="fa-solid fa-align-left"></i> Copy Body
+              </button>
+              <button class="btn btn-sm btn-primary copy-btn" onclick="copyFullPitch('publicist', this)">
+                <i class="fa-solid fa-envelope"></i> Copy Full Email
+              </button>
+            </div>
+          </div>
+          <div class="email-body" id="body-publicist">...</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section: Contact Audit Details -->
+    <section class="panel">
+      <div class="detail-section-title">
+        <i class="fa-solid fa-clipboard-check"></i> Author Contact Audit
+      </div>
+      <div class="table-responsive">
+        <table class="table align-middle table-fixed">
+          <colgroup>
+            <col style="width: 15%;">
+            <col style="width: 25%;">
+            <col style="width: 38%;">
+            <col style="width: 14%;">
+            <col style="width: 8%;">
+          </colgroup>
+          <thead>
+            <tr>
+              <th style="width: 15%;">Field</th>
+              <th style="width: 25%;">Value</th>
+              <th style="width: 38%;">Source URL / Evidence</th>
+              <th style="width: 14%;">Verification</th>
+              <th class="text-end" style="width: 8%;">Confidence</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in contact_rows %}
+              <tr>
+                <td class="text-white" data-label="Field"><strong>{{ row.label }}</strong></td>
+                <td data-label="Value">
+                  {% if row.value %}
+                    {% if row.is_url %}
+                      <a href="{{ row.value }}" target="_blank" class="text-info d-inline-flex align-items-center gap-1" style="max-width: 100%; min-width: 0; width: 100%;">
+                        <i class="fa-solid fa-link small" style="flex-shrink: 0;"></i>
+                        <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex-grow: 1;">{{ row.value }}</span>
+                      </a>
+                    {% else %}
+                      <span class="text-light" style="word-break: break-all;">{{ row.value }}</span>
+                    {% endif %}
+                  {% else %}
+                    <span class="text-muted">—</span>
+                  {% endif %}
+                </td>
+                <td data-label="Source/Evidence">
+                  {% if row.evidences %}
+                    {% for item in row.evidences %}
+                      <div class="mb-1" style="max-width: 100%;">
+                        <a href="{{ item.source_url }}" target="_blank" class="text-muted small d-inline-flex align-items-center gap-1" style="max-width: 100%; min-width: 0; width: 100%;">
+                          <i class="fa-solid fa-magnifying-glass small" style="flex-shrink: 0;"></i>
+                          <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex-grow: 1;">{{ item.source_url }}</span>
+                        </a>
+                        {% if item.source_snippet %}
+                          <div class="text-muted small" style="word-wrap: break-word; white-space: normal;">{{ item.source_snippet|truncatechars:90 }}</div>
+                        {% endif %}
+                      </div>
+                    {% endfor %}
+                  {% else %}
+                    <span class="text-muted">—</span>
+                  {% endif %}
+                </td>
+                <td data-label="Verification">
+                  {% if row.is_verified %}
+                    <span class="badge bg-success-subtle text-success">Verified source</span>
+                  {% elif row.value %}
+                    <span class="badge bg-warning-subtle text-warning">Needs manual check</span>
+                  {% else %}
+                    <span class="text-muted">—</span>
+                  {% endif %}
+                </td>
+                <td class="text-end font-monospace" data-label="Confidence">
+                  {% if row.evidence %}
+                    <span class="badge {% if row.evidence.confidence >= 0.7 %}bg-success-subtle text-success{% else %}bg-secondary-subtle text-light{% endif %}">
+                      {{ row.evidence.confidence }}
+                    </span>
+                  {% else %}
+                    <span class="text-muted">0.00</span>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Component: Cross-Lead Contact Consensus & Verification Hub -->
+    <section class="panel" style="border-color: rgba(20, 184, 166, 0.25);">
+      <div class="detail-section-title">
+        <i class="fa-solid fa-code-merge text-teal"></i> Cross-Lead Contact Consensus Hub
+      </div>
+      <p class="text-muted small mb-3">
+        This panel aggregates contact data across all <strong>{{ sibling_leads_count }} book records</strong> found in the database for this author. It calculates the statistical consensus value for each channel, helping you spot discrepancies and retrieve missing details.
+      </p>
+
+      <div class="table-responsive">
+        <table class="table align-middle table-fixed">
+          <colgroup>
+            <col style="width: 18%;">
+            <col style="width: 25%;">
+            <col style="width: 32%;">
+            <col style="width: 15%;">
+            <col style="width: 10%;">
+          </colgroup>
+          <thead>
+            <tr>
+              <th style="width: 18%;">Contact Channel</th>
+              <th style="width: 25%;">Current Lead Value</th>
+              <th style="width: 32%;">Consensus Value (Frequencies)</th>
+              <th style="width: 15%;">Consistency Status</th>
+              <th class="text-end" style="width: 10%;">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for key, item in consensus_contacts.items %}
+              {% if item.consensus_value or item.current_value %}
+                <tr>
+                  <td class="text-white" data-label="Channel">
+                    <strong>{{ item.label }}</strong>
+                  </td>
+                  <td data-label="Current Value">
+                    {% if item.current_value %}
+                      {% if item.is_url %}
+                        <a href="{{ item.current_value }}" target="_blank" class="text-info d-inline-flex align-items-center gap-1 text-truncate-custom" style="max-width: 100%;">
+                          <i class="fa-solid fa-link small"></i>
+                          <span>{{ item.current_value }}</span>
+                        </a>
+                      {% else %}
+                        <span class="text-light" style="word-break: break-all;">{{ item.current_value }}</span>
+                      {% endif %}
+                    {% else %}
+                      <span class="badge bg-secondary-subtle text-muted" style="font-size: 0.75rem; border: 1px dashed rgba(255,255,255,0.1);"><i class="fa-solid fa-ban"></i> Missing for this book</span>
+                    {% endif %}
+                  </td>
+                  <td data-label="Consensus Value">
+                    {% if item.consensus_value %}
+                      <div class="d-flex flex-column gap-1">
+                        {% if item.is_url %}
+                          <a href="{{ item.consensus_value }}" id="consensus-val-{{ key }}" target="_blank" class="text-teal font-weight-600 d-inline-flex align-items-center gap-1 text-truncate-custom" style="max-width: 100%;">
+                            <i class="fa-solid fa-globe"></i>
+                            <span>{{ item.consensus_value }}</span>
+                          </a>
+                        {% else %}
+                          <span class="text-white font-weight-600 font-monospace" id="consensus-val-{{ key }}" style="word-break: break-all;">{{ item.consensus_value }}</span>
+                        {% endif %}
+                        
+                        <div class="text-muted small d-flex align-items-center gap-2">
+                          <span>Agreement: {{ item.confidence_percentage }}% ({{ item.matching_records }}/{{ item.total_records }} books)</span>
+                        </div>
+
+                        <!-- Scraped Sources Collapsible Button -->
+                        {% if item.consensus_sources %}
+                          <div class="mt-1">
+                            <button class="btn btn-xs btn-outline-teal text-teal py-0.5 px-2 d-inline-flex align-items-center gap-1" onclick="toggleConsensusSources('{{ key }}')" style="font-size: 0.68rem; font-weight: 700; border-radius: 4px;">
+                              <i class="fa-solid fa-database" style="font-size: 0.62rem;"></i>
+                              <span>Show Scraped Sources ({{ item.consensus_sources|length }})</span>
+                              <i class="fa-solid fa-chevron-down ms-0.5" id="chevron-{{ key }}" style="font-size: 0.58rem; transition: transform 0.2s ease;"></i>
+                            </button>
+                          </div>
+
+                          <!-- Collapsible Sources Container -->
+                          <div id="sources-container-{{ key }}" class="consensus-sources-panel d-none mt-2 p-2" style="background: rgba(15, 23, 42, 0.4); border: 1px solid rgba(20, 184, 166, 0.15); border-radius: 6px; animation: pitchFadeIn 0.25s ease-out;">
+                            <span class="text-muted d-block font-weight-700 uppercase mb-1" style="font-size: 0.62rem; letter-spacing: 0.5px;">Scraped Book Sources:</span>
+                            <div class="d-flex flex-column gap-2">
+                              {% for src in item.consensus_sources %}
+                                <div class="p-1.5 rounded" style="background: rgba(255,255,255,0.015); border: 1px solid rgba(255,255,255,0.03);">
+                                  <div class="d-flex justify-content-between align-items-start gap-2">
+                                    <a href="{% url 'leadfinder:lead_detail' src.lead_id %}" class="text-white font-weight-600 small hover-underline text-truncate-custom" style="max-width: 180px; text-decoration: none;" title="{{ src.book_title }}">
+                                      <i class="fa-solid fa-book-open text-teal small me-1"></i>{{ src.book_title }}
+                                    </a>
+                                    {% if src.book_asin %}
+                                      <span class="text-muted font-monospace" style="font-size: 0.68rem;">{{ src.book_asin }}</span>
+                                    {% endif %}
+                                  </div>
+                                  <div class="d-flex justify-content-between align-items-center mt-1" style="font-size: 0.68rem;">
+                                    <span class="text-muted">Channel: <strong class="text-light">{{ src.source_provider }}</strong></span>
+                                    <span class="text-muted">Publisher: <span class="text-light">{{ src.publisher }}</span></span>
+                                  </div>
+                                  {% if src.evidences %}
+                                    <div class="mt-1 border-top pt-1" style="border-color: rgba(255,255,255,0.03) !important;">
+                                      {% for ev in src.evidences %}
+                                        <div class="d-flex align-items-center justify-content-between text-muted" style="font-size: 0.65rem; gap: 4px;">
+                                          <span class="text-truncate-custom" style="max-width: 160px;">
+                                            <i class="fa-solid fa-code text-muted me-1"></i>Found: <span class="text-info">{{ ev.evidence_type }}</span>
+                                          </span>
+                                          <div class="d-flex align-items-center gap-1.5">
+                                            <span class="badge" style="font-size: 0.6rem; background: rgba(20, 184, 166, 0.08); border: 1px solid rgba(20, 184, 166, 0.2); color: var(--teal);">{{ ev.confidence }}% Conf</span>
+                                            {% if ev.source_url %}
+                                              <a href="{{ ev.source_url }}" target="_blank" class="text-info hover-scale" title="Open source scrap link"><i class="fa-solid fa-arrow-up-right-from-square"></i></a>
+                                            {% endif %}
+                                          </div>
+                                        </div>
+                                      {% endfor %}
+                                    </div>
+                                  {% endif %}
+                                </div>
+                              {% endfor %}
+                            </div>
+                          </div>
+                        {% endif %}
+                        
+                        {% if item.alternatives %}
+                          <div class="mt-2 p-2" style="background: rgba(0,0,0,0.25); border-radius: 6px; border: 1px solid rgba(255,255,255,0.03);">
+                            <span class="text-muted d-block uppercase font-weight-700" style="font-size: 0.65rem; letter-spacing: 0.5px;">Alternative values found:</span>
+                            {% for alt in item.alternatives %}
+                              <div class="text-muted small mt-1.5" style="font-size: 0.75rem;">
+                                <div class="d-flex align-items-center justify-content-between gap-2">
+                                  <span>
+                                    <i class="fa-solid fa-circle-exclamation text-amber small me-1"></i>
+                                    <span class="text-light font-monospace" style="word-break: break-all;">{{ alt.value }}</span>
+                                  </span>
+                                  <span class="text-muted font-weight-600">({{ alt.percentage }}%)</span>
+                                </div>
+                                
+                                <!-- Collapsible Alt Sources Toggle -->
+                                {% if alt.sources %}
+                                  <div class="mt-1 text-end">
+                                    <button class="btn btn-xs btn-link p-0 text-muted hover-teal" onclick="toggleConsensusSources('{{ key }}-alt-{{ forloop.counter }}')" style="font-size: 0.62rem; text-decoration: none;">
+                                      <span>Show Sources ({{ alt.sources|length }})</span>
+                                      <i class="fa-solid fa-chevron-down ms-0.5" id="chevron-{{ key }}-alt-{{ forloop.counter }}" style="font-size: 0.55rem; transition: transform 0.2s ease;"></i>
+                                    </button>
+                                  </div>
+
+                                  <!-- Collapsible Alt Sources Container -->
+                                  <div id="sources-container-{{ key }}-alt-{{ forloop.counter }}" class="consensus-sources-panel d-none mt-1.5 p-1.5" style="background: rgba(15, 23, 42, 0.4); border: 1px dashed rgba(251, 183, 3, 0.15); border-radius: 4px; animation: pitchFadeIn 0.25s ease-out;">
+                                    <div class="d-flex flex-column gap-1.5">
+                                      {% for src in alt.sources %}
+                                        <div style="font-size: 0.68rem; border-bottom: 1px solid rgba(255,255,255,0.02); padding-bottom: 4px; margin-bottom: 4px;">
+                                          <div class="d-flex justify-content-between align-items-center">
+                                            <a href="{% url 'leadfinder:lead_detail' src.lead_id %}" class="text-white hover-underline text-truncate-custom font-weight-600" style="max-width: 140px; text-decoration: none;" title="{{ src.book_title }}">
+                                              <i class="fa-solid fa-book text-amber small me-1"></i>{{ src.book_title }}
+                                            </a>
+                                            <span class="text-muted" style="font-size: 0.65rem;">{{ src.source_provider }}</span>
+                                          </div>
+                                          {% if src.evidences %}
+                                            <div class="mt-1" style="font-size: 0.62rem; color: rgba(255,255,255,0.4);">
+                                              {% for ev in src.evidences %}
+                                                <div class="d-flex align-items-center justify-content-between">
+                                                  <span class="text-truncate-custom" style="max-width: 120px;"><i class="fa-solid fa-link me-1"></i>{{ ev.evidence_type }}</span>
+                                                  <a href="{{ ev.source_url }}" target="_blank" class="text-info"><i class="fa-solid fa-up-right-from-square"></i></a>
+                                                </div>
+                                              {% endfor %}
+                                            </div>
+                                          {% endif %}
+                                        </div>
+                                      {% endfor %}
+                                    </div>
+                                  </div>
+                                {% endif %}
+                              </div>
+                            {% endfor %}
+                          </div>
+                        {% endif %}
+                      </div>
+                    {% else %}
+                      <span class="text-muted">—</span>
+                    {% endif %}
+                  </td>
+                  <td data-label="Status">
+                    {% if item.status == 'consistent' %}
+                      <span class="status-pill status-success py-1 px-2" style="font-size: 0.72rem; border-radius: 6px;">
+                        <i class="fa-solid fa-circle-check"></i> Consistent
+                      </span>
+                    {% elif item.status == 'consistent_with_conflict' %}
+                      <span class="status-pill status-success py-1 px-2" style="font-size: 0.72rem; border-radius: 6px; background: rgba(52, 211, 153, 0.08); border-color: rgba(52, 211, 153, 0.15);">
+                        <i class="fa-solid fa-circle-exclamation"></i> Consensus ({{ item.confidence_percentage }}%)
+                      </span>
+                    {% elif item.status == 'conflict' %}
+                      <span class="status-pill status-failed py-1 px-2" style="font-size: 0.72rem; border-radius: 6px; background: rgba(248, 113, 113, 0.18); border-color: rgba(248, 113, 113, 0.4); animation: pulse-glow-red 2s infinite;">
+                        <i class="fa-solid fa-triangle-exclamation"></i> Discrepancy
+                      </span>
+                    {% elif item.status == 'available_elsewhere' %}
+                      <span class="status-pill status-running py-1 px-2" style="font-size: 0.72rem; border-radius: 6px; background: rgba(56, 189, 248, 0.12); color: var(--blue); border-color: rgba(56, 189, 248, 0.25);">
+                        <i class="fa-solid fa-folder-plus"></i> Found in other book
+                      </span>
+                    {% else %}
+                      <span class="text-muted">—</span>
+                    {% endif %}
+                  </td>
+                  <td class="text-end" data-label="Action">
+                    {% if item.consensus_value %}
+                      <button class="btn btn-sm btn-dark border border-secondary text-muted copy-btn-compact" onclick="copyConsensusText('consensus-val-{{ key }}', this)" title="Copy Consensus Value">
+                        <i class="fa-solid fa-copy"></i>
+                      </button>
+                    {% else %}
+                      <span class="text-muted">—</span>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endif %}
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Section: Video Evidence -->
+    <section class="panel">
+      <div class="detail-section-title">
+        <i class="fa-solid fa-video"></i> Video Evidence Audit
+      </div>
+      
+      <div class="d-flex flex-wrap gap-4 mb-3 p-3 bg-dark-subtle border border-secondary-subtle" style="border-radius: 10px; background: rgba(15,23,42,0.3);">
+        <div>
+          <span class="text-muted small d-block">Video Status</span>
+          <strong class="text-white">
+            {% if lead.video_status == "no_public_video_found" %}
+              <i class="fa-solid fa-circle-question text-success"></i> No public video found
+            {% else %}
+              <i class="fa-solid fa-film text-danger"></i> {{ lead.video_status }}
+            {% endif %}
+          </strong>
+        </div>
+        <div>
+          <span class="text-muted small d-block">AI Match Confidence</span>
+          <strong class="text-white">{{ lead.video_confidence|floatformat:2 }}</strong>
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table align-middle table-fixed">
+          <colgroup>
+            <col style="width: 35%;">
+            <col style="width: 15%;">
+            <col style="width: 42%;">
+            <col style="width: 8%;">
+          </colgroup>
+          <thead>
+            <tr>
+              <th style="width: 35%;">Video Title</th>
+              <th style="width: 15%;">URL</th>
+              <th style="width: 42%;">Classification Reason</th>
+              <th class="text-end" style="width: 8%;">Confidence</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for video in lead.videos.all %}
+              <tr>
+                <td class="text-white" data-label="Video Title"><strong>{{ video.title }}</strong></td>
+                <td data-label="URL">
+                  <a href="{{ video.video_url }}" target="_blank" class="text-info d-inline-flex align-items-center gap-1">
+                    <i class="fa-brands fa-youtube text-danger"></i> Play Video
+                  </a>
+                </td>
+                <td class="text-muted small" data-label="Reason">{{ video.classification_reason }}</td>
+                <td class="text-end font-monospace" data-label="Confidence">
+                  <span class="badge bg-secondary-subtle text-light">{{ video.classification_confidence }}</span>
+                </td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="4" class="text-center py-4 text-muted">
+                  <i class="fa-solid fa-video-slash fa-2x mb-2 d-block"></i> No video evidence found.
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <!-- Right Side: Evidence Timeline & Review Panel -->
+  <div class="col-lg-4">
+    <!-- Component 5: Amazon Creator Spotlight Card -->
+    {% if lead.author_profile.amazon_author_url or lead.author_profile.author_bio or lead.author_profile.author_image_url or lead.author_profile.other_books %}
+      <section class="panel amazon-spotlight-panel" style="border-color: rgba(251, 191, 36, 0.25); background: linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.8) 100%); backdrop-filter: blur(16px); position: relative; overflow: hidden; margin-bottom: 1.5rem;">
+        <!-- Top orange glass highlight element -->
+        <div style="position: absolute; top: -50px; right: -50px; width: 150px; height: 150px; background: radial-gradient(circle, rgba(251, 146, 60, 0.15) 0%, transparent 70%); pointer-events: none; border-radius: 50%;"></div>
+        
+        <div class="detail-section-title text-amber">
+          <i class="fa-brands fa-amazon text-warning"></i> Amazon Creator Spotlight
+        </div>
+
+        <div class="d-flex flex-column align-items-center text-center mt-3 mb-4">
+          {% if lead.author_profile.author_image_url %}
+            <div class="author-spotlight-avatar-wrapper mb-3">
+              <img src="{{ lead.author_profile.author_image_url }}" alt="{{ lead.author_profile.author_name }}" class="author-spotlight-avatar">
+            </div>
+          {% else %}
+            <div class="author-spotlight-avatar-placeholder mb-3">
+              <i class="fa-solid fa-user-pen fa-3x text-amber"></i>
+            </div>
+          {% endif %}
+          
+          <h3 class="font-heading mb-1" style="font-size: 1.4rem; font-weight: 700;">
+            {% if lead.author_profile.amazon_author_url %}
+              <a href="{{ lead.author_profile.amazon_author_url }}" target="_blank" class="author-name-link">
+                {{ lead.author_profile.author_name }} <i class="fa-solid fa-up-right-from-square small text-teal ms-1" style="font-size: 0.75rem;"></i>
+              </a>
+            {% elif lead.author_profile.canonical_website %}
+              <a href="{{ lead.author_profile.canonical_website }}" target="_blank" class="author-name-link">
+                {{ lead.author_profile.author_name }} <i class="fa-solid fa-up-right-from-square small text-teal ms-1" style="font-size: 0.75rem;"></i>
+              </a>
+            {% else %}
+              <span class="text-white">{{ lead.author_profile.author_name }}</span>
+            {% endif %}
+          </h3>
+          <span class="badge bg-amber-subtle text-amber border border-amber-subtle mb-3" style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px;">Official Creator</span>
+          
+          {% if lead.author_profile.amazon_author_url %}
+            <a href="{{ lead.author_profile.amazon_author_url }}" target="_blank" class="btn btn-sm btn-amber w-100 py-2 d-flex align-items-center justify-content-center gap-2" style="font-weight: 600; border-radius: 8px; transition: all 0.3s ease;">
+              <i class="fa-brands fa-amazon"></i> View Amazon Author Page
+            </a>
+          {% endif %}
+        </div>
+
+        <!-- Bio pane with dynamic reading toggle -->
+        {% if lead.author_profile.author_bio %}
+          <div class="mb-4">
+            <span class="text-muted d-block small mb-2 uppercase font-weight-700" style="letter-spacing: 0.5px;"><i class="fa-solid fa-address-card text-amber"></i> Author Biography</span>
+            <div class="p-3" style="background: rgba(15, 23, 42, 0.4); border: 1px solid var(--line); border-radius: 10px;">
+              <div id="author-bio-text" class="text-light small bio-collapsed" style="line-height: 1.6; max-height: 100px; overflow: hidden; transition: max-height 0.4s ease-out; position: relative;">
+                {{ lead.author_profile.author_bio }}
+                <div class="bio-fade-overlay" id="bio-fade"></div>
+              </div>
+              <button id="toggle-bio-btn" class="btn btn-link btn-sm text-teal p-0 mt-2 d-none align-items-center gap-1" style="font-size: 0.82rem; text-decoration: none; font-weight: 600;">
+                Read More <i class="fa-solid fa-chevron-down small"></i>
+              </button>
+            </div>
+          </div>
+        {% endif %}
+
+        <!-- Other books list -->
+        {% if lead.author_profile.other_books %}
+          <div>
+            <span class="text-muted d-block small mb-2 uppercase font-weight-700" style="letter-spacing: 0.5px;"><i class="fa-solid fa-book-journal-whills text-amber"></i> Other Amazon Books</span>
+            <div class="other-books-grid">
+              {% for book_title in lead.author_profile.other_books %}
+                <div class="other-book-item d-flex align-items-start gap-2 p-2.5 mb-2" style="background: rgba(15, 23, 42, 0.35); border: 1px solid var(--line); border-radius: 8px; transition: all 0.2s ease;">
+                  <i class="fa-solid fa-book text-warning mt-1" style="font-size: 0.95rem;"></i>
+                  <span class="text-white small text-truncate-2 font-weight-600" style="line-height: 1.4;">{{ book_title }}</span>
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+        {% endif %}
+      </section>
+    {% endif %}
+    <!-- Component 4: Premium Glassmorphic Representation Panel -->
+    <section class="panel" style="border-color: rgba(56, 189, 248, 0.25); background: rgba(17, 24, 39, 0.75);">
+      <div class="detail-section-title">
+        <i class="fa-solid fa-user-tie text-info"></i> Representation & Agency Contacts
+      </div>
+      
+      {% if lead.author_profile.agent_name or lead.representation_email or lead.author_profile.representation_email or lead.publicist_email or lead.author_profile.publicist_email %}
+        <div class="d-flex flex-column gap-3">
+          <!-- Literary Agent Section -->
+          <div class="p-3" style="background: rgba(15, 23, 42, 0.4); border: 1px solid var(--line); border-radius: 10px;">
+            <div class="text-info font-heading font-weight-700 small uppercase mb-2">
+              <i class="fa-solid fa-feather text-info"></i> Literary Agent / Rights Team
+            </div>
+            <div class="mb-2.5">
+              <span class="text-muted d-block small mb-0.5">Agent Name</span>
+              <strong class="text-white" style="font-size: 1.05rem;">{{ lead.author_profile.agent_name|default:"—" }}</strong>
+            </div>
+            <div>
+              <span class="text-muted d-block small mb-0.5">Representation Email</span>
+              {% if lead.representation_email or lead.author_profile.representation_email %}
+                {% with rep_email=lead.representation_email|default:lead.author_profile.representation_email %}
+                  <div class="d-flex align-items-center justify-content-between gap-2 mt-1">
+                    <a href="mailto:{{ rep_email }}" class="text-info d-inline-flex align-items-center gap-1.5 font-monospace" style="font-size: 0.9rem; max-width: 100%; min-width: 0; width: 100%;">
+                      <i class="fa-solid fa-envelope" style="flex-shrink: 0;"></i>
+                      <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex-grow: 1;">{{ rep_email }}</span>
+                    </a>
+                    <button class="btn btn-sm btn-dark border border-secondary text-muted copy-btn-compact" data-clipboard-text="{{ rep_email }}" title="Copy Email" style="flex-shrink: 0;">
+                      <i class="fa-solid fa-copy"></i>
+                    </button>
+                  </div>
+                {% endwith %}
+              {% else %}
+                <span class="text-muted font-monospace">—</span>
+              {% endif %}
+            </div>
+          </div>
+
+          <!-- Publisher Publicist Section -->
+          <div class="p-3" style="background: rgba(15, 23, 42, 0.4); border: 1px solid var(--line); border-radius: 10px;">
+            <div class="text-teal font-heading font-weight-700 small uppercase mb-2">
+              <i class="fa-solid fa-bullhorn text-teal"></i> Publicity & Bookings Desk
+            </div>
+            <div>
+              <span class="text-muted d-block small mb-0.5">Publicist / Booking Email</span>
+              {% if lead.publicist_email or lead.author_profile.publicist_email %}
+                {% with pub_email=lead.publicist_email|default:lead.author_profile.publicist_email %}
+                  <div class="d-flex align-items-center justify-content-between gap-2 mt-1">
+                    <a href="mailto:{{ pub_email }}" class="text-teal d-inline-flex align-items-center gap-1.5 font-monospace" style="font-size: 0.9rem; max-width: 100%; min-width: 0; width: 100%;">
+                      <i class="fa-solid fa-envelope" style="flex-shrink: 0;"></i>
+                      <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex-grow: 1;">{{ pub_email }}</span>
+                    </a>
+                    <button class="btn btn-sm btn-dark border border-secondary text-muted copy-btn-compact" data-clipboard-text="{{ pub_email }}" title="Copy Email" style="flex-shrink: 0;">
+                      <i class="fa-solid fa-copy"></i>
+                    </button>
+                  </div>
+                {% endwith %}
+              {% else %}
+                <span class="text-muted font-monospace">—</span>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      {% else %}
+        <div class="text-center py-4 text-muted" style="background: rgba(15, 23, 42, 0.3); border: 1px dashed var(--line); border-radius: 10px;">
+          <i class="fa-solid fa-user-slash fa-2x mb-2.5 d-block text-secondary"></i>
+          <span style="font-size: 0.9rem; line-height: 1.4; display: block; padding: 0 1rem;">No specialized agency representation detected. Outreach to direct author channels is recommended.</span>
+        </div>
+      {% endif %}
+    </section>
+
+    <!-- Component: AI Audit & Verification Report -->
+    <section class="panel" style="border-color: rgba(20, 184, 166, 0.35); background: linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(13, 148, 136, 0.05) 100%);">
+      <div class="detail-section-title text-teal">
+        <i class="fa-solid fa-shield-halved text-teal"></i> AI Verification Report
+      </div>
+      
+      <div class="d-flex align-items-center gap-3 mb-3">
+        <!-- Progress Ring / Meter for Identity Confidence -->
+        <div class="position-relative d-inline-flex align-items-center justify-content-center" style="width: 70px; height: 70px;">
+          <svg style="transform: rotate(-90deg); width: 70px; height: 70px;">
+            <circle cx="35" cy="35" r="28" stroke="rgba(255,255,255,0.06)" stroke-width="5" fill="transparent" />
+            <circle class="ai-progress-ring-circle" cx="35" cy="35" r="28" data-confidence="{{ lead.author_profile.identity_confidence|default:0 }}" stroke="var(--teal)" stroke-dasharray="175.92" stroke-dashoffset="175.92" stroke-width="5" fill="transparent" style="transition: stroke-dashoffset 1s ease-out; filter: drop-shadow(0 0 4px var(--teal-glow));" />
+          </svg>
+          <div class="position-absolute font-heading font-weight-800 text-teal" id="confidence-percentage" style="font-size: 1.1rem; top: 50%; left: 50%; transform: translate(-50%, -50%);">
+            --%
+          </div>
+        </div>
+        
+        <div>
+          <span class="text-muted d-block small uppercase" style="letter-spacing: 0.5px;">Identity Match Score</span>
+          <strong class="text-white">
+            {% if lead.author_profile.identity_confidence >= 0.85 %}
+              Highly Verified Lead
+            {% elif lead.author_profile.identity_confidence >= 0.65 %}
+              Verified Lead
+            {% else %}
+              Unverified / Review Needed
+            {% endif %}
+          </strong>
+        </div>
+      </div>
+      
+      <div class="p-3 mb-3" style="background: rgba(15, 23, 42, 0.4); border: 1px solid var(--line); border-radius: 10px;">
+        <span class="text-muted d-block small mb-1 uppercase" style="font-size: 0.72rem; font-weight: 700; letter-spacing: 0.5px;">Verification Logic & Reason</span>
+        <p class="text-light mb-0 small" style="line-height: 1.5;">{{ lead.author_profile.identity_reason|default:"No verification details logged." }}</p>
+      </div>
+
+      <div class="mb-0">
+        <span class="text-muted d-block small mb-2 uppercase" style="font-size: 0.72rem; font-weight: 700; letter-spacing: 0.5px;">Multi-Layered Verification Audits</span>
+        <div class="d-flex flex-column gap-2">
+          {% for warning in lead.warnings_json %}
+            {% if "AI Review Check: " in warning %}
+              <div class="d-flex align-items-start gap-2 p-2.5" style="background: rgba(52, 211, 153, 0.03); border: 1px solid rgba(52, 211, 153, 0.1); border-radius: 8px;">
+                <i class="fa-solid fa-circle-check text-success mt-0.5" style="font-size: 0.85rem;"></i>
+                <span class="text-light small" style="line-height: 1.4;">{{ warning|slice:"17:" }}</span>
+              </div>
+            {% endif %}
+          {% endfor %}
+          
+          {% if lead.book.is_childrens_book %}
+            <div class="d-flex align-items-start gap-2 p-2.5" style="background: rgba(20, 184, 166, 0.03); border: 1px solid rgba(20, 184, 166, 0.1); border-radius: 8px;">
+              <i class="fa-solid fa-child text-teal mt-0.5" style="font-size: 0.85rem;"></i>
+              <span class="text-light small" style="line-height: 1.4;">Book classification verified: Children's Book (Confidence: {{ lead.book.book_classification_confidence }})</span>
+            </div>
+          {% endif %}
+          
+          {% if lead.public_email %}
+            <div class="d-flex align-items-start gap-2 p-2.5" style="background: rgba(56, 189, 248, 0.03); border: 1px solid rgba(56, 189, 248, 0.1); border-radius: 8px;">
+              <i class="fa-solid fa-envelope text-info mt-0.5" style="font-size: 0.85rem;"></i>
+              <span class="text-light small" style="line-height: 1.4;">Active email verification: syntax is valid and active DNS MX records resolved.</span>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </section>
+
+    <!-- Manual Review Action Console -->
+    <section class="panel" style="border-color: rgba(20, 184, 166, 0.25);">
+      <div class="detail-section-title">
+        <i class="fa-solid fa-gavel"></i> Manual Review Console
+      </div>
+      
+      <div class="mb-4">
+        <span class="text-muted d-block small">Verification Status</span>
+        <div class="d-flex align-items-center gap-2 mt-1">
+          {% if lead.manual_review_status == 'needs_review' %}
+            <span class="status-pill status-running py-1.5 px-3" style="font-size: 0.95rem;">
+              <i class="fa-solid fa-spinner fa-spin"></i> Needs Review
+            </span>
+          {% elif lead.manual_review_status == 'approved' %}
+            <span class="status-pill status-success py-1.5 px-3" style="font-size: 0.95rem;">
+              <i class="fa-solid fa-circle-check"></i> Approved Lead
+            </span>
+          {% elif lead.manual_review_status == 'rejected' %}
+            <span class="status-pill status-failed py-1.5 px-3" style="font-size: 0.95rem;">
+              <i class="fa-solid fa-circle-xmark"></i> Rejected Lead
+            </span>
+          {% endif %}
+          
+          {% if lead.do_not_contact %}
+            <span class="badge bg-danger p-2"><i class="fa-solid fa-ban"></i> Do Not Contact</span>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="d-flex flex-wrap gap-2 mb-4">
+        <form method="post" action="{% url 'leadfinder:lead_action' lead.id 'approve' %}" class="flex-grow-1">
+          {% csrf_token %}
+          <button class="btn btn-primary w-100">
+            <i class="fa-solid fa-check"></i> Approve
+          </button>
+        </form>
+        <form method="post" action="{% url 'leadfinder:lead_action' lead.id 'reject' %}" class="flex-grow-1">
+          {% csrf_token %}
+          <button class="btn btn-secondary w-100">
+            <i class="fa-solid fa-xmark"></i> Reject
+          </button>
+        </form>
+      </div>
+
+      <form method="post" action="{% url 'leadfinder:lead_action' lead.id 'do-not-contact' %}" class="mb-2">
+        {% csrf_token %}
+        <button class="btn btn-danger w-100">
+          <i class="fa-solid fa-ban"></i> Add to Do-Not-Contact List
+        </button>
+      </form>
+
+      <form method="post" action="{% url 'leadfinder:lead_action' lead.id 'delete' %}" class="mb-4">
+        {% csrf_token %}
+        <button class="btn btn-danger w-100" style="background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%); border: none; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);" onclick="return confirm('Are you sure you want to permanently delete this lead? This action cannot be undone.');">
+          <i class="fa-solid fa-trash-can"></i> Delete Lead
+        </button>
+      </form>
+
+      <hr class="border-secondary mb-4">
+
+      <form method="post" action="{% url 'leadfinder:lead_action' lead.id 'reject' %}">
+        {% csrf_token %}
+        <label for="review-note"><i class="fa-solid fa-pen-to-square"></i> Activity Log / Review Notes</label>
+        <textarea id="review-note" class="form-control" name="note" placeholder="Type internal notes or reasons here..." required></textarea>
+        <button class="btn btn-secondary w-100 mt-2">
+          <i class="fa-solid fa-plus"></i> Save Activity Log
+        </button>
+      </form>
+      
+      {% if lead.notes %}
+        <div class="text-muted small mt-4 mb-1">Internal History logs:</div>
+        <pre class="notes mt-0 small font-monospace" style="max-height: 250px; overflow-y: auto;">{{ lead.notes }}</pre>
+      {% endif %}
+    </section>
+
+    <!-- Visual Vertical Step Tracker -->
+    <section class="panel">
+      <div class="detail-section-title">
+        <i class="fa-solid fa-route"></i> Extraction Path Evidence
+      </div>
+      
+      <div class="timeline-tracker">
+        {% for evidence in lead.evidence.all %}
+          <div class="timeline-step {% if evidence.confidence >= 0.75 %}high-conf{% else %}med-conf{% endif %}">
+            <div class="timeline-step-header">
+              <span class="text-white">{{ evidence.field_name|title|default:"Data" }}</span>
+              <span class="badge bg-dark border border-secondary font-monospace">{{ evidence.confidence|floatformat:2 }}</span>
+            </div>
+            <div class="text-light mt-1 font-monospace small" style="word-break: break-all; font-size: 0.82rem;">Value: "{{ evidence.field_value|truncatechars:120 }}"</div>
+            <div class="timeline-step-meta mt-1.5">
+              Source: <a href="{{ evidence.source_url }}" target="_blank" class="text-info d-inline-flex align-items-center gap-1" style="max-width: 100%; min-width: 0; vertical-align: middle;">
+                <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; max-width: 250px;">{{ evidence.source_url }}</span>
+              </a>
+              <div class="mt-0.5"><i class="fa-solid fa-calendar-day"></i> Verified: {{ evidence.created_at|date:"M d, Y" }}</div>
+            </div>
+          </div>
+        {% empty %}
+          <div class="text-muted py-3 text-center">
+            <i class="fa-solid fa-timeline fa-2x mb-2 d-block"></i> No verification history found.
+          </div>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+</div>
+
+<!-- Component: Author Publishing Portfolio & Scrape Footprint -->
+<div class="col-12 mt-4 mb-4">
+  <section class="panel" style="border-color: rgba(251, 191, 36, 0.25); background: linear-gradient(180deg, rgba(17, 24, 39, 0.8) 0%, rgba(15, 23, 42, 0.95) 100%); backdrop-filter: blur(16px);">
+    <div class="detail-section-title text-amber">
+      <i class="fa-solid fa-book-bookmark text-warning"></i> Author's Global Publishing Portfolio & Scrape Footprint
+    </div>
+    <p class="text-muted small mb-3">
+      The following grid displays all books by this author recorded across the system. It tracks exactly where each book is published (publisher, date, ASIN), its performance ratings, its discovery source, and the active outreach lead status.
+    </p>
+
+    <div class="table-responsive">
+      <table class="table align-middle table-fixed">
+        <colgroup>
+          <col style="width: 26%;">
+          <col style="width: 12%;">
+          <col style="width: 24%;">
+          <col style="width: 10%;">
+          <col style="width: 8%;">
+          <col style="width: 10%;">
+          <col style="width: 10%;">
+        </colgroup>
+        <thead>
+          <tr>
+            <th style="width: 26%;">Book Details & Cover</th>
+            <th style="width: 12%;">Publisher & Imprint</th>
+            <th style="width: 24%;">Scraped Contacts (A to Z)</th>
+            <th style="width: 10%;">ASIN / ISBN</th>
+            <th style="width: 8%;">Marketplace</th>
+            <th style="width: 10%;">Discovery Channel / Run</th>
+            <th style="width: 10%;">Outreach Lead Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for bk in portfolio_books %}
+            <tr>
+              <td data-label="Book Title & Cover">
+                <div class="d-flex align-items-center gap-3">
+                  {% if bk.cover_image_url %}
+                    <img src="{{ bk.cover_image_url }}" alt="{{ bk.title }} Cover" style="width: 48px; height: 68px; object-fit: cover; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 4px 8px rgba(0,0,0,0.3);">
+                  {% else %}
+                    <div style="width: 48px; height: 68px; background: rgba(255,255,255,0.03); border: 1px dashed rgba(255,255,255,0.15); border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--muted);">
+                      <i class="fa-solid fa-book fa-lg"></i>
+                    </div>
+                  {% endif %}
+                  
+                  <div style="min-width: 0;">
+                    {% if bk.amazon_book_url %}
+                      <a href="{{ bk.amazon_book_url }}" target="_blank" class="text-white font-weight-700 row-link d-block text-truncate-custom" style="font-size: 0.98rem; text-decoration: none;" title="{{ bk.title }}">
+                        {{ bk.title }} <i class="fa-solid fa-up-right-from-square small text-teal ms-1" style="font-size: 0.72rem;"></i>
+                      </a>
+                    {% else %}
+                      <strong class="text-white font-weight-700 d-block text-truncate-custom" style="font-size: 0.98rem;" title="{{ bk.title }}">{{ bk.title }}</strong>
+                    {% endif %}
+                    
+                    <div class="d-flex align-items-center gap-2 mt-1">
+                      <div class="amazon-rating-stars small" style="color: #ffb703; font-size: 0.82rem;">
+                        {% if bk.rating %}
+                          <i class="fa-solid fa-star"></i> <span class="text-white font-weight-700">{{ bk.rating }}</span>
+                        {% else %}
+                          <span class="text-muted">No rating</span>
+                        {% endif %}
+                      </div>
+                      {% if bk.review_count %}
+                        <span class="text-muted small">| {{ bk.review_count }} reviews</span>
+                      {% endif %}
+                    </div>
+                  </div>
+                </div>
+              </td>
+              <td data-label="Publisher & Imprint">
+                <span class="text-light d-block">{{ bk.publisher }}</span>
+                <span class="text-muted small">Pub Date: {{ bk.publication_date }}</span>
+              </td>
+              <td data-label="Scraped Contacts" class="align-top py-2">
+                <div class="d-flex flex-column gap-2" style="width: 100%;">
+                  {% if bk.email or bk.phone or bk.representation_email or bk.publicist_email or bk.location or bk.website %}
+                    
+                    {% if bk.email %}
+                      <div class="contact-badge-item d-flex align-items-center justify-content-between gap-2 p-1.5 rounded-2" style="background: rgba(20, 184, 166, 0.08); border: 1px solid rgba(20, 184, 166, 0.2); word-break: break-all; white-space: normal;">
+                        <div class="d-flex align-items-center gap-1.5" style="min-width: 0; flex-grow: 1;">
+                          <i class="fa-solid fa-envelope text-teal" style="flex-shrink: 0; font-size: 0.85rem;" title="Public Email"></i>
+                          <span style="color: #2dd4bf; font-size: 0.82rem; font-weight: 500; min-width: 0; word-break: break-all; white-space: normal;">{{ bk.email }}</span>
+                        </div>
+                        <button class="btn btn-sm btn-dark border border-secondary text-muted copy-btn-compact ms-1" data-clipboard-text="{{ bk.email }}" title="Copy Email" style="flex-shrink: 0; padding: 0.1rem 0.3rem; line-height: 1; font-size: 0.75rem;">
+                          <i class="fa-regular fa-copy"></i>
+                        </button>
+                      </div>
+                    {% endif %}
+
+                    {% if bk.phone %}
+                      <div class="contact-badge-item d-flex align-items-center justify-content-between gap-2 p-1.5 rounded-2" style="background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.2); word-break: break-all; white-space: normal;">
+                        <div class="d-flex align-items-center gap-1.5" style="min-width: 0; flex-grow: 1;">
+                          <i class="fa-solid fa-phone text-primary" style="flex-shrink: 0; font-size: 0.85rem;" title="Public Phone"></i>
+                          <span style="color: #60a5fa; font-size: 0.82rem; font-weight: 500; min-width: 0; word-break: break-all; white-space: normal;">{{ bk.phone }}</span>
+                        </div>
+                        <button class="btn btn-sm btn-dark border border-secondary text-muted copy-btn-compact ms-1" data-clipboard-text="{{ bk.phone }}" title="Copy Phone" style="flex-shrink: 0; padding: 0.1rem 0.3rem; line-height: 1; font-size: 0.75rem;">
+                          <i class="fa-regular fa-copy"></i>
+                        </button>
+                      </div>
+                    {% endif %}
+
+                    {% if bk.representation_email %}
+                      <div class="contact-badge-item d-flex align-items-center justify-content-between gap-2 p-1.5 rounded-2" style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.2); word-break: break-all; white-space: normal;">
+                        <div class="d-flex align-items-center gap-1.5" style="min-width: 0; flex-grow: 1;">
+                          <i class="fa-solid fa-user-tie text-warning" style="flex-shrink: 0; font-size: 0.85rem;" title="Representation Email"></i>
+                          <span style="color: #fbbf24; font-size: 0.82rem; font-weight: 500; min-width: 0; word-break: break-all; white-space: normal;">{{ bk.representation_email }}</span>
+                        </div>
+                        <button class="btn btn-sm btn-dark border border-secondary text-muted copy-btn-compact ms-1" data-clipboard-text="{{ bk.representation_email }}" title="Copy Representation Email" style="flex-shrink: 0; padding: 0.1rem 0.3rem; line-height: 1; font-size: 0.75rem;">
+                          <i class="fa-regular fa-copy"></i>
+                        </button>
+                      </div>
+                    {% endif %}
+
+                    {% if bk.publicist_email %}
+                      <div class="contact-badge-item d-flex align-items-center justify-content-between gap-2 p-1.5 rounded-2" style="background: rgba(168, 85, 247, 0.08); border: 1px solid rgba(168, 85, 247, 0.2); word-break: break-all; white-space: normal;">
+                        <div class="d-flex align-items-center gap-1.5" style="min-width: 0; flex-grow: 1;">
+                          <i class="fa-solid fa-bullhorn" style="color: #c084fc !important; flex-shrink: 0; font-size: 0.85rem;" title="Publicist Email"></i>
+                          <span style="color: #c084fc; font-size: 0.82rem; font-weight: 500; min-width: 0; word-break: break-all; white-space: normal;">{{ bk.publicist_email }}</span>
+                        </div>
+                        <button class="btn btn-sm btn-dark border border-secondary text-muted copy-btn-compact ms-1" data-clipboard-text="{{ bk.publicist_email }}" title="Copy Publicist Email" style="flex-shrink: 0; padding: 0.1rem 0.3rem; line-height: 1; font-size: 0.75rem;">
+                          <i class="fa-regular fa-copy"></i>
+                        </button>
+                      </div>
+                    {% endif %}
+
+                    {% if bk.location %}
+                      <div class="contact-badge-item d-flex align-items-center gap-1.5 p-1.5 rounded-2" style="background: rgba(34, 197, 94, 0.08); border: 1px solid rgba(34, 197, 94, 0.2); word-break: break-all; white-space: normal;">
+                        <i class="fa-solid fa-location-dot text-success" style="flex-shrink: 0; font-size: 0.85rem;" title="Location"></i>
+                        <span style="color: #4ade80; font-size: 0.82rem; font-weight: 500; min-width: 0; word-break: break-all; white-space: normal;">{{ bk.location }}</span>
+                      </div>
+                    {% endif %}
+
+                    {% if bk.website %}
+                      <div class="contact-badge-item d-flex align-items-center justify-content-between gap-2 p-1.5 rounded-2" style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); word-break: break-all; white-space: normal;">
+                        <div class="d-flex align-items-center gap-1.5" style="min-width: 0; flex-grow: 1;">
+                          <i class="fa-solid fa-globe text-danger" style="flex-shrink: 0; font-size: 0.85rem;" title="Website"></i>
+                          <a href="{{ bk.website }}" target="_blank" class="text-hover-underline" style="color: #f87171; font-size: 0.82rem; font-weight: 500; min-width: 0; word-break: break-all; white-space: normal; text-decoration: none;">
+                            {{ bk.website }} <i class="fa-solid fa-up-right-from-square" style="font-size: 0.65rem; opacity: 0.8;"></i>
+                          </a>
+                        </div>
+                        <button class="btn btn-sm btn-dark border border-secondary text-muted copy-btn-compact ms-1" data-clipboard-text="{{ bk.website }}" title="Copy Website URL" style="flex-shrink: 0; padding: 0.1rem 0.3rem; line-height: 1; font-size: 0.75rem;">
+                          <i class="fa-regular fa-copy"></i>
+                        </button>
+                      </div>
+                    {% endif %}
+
+                  {% else %}
+                    <span class="text-muted small italic" style="font-size: 0.82rem;"><i class="fa-solid fa-circle-minus"></i> No contact scraped</span>
+                  {% endif %}
+                </div>
+              </td>
+              <td data-label="ASIN / ISBN" class="font-monospace text-light">
+                {{ bk.asin|default:"—" }}
+              </td>
+              <td data-label="Marketplace">
+                <span class="badge bg-dark border border-secondary text-light font-weight-700">{{ bk.marketplace|default:"US" }}</span>
+              </td>
+              <td data-label="Discovery Channel">
+                <span class="text-info d-block font-weight-600" style="text-transform: uppercase; font-size: 0.78rem;">
+                  <i class="fa-solid fa-magnifying-glass small"></i> {{ bk.source_provider }}
+                </span>
+                <span class="text-muted small d-block text-truncate-custom" style="max-width: 180px;" title="{{ bk.run_keyword }}">Run: {{ bk.run_keyword }}</span>
+              </td>
+              <td data-label="Outreach Lead Status">
+                {% if bk.has_lead %}
+                  <div class="d-flex flex-column gap-1 align-items-start">
+                    <a href="{% url 'leadfinder:lead_detail' bk.lead_id %}" class="btn btn-sm btn-outline-teal py-1 px-2.5 d-inline-flex align-items-center gap-1.5" style="border-radius: 6px; font-size: 0.8rem; font-weight: 700; transition: all 0.2s ease; text-decoration: none;">
+                      <i class="fa-solid fa-fire text-teal"></i> Lead #{{ bk.lead_score }}
+                    </a>
+                    <div class="d-flex gap-1 flex-wrap mt-0.5">
+                      <span class="tier-pill tier-{{ bk.lead_tier }}" style="font-size: 0.68rem; padding: 0.15rem 0.4rem; border-radius: 4px;">{{ bk.lead_tier }}</span>
+                      <span class="status-pill {% if bk.manual_review_status == 'approved' %}status-success{% elif bk.manual_review_status == 'rejected' %}status-failed{% elif bk.manual_review_status == 'needs_review' %}status-running{% else %}status-pending{% endif %}" style="font-size: 0.68rem; padding: 0.15rem 0.4rem; border-radius: 4px;">{{ bk.manual_review_status|title }}</span>
+                    </div>
+                  </div>
+                {% else %}
+                  <span class="badge bg-secondary-subtle text-muted" style="border: 1px dashed rgba(255,255,255,0.1);"><i class="fa-solid fa-circle-minus"></i> No Outreach Lead</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="7" class="text-center py-4 text-muted">
+                <i class="fa-solid fa-book-open fa-2x mb-2 d-block text-secondary"></i>
+                No portfolio book footprint recorded.
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<style>
+/* Author Name Link styles */
+.author-name-link {
+  color: #ffffff !important;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+}
+.author-name-link:hover {
+  color: var(--teal) !important;
+  opacity: 0.95;
+}
+.author-name-link i {
+  transition: transform 0.2s ease;
+}
+.author-name-link:hover i {
+  transform: translate(1px, -1px);
+}
+
+/* Premium Amazon Spotlight Styles */
+.amazon-spotlight-panel {
+  box-shadow: 0 8px 32px 0 rgba(251, 191, 36, 0.05);
+}
+
+.author-spotlight-avatar-wrapper {
+  position: relative;
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  padding: 4px;
+  background: linear-gradient(135deg, #ffb703 0%, #fb8500 100%);
+  box-shadow: 0 6px 18px rgba(251, 133, 0, 0.25);
+  display: inline-block;
+  transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.author-spotlight-avatar-wrapper:hover {
+  transform: scale(1.05);
+}
+
+.author-spotlight-avatar {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+  border: 2px solid #0f172a;
+}
+
+.author-spotlight-avatar-placeholder {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  border: 2px dashed rgba(251, 191, 36, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(251, 191, 36, 0.05);
+  color: #ffb703;
+}
+
+.btn-amber {
+  background: linear-gradient(135deg, #ffb703 0%, #fb8500 100%);
+  color: #0f172a !important;
+  border: none;
+  font-weight: 700;
+  box-shadow: 0 4px 12px rgba(251, 133, 0, 0.2);
+}
+
+.btn-amber:hover {
+  background: linear-gradient(135deg, #fb8500 0%, #ffb703 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(251, 133, 0, 0.3);
+}
+
+.text-amber {
+  color: #ffb703 !important;
+}
+
+.bg-amber-subtle {
+  background-color: rgba(251, 183, 3, 0.1) !important;
+}
+
+.border-amber-subtle {
+  border-color: rgba(251, 183, 3, 0.2) !important;
+}
+
+/* Expandable Bio */
+.bio-collapsed {
+  position: relative;
+}
+
+.bio-fade-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 40px;
+  background: linear-gradient(to top, rgba(15, 23, 42, 0.95), transparent);
+  pointer-events: none;
+}
+
+/* Other Books Grid */
+.other-books-grid {
+  max-height: 250px;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+.other-book-item:hover {
+  background: rgba(251, 191, 36, 0.04) !important;
+  border-color: rgba(251, 191, 36, 0.2) !important;
+  transform: translateX(2px);
+}
+
+.text-truncate-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Scrollbar for other books list */
+.other-books-grid::-webkit-scrollbar {
+  width: 4px;
+}
+.other-books-grid::-webkit-scrollbar-track {
+  background: rgba(0,0,0,0.1);
+}
+.other-books-grid::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.1);
+  border-radius: 2px;
+}
+
+/* Interactive Outreach Tab System */
+.pitch-tabs-container {
+  display: flex;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 1.25rem;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+}
+
+.pitch-tab {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  font-family: var(--font-heading);
+  font-weight: 700;
+  padding: 0.65rem 1.1rem;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.92rem;
+}
+
+.pitch-tab:hover {
+  color: #fff;
+  border-bottom-color: rgba(255, 255, 255, 0.2);
+}
+
+.pitch-tab.active {
+  color: var(--teal);
+  border-bottom-color: var(--teal);
+  text-shadow: 0 0 10px rgba(20, 184, 166, 0.35);
+}
+
+.pitch-pane {
+  display: none;
+  animation: pitchFadeIn 0.3s ease-in-out;
+}
+
+.pitch-pane.active {
+  display: block;
+}
+
+@keyframes pitchFadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.email-box {
+  background: rgba(15, 23, 42, 0.45);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 1.25rem;
+  position: relative;
+}
+
+.email-header-fields {
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 0.85rem;
+  margin-bottom: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.email-field {
+  display: flex;
+  font-size: 0.9rem;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.email-field .field-label {
+  color: var(--muted);
+  width: 70px;
+  font-weight: 600;
+}
+
+.email-field .field-value {
+  color: #fff;
+  word-break: break-all;
+  flex-grow: 1;
+}
+
+.email-body {
+  white-space: pre-wrap;
+  font-family: var(--font-body);
+  line-height: 1.6;
+  color: #cbd5e1;
+  max-height: 400px;
+  overflow-y: auto;
+  padding-right: 0.5rem;
+  font-size: 0.92rem;
+  background: rgba(10, 15, 26, 0.3);
+  padding: 0.85rem;
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.03);
+}
+
+/* Scrollbar styling */
+.email-body::-webkit-scrollbar {
+  width: 6px;
+}
+.email-body::-webkit-scrollbar-track {
+  background: rgba(0,0,0,0.1);
+}
+.email-body::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.15);
+  border-radius: 3px;
+}
+
+/* Copy Animation States */
+.copy-btn {
+  transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.copy-btn.copied {
+  background: var(--green) !important;
+  border-color: var(--green) !important;
+  color: #0f172a !important;
+  box-shadow: 0 0 15px rgba(52, 211, 153, 0.45);
+  transform: scale(1.02);
+}
+
+.copy-btn-compact {
+  transition: all 0.2s ease;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.8rem;
+}
+.copy-btn-compact.copied {
+  background: var(--green) !important;
+  border-color: var(--green) !important;
+  color: #0f172a !important;
+  box-shadow: 0 0 10px rgba(52, 211, 153, 0.4);
+}
+
+/* Consensus & Publishing Portfolio Custom Styles */
+.text-truncate-custom {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: inline-block;
+}
+@keyframes pulse-glow-red {
+  0% { box-shadow: 0 0 0 0 rgba(248, 113, 113, 0.4); }
+  70% { box-shadow: 0 0 0 6px rgba(248, 113, 113, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(248, 113, 113, 0); }
+}
+.btn-outline-teal {
+  border: 1px solid rgba(20, 184, 166, 0.4);
+  background: rgba(20, 184, 166, 0.04);
+  color: #fff !important;
+}
+.btn-outline-teal:hover {
+  background: rgba(20, 184, 166, 0.15);
+  border-color: var(--teal);
+  box-shadow: 0 0 10px rgba(20, 184, 166, 0.25);
+  transform: translateY(-1px);
+}
+
+.consensus-sources-panel {
+  box-shadow: inset 0 2px 8px rgba(0,0,0,0.5);
+  transition: all 0.25s ease;
+}
+.hover-underline:hover {
+  text-decoration: underline !important;
+}
+.hover-scale {
+  transition: transform 0.15s ease;
+}
+.hover-scale:hover {
+  transform: scale(1.15);
+  color: var(--teal) !important;
+}
+.hover-teal:hover {
+  color: var(--teal) !important;
+}
+</style>
+
+<script>
+// Switch between pitch tabs
+function switchPitchTab(tabName) {
+    // Deactivate all tabs
+    document.querySelectorAll('.pitch-tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    // Deactivate all panes
+    document.querySelectorAll('.pitch-pane').forEach(pane => {
+        pane.classList.remove('active');
+    });
+    
+    // Activate clicked tab
+    const clickedTab = Array.from(document.querySelectorAll('.pitch-tab')).find(tab => 
+        tab.getAttribute('onclick').includes(`'${tabName}'`)
+    );
+    if (clickedTab) clickedTab.classList.add('active');
+    
+    // Activate target pane
+    const targetPane = document.getElementById(`pane-${tabName}`);
+    if (targetPane) targetPane.classList.add('active');
+}
+
+// Copy a specific field content to clipboard
+function copyPitchField(fieldId, btnEl) {
+    const el = document.getElementById(fieldId);
+    if (!el) return;
+    const text = el.innerText || el.textContent;
+    copyToClipboardText(text, btnEl);
+}
+
+// Copy consensus value to clipboard
+function copyConsensusText(elementId, btnEl) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    const text = el.innerText || el.textContent;
+    copyToClipboardText(text.trim(), btnEl);
+}
+
+// Toggle Collapsible Consensus Sources Display
+function toggleConsensusSources(key) {
+    const el = document.getElementById(`sources-container-${key}`);
+    const chevron = document.getElementById(`chevron-${key}`);
+    if (el) {
+        if (el.classList.contains('d-none')) {
+            el.classList.remove('d-none');
+            if (chevron) chevron.style.transform = 'rotate(180deg)';
+        } else {
+            el.classList.add('d-none');
+            if (chevron) chevron.style.transform = 'rotate(0deg)';
+        }
+    }
+}
+
+// Copy full email content (Subject + Body)
+function copyFullPitch(paneName, btnEl) {
+    const subjEl = document.getElementById(`subject-${paneName}`);
+    const bodyEl = document.getElementById(`body-${paneName}`);
+    if (!subjEl || !bodyEl) return;
+    
+    const subject = subjEl.innerText || subjEl.textContent;
+    const body = bodyEl.innerText || bodyEl.textContent;
+    const fullEmailText = `Subject: ${subject}\n\n${body}`;
+    copyToClipboardText(fullEmailText, btnEl);
+}
+
+// Unified copy to clipboard helper
+function copyToClipboardText(text, buttonEl) {
+    if (!navigator.clipboard) {
+        // Fallback for older browsers
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.style.position = "fixed";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        try {
+            document.execCommand('copy');
+            triggerButtonCopiedState(buttonEl);
+        } catch (err) {
+            console.error('Fallback copy failed', err);
+        }
+        document.body.removeChild(textArea);
+        return;
+    }
+    
+    navigator.clipboard.writeText(text).then(() => {
+        triggerButtonCopiedState(buttonEl);
+    }, (err) => {
+        console.error('Async copy failed', err);
+    });
+}
+
+function triggerButtonCopiedState(btn) {
+    const originalHtml = btn.innerHTML;
+    btn.classList.add('copied');
+    if (btn.classList.contains('copy-btn-compact')) {
+        btn.innerHTML = `<i class="fa-solid fa-check"></i>`;
+    } else {
+        btn.innerHTML = `<i class="fa-solid fa-circle-check"></i> Copied!`;
+    }
+    setTimeout(() => {
+        btn.classList.remove('copied');
+        btn.innerHTML = originalHtml;
+    }, 1500);
+}
+
+// Automatically split raw inputs into subject and body fields on page load
+document.addEventListener('DOMContentLoaded', () => {
+    // SVG Progress ring animation
+    const ring = document.querySelector('.ai-progress-ring-circle');
+    const pctText = document.getElementById('confidence-percentage');
+    if (ring && pctText) {
+        const confidence = parseFloat(ring.getAttribute('data-confidence') || '0');
+        const r = 28;
+        const circumference = 2 * Math.PI * r; // ~175.92
+        const offset = circumference - (confidence * circumference);
+        ring.style.strokeDasharray = `${circumference}`;
+        ring.style.strokeDashoffset = `${offset}`;
+        pctText.textContent = `${Math.round(confidence * 100)}%`;
+    }
+
+    const panes = ['direct', 'agent', 'publicist'];
+    panes.forEach(pane => {
+        const rawEl = document.getElementById(`raw-${pane}`);
+        if (!rawEl) return;
+        const rawText = rawEl.value || rawEl.textContent || '';
+        
+        let subject = '';
+        let body = '';
+        
+        if (rawText.trim().startsWith('Subject:')) {
+            const index = rawText.indexOf('\n');
+            if (index !== -1) {
+                subject = rawText.substring(rawText.indexOf(':') + 1, index).trim();
+                body = rawText.substring(index).trim();
+            } else {
+                subject = rawText.substring(rawText.indexOf(':') + 1).trim();
+                body = '';
+            }
+        } else {
+            subject = `Visual promo concept for: {{ lead.book.title }}`;
+            body = rawText.trim();
+        }
+        
+        const subjDisplay = document.getElementById(`subject-${pane}`);
+        const bodyDisplay = document.getElementById(`body-${pane}`);
+        if (subjDisplay) subjDisplay.textContent = subject;
+        if (bodyDisplay) bodyDisplay.textContent = body;
+    });
+
+    // Hook compact copy buttons in representation panel
+    document.querySelectorAll('.copy-btn-compact[data-clipboard-text]').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            const text = this.getAttribute('data-clipboard-text');
+            copyToClipboardText(text, this);
+        });
+    });
+
+    // Bio expand / collapse logic
+    const bioText = document.getElementById('author-bio-text');
+    const toggleBtn = document.getElementById('toggle-bio-btn');
+    const fadeOverlay = document.getElementById('bio-fade');
+    
+    if (bioText && toggleBtn) {
+        // Only show button if content actually overflows 100px
+        const isOverflowing = bioText.scrollHeight > 100;
+        if (isOverflowing) {
+            toggleBtn.classList.remove('d-none');
+            toggleBtn.classList.add('d-inline-flex');
+            
+            toggleBtn.addEventListener('click', () => {
+                if (bioText.classList.contains('bio-collapsed')) {
+                    bioText.classList.remove('bio-collapsed');
+                    bioText.style.maxHeight = bioText.scrollHeight + 'px';
+                    fadeOverlay.style.display = 'none';
+                    toggleBtn.innerHTML = `Read Less <i class="fa-solid fa-chevron-up small"></i>`;
+                } else {
+                    bioText.classList.add('bio-collapsed');
+                    bioText.style.maxHeight = '100px';
+                    fadeOverlay.style.display = 'block';
+                    toggleBtn.innerHTML = `Read More <i class="fa-solid fa-chevron-down small"></i>`;
+                }
+            });
+        } else {
+            if (fadeOverlay) fadeOverlay.style.display = 'none';
+        }
+    }
+});
+</script>
+{% endblock %}

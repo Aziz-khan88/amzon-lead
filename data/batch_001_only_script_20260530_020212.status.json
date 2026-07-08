@@ -1,0 +1,15 @@
+{
+  "state": "completed",
+  "mode": "batch_001_only",
+  "provider": "ddgs",
+  "run_id": "3747fd57-b032-4488-8a43-9c496d3a04b6",
+  "current_index": 100,
+  "total": 100,
+  "completed_books": 98,
+  "failed_books": 2,
+  "processing_books": 0,
+  "lead_count": 98,
+  "message": "Batch 001 complete; exported 98 leads",
+  "exit_code": 0,
+  "output": "C:\\Users\\Ali.Raza\\Desktop\\lead-scraping\\django\\booktrailer_leads\\data\\batch_001_only_script_20260530_020212_leads.csv"
+}

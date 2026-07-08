@@ -1,0 +1,826 @@
+{% extends "base.html" %}
+{% block title %}Instant Book Search - Book Trailer Lead Finder{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <p class="eyebrow"><i class="fa-solid fa-magnifying-glass text-teal"></i> Manual Investigation</p>
+    <h1>Instant Book & Lead Search</h1>
+    <p class="page-subtitle">Search by ASIN/ISBN or discover candidates by keyword, then send selected books into enrichment.</p>
+  </div>
+</div>
+
+<div class="two-column">
+  <div>
+    <style>
+    .nav-tabs {
+      border-bottom: 1px solid var(--line) !important;
+    }
+    .nav-tabs .nav-link {
+      color: var(--muted) !important;
+      border: none !important;
+      border-bottom: 2px solid transparent !important;
+      background: transparent !important;
+      font-family: var(--font-heading);
+      font-weight: 600;
+      padding: 0.75rem 1.25rem;
+      transition: all 0.3s ease;
+      font-size: 0.95rem;
+    }
+    .nav-tabs .nav-link:hover {
+      color: #fff !important;
+      border-bottom-color: rgba(20, 184, 166, 0.4) !important;
+    }
+    .nav-tabs .nav-link.active {
+      color: var(--teal) !important;
+      border-bottom-color: var(--teal) !important;
+      font-weight: 700;
+    }
+    .candidate-img-placeholder {
+      width: 50px;
+      height: 70px;
+      background: rgba(255,255,255,0.03);
+      border: 1px dashed var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+    }
+    /* Live Search Dashboard */
+    #lookup-live-dashboard {
+      background: linear-gradient(135deg, rgba(20,184,166,0.08), rgba(99,102,241,0.06));
+      border: 1px solid rgba(20,184,166,0.2);
+      border-radius: 12px;
+      padding: 1.25rem;
+    }
+    .search-progress-bar-track {
+      height: 6px;
+      background: rgba(255,255,255,0.07);
+      border-radius: 99px;
+      overflow: hidden;
+      margin-bottom: 0.75rem;
+    }
+    .search-progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #14b8a6, #6366f1);
+      border-radius: 99px;
+      width: 0%;
+      transition: width 0.4s ease;
+      animation: pulse-bar 2s ease-in-out infinite;
+    }
+    @keyframes pulse-bar {
+      0%,100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+    .live-stat-row {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .live-stat {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.85rem;
+    }
+    .live-stat .stat-num {
+      font-family: var(--font-heading);
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--teal);
+      transition: all 0.2s;
+    }
+    .stat-num.pop {
+      transform: scale(1.3);
+      color: #fff;
+    }
+    .live-query-ticker {
+      font-size: 0.78rem;
+      color: var(--muted);
+      font-family: monospace;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-top: 0.5rem;
+      padding: 0.35rem 0.6rem;
+      background: rgba(0,0,0,0.2);
+      border-radius: 6px;
+    }
+    /* Row appear animation */
+    @keyframes row-appear {
+      from { opacity: 0; transform: translateY(-8px); background: rgba(20,184,166,0.15); }
+      to   { opacity: 1; transform: translateY(0);    background: transparent; }
+    }
+    .book-row-new {
+      animation: row-appear 0.5s ease forwards;
+    }
+    </style>
+
+    <!-- Tab Navigation -->
+    <ul class="nav nav-tabs mb-3 border-secondary" id="lookupTabs" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="direct-tab" data-bs-toggle="tab" data-bs-target="#direct-pane" type="button" role="tab" aria-controls="direct-pane" aria-selected="true">
+          <i class="fa-solid fa-barcode text-teal me-1.5"></i>Direct List
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="keyword-tab" data-bs-toggle="tab" data-bs-target="#keyword-pane" type="button" role="tab" aria-controls="keyword-pane" aria-selected="false">
+          <i class="fa-solid fa-magnifying-glass text-teal me-1.5"></i>Keyword Search
+        </button>
+      </li>
+    </ul>
+
+    <!-- Tab Content -->
+    <div class="tab-content" id="lookupTabsContent">
+      <!-- Direct Input Pane -->
+      <div class="tab-pane fade show active" id="direct-pane" role="tabpanel" aria-labelledby="direct-tab">
+        <form method="post" id="enrichment-form" class="narrow-form form-grid panel mt-2">
+          {% csrf_token %}
+          <h3 class="mb-3 text-white"><i class="fa-solid fa-barcode text-teal me-2"></i>Enter ASIN / ISBN</h3>
+          
+          <!-- Premium Batch Instructions -->
+          <div class="alert alert-info py-2 px-3 mb-3 text-blue border-info bg-opacity-10" style="font-size: 0.85rem; border-radius: 8px;">
+            <i class="fa-solid fa-circle-question me-1.5"></i><strong>Batch Mode Enabled:</strong> You can enter one code per line or separate them with commas. Duplicates will be deduplicated.
+          </div>
+          
+          {% if form.non_field_errors %}
+            <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+          {% endif %}
+          
+          {% for field in form %}
+            <div class="field-row field-{{ field.field.widget.input_type|default:'text' }} mb-3">
+              {% if field.field.widget.input_type == 'checkbox' %}
+                <div class="field-checkbox">
+                  {{ field }}
+                  {{ field.label_tag }}
+                </div>
+              {% else %}
+                {{ field.label_tag }}
+                {{ field }}
+              {% endif %}
+              
+              {% if field.help_text %}
+                <div class="form-text text-muted mt-1">{{ field.help_text }}</div>
+              {% endif %}
+              
+              {% for error in field.errors %}
+                <div class="invalid-feedback d-block">{{ error }}</div>
+              {% endfor %}
+            </div>
+          {% endfor %}
+          
+          <div class="form-actions mt-4">
+            <button class="btn btn-primary" type="submit">
+              <i class="fa-solid fa-wand-magic-sparkles me-1"></i> Search & Enrich
+            </button>
+            <a class="btn btn-secondary" href="{% url 'leadfinder:lead_list' %}">
+              <i class="fa-solid fa-table-list me-1"></i> View Leads
+            </a>
+          </div>
+        </form>
+      </div>
+
+      <!-- Keyword Search Pane -->
+      <div class="tab-pane fade" id="keyword-pane" role="tabpanel" aria-labelledby="keyword-tab">
+        <div class="narrow-form form-grid panel mt-2">
+          <h3 class="mb-3 text-white"><i class="fa-solid fa-magnifying-glass text-teal me-2"></i>Keyword Lookup</h3>
+          
+          <div class="field-row mb-3">
+            <label for="lookup-keyword" class="form-label text-white">Search Keyword</label>
+            <input type="text" id="lookup-keyword" class="form-control" placeholder="e.g., children book illustration">
+          </div>
+
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <label for="lookup-year-start" class="form-label text-white">Publish Date Start (Year)</label>
+              <input type="number" id="lookup-year-start" class="form-control" placeholder="e.g., 2020">
+            </div>
+            <div class="col-md-6">
+              <label for="lookup-year-end" class="form-label text-white">Publish Date End (Year)</label>
+              <input type="number" id="lookup-year-end" class="form-control" placeholder="e.g., 2026">
+            </div>
+          </div>
+
+          <div class="field-row mb-3">
+            <label for="lookup-max-results" class="form-label text-white">Max Books to Find</label>
+            <select id="lookup-max-results" class="form-select bg-dark text-white border-secondary" style="background-color: var(--panel) !important;">
+              <option value="20">20 books</option>
+              <option value="50" selected>50 books</option>
+              <option value="100">100 books</option>
+              <option value="200">200 books</option>
+              <option value="500">500 books (deep crawl, takes 10s)</option>
+              <option value="1000">1000 books (deep crawl, takes 15s+)</option>
+            </select>
+            <div class="form-text text-muted mt-1">Increasing this will crawl more Amazon listings and search result pages to find unique books.</div>
+          </div>
+
+          <div class="field-row mb-3">
+            <div class="field-checkbox">
+              <input type="checkbox" id="lookup-only-new">
+              <label for="lookup-only-new" class="text-white">Only show new books (exclude previous runs)</label>
+            </div>
+            <div class="form-text text-muted mt-1">If checked, the search will exclude previously found books and only show newly discovered books.</div>
+          </div>
+
+          <div class="field-row mb-3">
+            <div class="field-checkbox">
+              <input type="checkbox" id="lookup-run-video-search" checked>
+              <label for="lookup-run-video-search" class="text-white">Identify Book Trailers & YouTube Videos</label>
+            </div>
+            <div class="field-checkbox mt-2">
+              <input type="checkbox" id="lookup-run-groq-ai" checked>
+              <label for="lookup-run-groq-ai" class="text-white">Use Groq AI for Deep Metadata Parsing</label>
+            </div>
+            <div class="form-text text-muted mt-1">These settings apply when you click "Load Selected & Run" or copy to Direct List.</div>
+          </div>
+
+          <div class="form-actions mt-4">
+            <button class="btn btn-primary" type="button" id="btn-search-books">
+              <i class="fa-solid fa-magnifying-glass me-1"></i> Search Books
+            </button>
+          </div>
+
+          <!-- Live Search Dashboard -->
+          <div id="lookup-loading" class="d-none mt-4">
+            <div id="lookup-live-dashboard">
+              <!-- Progress bar -->
+              <div class="search-progress-bar-track">
+                <div class="search-progress-bar-fill" id="search-progress-fill"></div>
+              </div>
+
+              <!-- Stats row -->
+              <div class="live-stat-row">
+                <div class="live-stat">
+                  <i class="fa-solid fa-circle-notch fa-spin text-teal" style="font-size:0.9rem;"></i>
+                  <span class="text-muted">Scanning</span>
+                </div>
+                <div class="live-stat">
+                  <i class="fa-solid fa-book text-teal"></i>
+                  <span class="stat-num" id="lookup-counter-badge">0</span>
+                  <span class="text-muted">books found</span>
+                </div>
+                <div class="live-stat">
+                  <i class="fa-solid fa-search text-muted"></i>
+                  <span id="queries-done-count" class="stat-num" style="color:var(--muted); font-size:0.95rem;">0</span>
+                  <span class="text-muted">/ <span id="queries-total-count">?</span> queries</span>
+                </div>
+              </div>
+
+              <!-- Current query ticker -->
+              <div class="live-query-ticker" id="lookup-status-text">Initiating search...</div>
+            </div>
+          </div>
+
+          <!-- Error Alert -->
+          <div id="lookup-error" class="alert alert-danger d-none mt-3"></div>
+
+          <!-- Search Results Table -->
+          <div id="lookup-results-wrapper" class="d-none mt-4">
+            <h4 class="text-white mb-3"><i class="fa-solid fa-list-check text-teal me-2"></i>Search Results</h4>
+            
+            <div class="table-responsive">
+              <table class="table table-hover">
+                <thead>
+                  <tr>
+                    <th style="width: 45px; vertical-align: middle;">
+                      <input type="checkbox" id="select-all-candidates" checked>
+                    </th>
+                    <th style="width: 70px;">Cover</th>
+                    <th>Book Detail</th>
+                    <th>ASIN / ISBN</th>
+                    <th>Published</th>
+                  </tr>
+                </thead>
+                <tbody id="candidates-body">
+                  <!-- JS injected candidates here -->
+                </tbody>
+              </table>
+            </div>
+
+            <div class="form-actions mt-4 gap-2 d-flex flex-wrap">
+              <button class="btn btn-secondary" type="button" id="btn-copy-to-input">
+                <i class="fa-solid fa-file-import me-1"></i> Load Selected into Input
+              </button>
+              <button class="btn btn-primary" type="button" id="btn-run-enrich-selected">
+                <i class="fa-solid fa-wand-magic-sparkles me-1"></i> Load Selected & Run
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    {% if active_run %}
+      <!-- Premium Progress Console -->
+      <div class="panel progress-console-panel h-100">
+        <div class="progress-header-row">
+          <h3 class="text-white mb-0 d-flex align-items-center gap-2" style="font-size: 1.25rem;">
+            <span class="radar-signal" id="status-indicator"></span> Active Deep Enrichment
+          </h3>
+          <span class="status-pill status-running" id="overall-status-pill">
+            {{ active_run.status|title }}
+          </span>
+        </div>
+        
+        <p class="text-muted small mb-3">
+          Deep harvesting pipelines are running asynchronously in the background. You may navigate away; progress updates in real-time.
+        </p>
+
+        <!-- Progress Tracking Meter -->
+        <div class="progress-track-wrapper">
+          <div class="progress-fill-glow" id="progressbar-fill" style="width: 0%;"></div>
+        </div>
+
+        <!-- Metric Grid -->
+        <div class="metric-grid">
+          <div class="metric metric-accent">
+            <span>Enrichment Progress</span>
+            <strong id="percentage-text" class="font-heading">0%</strong>
+          </div>
+          <div class="metric metric-info">
+            <span>Completed Queue</span>
+            <strong id="completed-count" class="font-heading">0 / 0</strong>
+          </div>
+          <div class="metric metric-warning">
+            <span>Est. Remaining Time</span>
+            <strong id="etc-text" class="font-heading" style="font-size: 1.15rem; margin-top: 0.8rem; line-height: 1.2;">Estimating...</strong>
+          </div>
+        </div>
+
+        <h4 class="queue-console-title mt-4">
+          <i class="fa-solid fa-layer-group text-teal"></i> Investigation Queue Status
+        </h4>
+        
+        <div class="queue-cards-scrollable" id="queue-container">
+          <div class="text-center py-4 text-muted">
+            <i class="fa-solid fa-circle-notch fa-spin me-2 text-teal"></i> Spawning background tasks...
+          </div>
+        </div>
+      </div>
+    {% else %}
+      <!-- Standard Explainer -->
+      <div class="panel h-100">
+        <h3 class="text-white mb-3"><i class="fa-solid fa-circle-info text-blue me-2"></i>How does it work?</h3>
+        <p class="text-muted leading-relaxed">
+          This tool executes a deep investigation pipeline on any standard ISBN or Amazon ASIN (Kindle, Paperback, or Audio formats). It leverages our most resilient scraping fallbacks:
+        </p>
+        
+        <ul class="list-unstyled text-muted mt-3">
+          <li class="mb-3 d-flex align-items-start">
+            <i class="fa-solid fa-shield-halved text-teal me-3 mt-1"></i>
+            <div>
+              <strong>Anti-Bot Resiliency:</strong> If direct Amazon scraping is blocked by anti-bot/CAPTCHAs, it triggers search snippets, Open Library catalog queries, and Google Books API lookups.
+            </div>
+          </li>
+          <li class="mb-3 d-flex align-items-start">
+            <i class="fa-solid fa-user-check text-teal me-3 mt-1"></i>
+            <div>
+              <strong>Author Discovery:</strong> The scraper employs smart heuristics to isolate and match exact author names (e.g., <em>Adrian Tchaikovsky</em>) while ensuring book title filtering prevents name mismatch issues.
+            </div>
+          </li>
+          <li class="mb-3 d-flex align-items-start">
+            <i class="fa-solid fa-wand-magic-sparkles text-teal me-3 mt-1"></i>
+            <div>
+              <strong>Automated Enrichment:</strong> Discovered authors are automatically run through the harvesting pipeline to fetch official website URLs, contact page lists, public emails, phone numbers, social media handles (YouTube, Instagram, Facebook, LinkedIn, TikTok, Goodreads), and book trailer videos.
+            </div>
+          </li>
+        </ul>
+        
+        <div class="alert alert-info mt-4 bg-opacity-10 border-info text-blue" style="border-radius: 8px;">
+          <i class="fa-solid fa-lightbulb me-2"></i><strong>Tip:</strong> Discovered items are immediately upserted and saved as leads in the main dashboard so you can view, score, and manage them later.
+        </div>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+{% if active_run %}
+<script>
+  document.addEventListener("DOMContentLoaded", function() {
+    const runId = "{{ active_run.id }}";
+    const statusUrl = "{% url 'leadfinder:isbn_search_status' active_run.id %}";
+    const queueContainer = document.getElementById("queue-container");
+    const progressbarFill = document.getElementById("progressbar-fill");
+    const percentageText = document.getElementById("percentage-text");
+    const completedCountText = document.getElementById("completed-count");
+    const etcText = document.getElementById("etc-text");
+    const overallStatusPill = document.getElementById("overall-status-pill");
+    const statusIndicator = document.getElementById("status-indicator");
+    
+    let pollInterval = null;
+    
+    function fetchStatus() {
+      fetch(statusUrl)
+        .then(response => {
+          if (!response.ok) throw new Error("Network response not OK");
+          return response.json();
+        })
+        .then(data => {
+          // 1. Update overall status pill
+          overallStatusPill.className = `status-pill status-${data.status}`;
+          overallStatusPill.textContent = data.status.charAt(0).toUpperCase() + data.status.slice(1);
+          
+          // 2. Update progress bar and percentage text
+          progressbarFill.style.width = `${data.percentage}%`;
+          percentageText.textContent = `${data.percentage}%`;
+          
+          // 3. Update count metrics
+          const finished = data.completed + data.failed;
+          completedCountText.textContent = `${finished} / ${data.total}`;
+          
+          // 4. Update ETC remaining time
+          etcText.textContent = data.etc;
+          
+          // 5. Manage termination
+          if (data.status === "completed" || data.status === "failed" || data.status === "canceled") {
+            if (statusIndicator) {
+              statusIndicator.className = "fa-solid fa-circle-check text-green";
+              statusIndicator.style.boxShadow = "none";
+            }
+            clearInterval(pollInterval);
+          }
+          
+          // 6. Build the interactive queue card items
+          if (data.tasks && data.tasks.length > 0) {
+            let htmlContent = "";
+            data.tasks.forEach(task => {
+              let statusBadgeHtml = "";
+              let statusClass = "task-pending";
+              
+              if (task.status === "completed") {
+                statusClass = "task-completed";
+                statusBadgeHtml = `<span class="task-status-text"><i class="fa-solid fa-circle-check text-green"></i> Completed</span>`;
+              } else if (task.status === "processing") {
+                statusClass = "task-processing";
+                statusBadgeHtml = `<span class="task-status-text"><i class="fa-solid fa-spinner fa-spin text-amber"></i> Scraping</span>`;
+              } else if (task.status === "failed") {
+                statusClass = "task-failed";
+                statusBadgeHtml = `<span class="task-status-text"><i class="fa-solid fa-circle-xmark text-red"></i> Failed</span>`;
+              } else {
+                statusBadgeHtml = `<span class="task-status-text"><i class="fa-regular fa-clock text-muted"></i> Pending</span>`;
+              }
+              
+              let titleCleaned = task.title;
+              if (titleCleaned.startsWith("Book for ASIN")) {
+                titleCleaned = `ASIN / ISBN Detail Scrape`;
+              }
+              
+              htmlContent += `
+                <div class="queue-task-card ${statusClass}">
+                  <div class="task-meta-row">
+                    <span class="task-asin-badge">${task.asin}</span>
+                    ${statusBadgeHtml}
+                  </div>
+                  <h5 class="task-title-text" title="${task.title}">${titleCleaned}</h5>
+                  <p class="task-author-text">${task.author}</p>
+              `;
+              
+              if (task.status === "completed" && task.lead_id) {
+                // Dynamically build lead URL based on standard structure
+                const leadUrl = "{% url 'leadfinder:lead_detail' '00000000-0000-0000-0000-000000000000' %}".replace("00000000-0000-0000-0000-000000000000", task.lead_id);
+                htmlContent += `
+                  <a href="${leadUrl}" class="view-lead-btn-compact">
+                    <i class="fa-solid fa-chevron-right me-1"></i> View Scraped Lead
+                  </a>
+                `;
+              } else if (task.status === "failed" && task.errors && task.errors.length > 0) {
+                const latestError = task.errors[task.errors.length - 1];
+                htmlContent += `
+                  <div class="task-error-alert" title="${latestError}">
+                    <i class="fa-solid fa-triangle-exclamation me-1"></i> ${latestError}
+                  </div>
+                `;
+              }
+              
+              htmlContent += `</div>`;
+            });
+            queueContainer.innerHTML = htmlContent;
+          } else {
+            queueContainer.innerHTML = `
+              <div class="text-center py-4 text-muted">
+                <i class="fa-solid fa-clipboard-list fa-2x mb-2 d-block"></i> No queue tasks defined.
+              </div>
+            `;
+          }
+        })
+        .catch(error => {
+          console.error("Enrichment status poll error:", error);
+        });
+    }
+    
+    // Perform initial pull and configure interval loop
+    fetchStatus();
+    pollInterval = setInterval(fetchStatus, 2000);
+  });
+</script>
+{% endif %}
+
+<script>
+  document.addEventListener("DOMContentLoaded", function() {
+    // Keyword Lookup elements
+    const btnSearchBooks = document.getElementById("btn-search-books");
+    const lookupKeyword = document.getElementById("lookup-keyword");
+    const lookupYearStart = document.getElementById("lookup-year-start");
+    const lookupYearEnd = document.getElementById("lookup-year-end");
+    const lookupMaxResults = document.getElementById("lookup-max-results");
+    const lookupOnlyNew = document.getElementById("lookup-only-new");
+    const lookupLoading = document.getElementById("lookup-loading");
+    const lookupStatusText = document.getElementById("lookup-status-text");
+    const lookupCounterBadge = document.getElementById("lookup-counter-badge");
+    const lookupError = document.getElementById("lookup-error");
+    const lookupResultsWrapper = document.getElementById("lookup-results-wrapper");
+    const candidatesBody = document.getElementById("candidates-body");
+    const selectAllCandidates = document.getElementById("select-all-candidates");
+    const btnCopyToInput = document.getElementById("btn-copy-to-input");
+    const btnRunEnrichSelected = document.getElementById("btn-run-enrich-selected");
+
+    const idIsbnTextarea = document.getElementById("id_isbn");
+    const enrichmentForm = document.getElementById("enrichment-form");
+
+    if (btnSearchBooks) {
+      const progressFill = document.getElementById("search-progress-fill");
+      const queriesDone  = document.getElementById("queries-done-count");
+      const queriesTotal = document.getElementById("queries-total-count");
+
+      // Helper: pop-animate a number element
+      function popStat(el) {
+        el.classList.remove("pop");
+        void el.offsetWidth; // reflow
+        el.classList.add("pop");
+        setTimeout(() => el.classList.remove("pop"), 220);
+      }
+
+      // Helper function to append a book row dynamically to the results table
+      function appendBookRow(book) {
+        const tr = document.createElement("tr");
+        tr.classList.add("book-row-new");
+
+        const checkboxTd = document.createElement("td");
+        checkboxTd.style.verticalAlign = "middle";
+        checkboxTd.innerHTML = `<input type="checkbox" class="candidate-check" value="${book.asin}" checked>`;
+
+        const coverTd = document.createElement("td");
+        coverTd.style.verticalAlign = "middle";
+        if (book.cover_image_url) {
+          coverTd.innerHTML = `<img src="${book.cover_image_url}" alt="Cover" style="width: 50px; height: auto; border-radius: 4px; border: 1px solid var(--line);">`;
+        } else {
+          coverTd.innerHTML = `<div class="candidate-img-placeholder" title="No Cover Available"><i class="fa-regular fa-image text-muted"></i></div>`;
+        }
+
+        const detailsTd = document.createElement("td");
+        detailsTd.style.verticalAlign = "middle";
+        const sourceLabel = book.source ? `<span class="badge bg-secondary" style="margin-left: 0.5rem;">${book.source}</span>` : "";
+        const scoreText = book.validation_score ? `Score ${book.validation_score}` : "";
+        detailsTd.innerHTML = `
+          <div class="fw-bold text-white">${book.title || "Unknown Title"} ${sourceLabel}</div>
+          <div class="text-muted small">by ${book.author_name || 'Unknown Author'}</div>
+          <div class="text-muted small">${scoreText}</div>
+        `;
+
+        const asinTd = document.createElement("td");
+        asinTd.style.verticalAlign = "middle";
+        asinTd.innerHTML = `<code class="text-teal" style="font-size: 0.95rem;">${book.asin}</code>`;
+
+        const pubTd = document.createElement("td");
+        pubTd.style.verticalAlign = "middle";
+        pubTd.textContent = book.publication_date || "N/A";
+
+        tr.appendChild(checkboxTd);
+        tr.appendChild(coverTd);
+        tr.appendChild(detailsTd);
+        tr.appendChild(asinTd);
+        tr.appendChild(pubTd);
+        candidatesBody.appendChild(tr);
+      }
+
+      // Search Books handler
+      btnSearchBooks.addEventListener("click", function() {
+        const keyword = lookupKeyword.value.trim();
+        const startYear = lookupYearStart.value.trim();
+        const endYear = lookupYearEnd.value.trim();
+        const maxResults = parseInt(lookupMaxResults.value) || 50;
+        const onlyNew = lookupOnlyNew ? lookupOnlyNew.checked : false;
+
+        if (!keyword) {
+          alert("Please enter a search keyword.");
+          return;
+        }
+
+        // --- Reset UI ---
+        lookupLoading.classList.remove("d-none");
+        lookupStatusText.textContent = "Initiating deep search...";
+        lookupCounterBadge.textContent = "0";
+        if (queriesDone) queriesDone.textContent = "0";
+        if (queriesTotal) queriesTotal.textContent = "?";
+        if (progressFill) progressFill.style.width = "0%";
+        lookupError.classList.add("d-none");
+        lookupResultsWrapper.classList.add("d-none");
+        candidatesBody.innerHTML = "";
+
+        const queryParams = new URLSearchParams({
+          keyword: keyword,
+          pub_year_start: startYear,
+          pub_year_end: endYear,
+          max_results: maxResults,
+          only_new: onlyNew
+        });
+
+        let booksFoundCount = 0;
+        let queryNumber = 0;
+        let totalQueries = null;
+
+        // Parse "[3/20] Scanning: ..." from message
+        function parseQueryProgress(msg) {
+          const m = msg.match(/^\[(\d+)\/(\d+)\]/);
+          if (m) {
+            queryNumber = parseInt(m[1]);
+            totalQueries = parseInt(m[2]);
+            return msg.replace(/^\[\d+\/\d+\]\s*/, "");
+          }
+          return msg;
+        }
+
+        fetch(`{% url 'leadfinder:isbn_lookup' %}?${queryParams.toString()}`)
+          .then(response => {
+            if (!response.ok) {
+              throw new Error("Failed to search books.");
+            }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = "";
+
+            function readStream() {
+              return reader.read().then(({ done, value }) => {
+                if (done) {
+                  // Search complete
+                  lookupLoading.classList.add("d-none");
+                  if (progressFill) progressFill.style.width = "100%";
+                  if (booksFoundCount === 0) {
+                    lookupError.textContent = "No books with ISBN/ASIN found. Try a simpler keyword or broader year range.";
+                    lookupError.classList.remove("d-none");
+                  } else {
+                    lookupResultsWrapper.classList.remove("d-none");
+                  }
+                  return;
+                }
+
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split("\n");
+                buffer = lines.pop();
+
+                lines.forEach(line => {
+                  if (!line.trim()) return;
+                  try {
+                    const data = JSON.parse(line);
+
+                    if (data.status === "starting") {
+                      lookupStatusText.textContent = data.message || "Starting...";
+                    }
+                    else if (data.status === "searching" && data.message) {
+                      const cleanMsg = parseQueryProgress(data.message);
+                      lookupStatusText.textContent = cleanMsg;
+                      if (queriesDone && queryNumber) queriesDone.textContent = queryNumber;
+                      if (queriesTotal && totalQueries) queriesTotal.textContent = totalQueries;
+                      // Update progress bar based on queries
+                      if (progressFill && totalQueries) {
+                        const pct = Math.min(95, Math.round((queryNumber / totalQueries) * 100));
+                        progressFill.style.width = pct + "%";
+                      } else if (progressFill) {
+                        // Indeterminate animation — keep pulsing at 30%
+                        progressFill.style.width = "30%";
+                      }
+                    }
+                    else if (data.status === "progress" && data.books) {
+                      if (data.message) {
+                        lookupStatusText.textContent = data.message;
+                      }
+                      // Show results table immediately
+                      lookupResultsWrapper.classList.remove("d-none");
+                      data.books.forEach(book => {
+                        appendBookRow(book);
+                      });
+                    }
+
+                    if (data.count !== undefined && data.count !== booksFoundCount) {
+                      booksFoundCount = data.count;
+                      lookupCounterBadge.textContent = booksFoundCount;
+                      popStat(lookupCounterBadge);
+                      // Update progress bar toward max
+                      if (progressFill && maxResults > 0) {
+                        const bookPct = Math.min(95, Math.round((booksFoundCount / maxResults) * 100));
+                        if (bookPct > parseInt(progressFill.style.width || "0")) {
+                          progressFill.style.width = bookPct + "%";
+                        }
+                      }
+                    }
+
+                    if (data.status === "done") {
+                      if (progressFill) progressFill.style.width = "100%";
+                      if (queriesDone && totalQueries) queriesDone.textContent = totalQueries;
+                      if (data.cache_path) {
+                        lookupStatusText.textContent = `Saved keyword results: ${data.cache_path}`;
+                      }
+                    }
+
+                  } catch (e) {
+                    console.error("Error parsing stream line:", e, line);
+                  }
+                });
+
+                return readStream();
+              });
+            }
+
+            return readStream();
+          })
+          .catch(err => {
+            lookupLoading.classList.add("d-none");
+            lookupError.textContent = err.message || "An unexpected error occurred.";
+            lookupError.classList.remove("d-none");
+          });
+      });
+
+
+      // Select/Deselect All handler
+      selectAllCandidates.addEventListener("change", function() {
+        const isChecked = selectAllCandidates.checked;
+        document.querySelectorAll(".candidate-check").forEach(cb => {
+          cb.checked = isChecked;
+        });
+      });
+
+      // Extract selected ASINs/ISBNs
+      function getSelectedCodes() {
+        const checkedBoxes = document.querySelectorAll(".candidate-check:checked");
+        const codes = [];
+        checkedBoxes.forEach(cb => {
+          codes.push(cb.value);
+        });
+        return codes;
+      }
+
+      // Helper to sync checkbox states from Keyword tab to Direct tab
+      function syncEnrichmentOptions() {
+        const lookupVideo = document.getElementById("lookup-run-video-search");
+        const lookupGroq = document.getElementById("lookup-run-groq-ai");
+        const formVideo = document.getElementById("id_run_video_search");
+        const formGroq = document.getElementById("id_run_groq_ai_extraction");
+
+        if (lookupVideo && formVideo) {
+          formVideo.checked = lookupVideo.checked;
+        }
+        if (lookupGroq && formGroq) {
+          formGroq.checked = lookupGroq.checked;
+        }
+      }
+
+      // Copy to input handler
+      btnCopyToInput.addEventListener("click", function() {
+        const selectedCodes = getSelectedCodes();
+        if (selectedCodes.length === 0) {
+          alert("Please select at least one book.");
+          return;
+        }
+
+        // Sync settings
+        syncEnrichmentOptions();
+
+        // Populate textarea (one per line)
+        idIsbnTextarea.value = selectedCodes.join("\n");
+
+        // Switch to Direct List tab
+        const directTabEl = document.getElementById("direct-tab");
+        if (directTabEl && typeof bootstrap !== "undefined") {
+          const directTab = new bootstrap.Tab(directTabEl);
+          directTab.show();
+        }
+
+        // Focus textarea
+        idIsbnTextarea.focus();
+      });
+
+      // Copy and Run Enrichment handler
+      btnRunEnrichSelected.addEventListener("click", function() {
+        const selectedCodes = getSelectedCodes();
+        if (selectedCodes.length === 0) {
+          alert("Please select at least one book.");
+          return;
+        }
+
+        // Sync settings
+        syncEnrichmentOptions();
+
+        // Populate textarea (one per line)
+        idIsbnTextarea.value = selectedCodes.join("\n");
+
+        // Submit the enrichment form
+        enrichmentForm.submit();
+      });
+    }
+  });
+</script>
+{% endblock %}

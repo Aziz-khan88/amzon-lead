@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <p class="eyebrow">BookLife source</p>
+    <h1>BookLife Run</h1>
+  </div>
+</div>
+
+<section class="panel">
+  <h2>Runner Flow</h2>
+  <div class="flow-grid">
+    <div class="flow-step"><strong>1</strong><span>Choose BookLife categories and age filter.</span></div>
+    <div class="flow-step"><strong>2</strong><span>Create books from BookLife project cards.</span></div>
+    <div class="flow-step"><strong>3</strong><span>Enrich each author through public sites, contact pages, and social profile signals.</span></div>
+    <div class="flow-step"><strong>4</strong><span>Score leads, save evidence, and send ready rows to Leads.</span></div>
+  </div>
+  <div class="alert alert-warning mb-0 mt-3">
+    BookLife browse pages contain the usable rows: title, author, cover, category, and summary. Direct fetching is robots-gated and only runs when you have permission and set <code>BOOKLIFE_DIRECT_FETCH_ALLOWED=1</code>; otherwise the runner falls back to indexed search snippets. Project detail pages are optional because some return automated-request challenges.
+  </div>
+</section>
+
+<form method="post" class="narrow-form form-grid">
+  {% csrf_token %}
+  {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+
+  <div class="field-row">
+    {{ form.age_filter.label_tag }}
+    {{ form.age_filter }}
+    {% for error in form.age_filter.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+  </div>
+
+  <div class="field-row">
+    {{ form.max_books.label_tag }}
+    {{ form.max_books }}
+    {% for error in form.max_books.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+  </div>
+
+  <div class="field-row">
+    {{ form.enrichment_provider.label_tag }}
+    {{ form.enrichment_provider }}
+    {% if form.enrichment_provider.help_text %}<div class="form-text">{{ form.enrichment_provider.help_text }}</div>{% endif %}
+    {% for error in form.enrichment_provider.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+  </div>
+
+  <div class="field-row">
+    <label>Categories</label>
+    {% for error in form.booklife_categories.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+    <div class="category-groups">
+      {% for group in category_groups %}
+        <div class="category-group">
+          <h3>{{ group.label }}</h3>
+          {% for category in group.categories %}
+            {% if category.slug %}
+              {% with value=category.slug %}
+                <label class="category-choice">
+                  <input type="checkbox" name="booklife_categories" value="{{ value }}" {% if value in selected_categories %}checked{% endif %}>
+                  <span>{{ category.label }}</span>
+                </label>
+              {% endwith %}
+            {% else %}
+              {% with value="all" %}
+                <label class="category-choice">
+                  <input type="checkbox" name="booklife_categories" value="{{ value }}" {% if value in selected_categories %}checked{% endif %}>
+                  <span>{{ category.label }}</span>
+                </label>
+              {% endwith %}
+            {% endif %}
+          {% endfor %}
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="booklife-options">
+    <div class="field-row field-checkbox">
+      {{ form.require_public_email.label_tag }}
+      {{ form.require_public_email }}
+    </div>
+    <div class="field-row field-checkbox">
+      {{ form.include_social_only_leads.label_tag }}
+      {{ form.include_social_only_leads }}
+    </div>
+    <div class="field-row field-checkbox">
+      {{ form.run_video_search.label_tag }}
+      {{ form.run_video_search }}
+    </div>
+    <div class="field-row field-checkbox">
+      {{ form.run_groq_ai_extraction.label_tag }}
+      {{ form.run_groq_ai_extraction }}
+    </div>
+  </div>
+
+  <div class="form-actions">
+    <button class="btn btn-primary" type="submit">
+      <i class="fa-solid fa-play"></i> Run BookLife
+    </button>
+    <a class="btn btn-secondary" href="{% url 'leadfinder:run_list' %}">View runs</a>
+  </div>
+</form>
+{% endblock %}

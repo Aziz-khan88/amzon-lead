@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+{% block title %}New Research Run - Book Trailer Lead Finder{% endblock %}
+{% block content %}
+<div class="new-run-page">
+  <div class="new-run-header">
+    <a class="new-run-back" href="{% url 'leadfinder:run_list' %}">
+      <i class="fa-solid fa-arrow-left"></i> Search Discovery
+    </a>
+    <h1>New Research Run</h1>
+    <p class="page-subtitle">Launch a keyword discovery run with the enrichment and verification settings you need.</p>
+  </div>
+
+  <form method="post" class="new-run-form">
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+
+    <section class="new-run-panel primary-search-panel">
+      <div class="new-run-section-heading">
+        <span class="new-run-section-icon"><i class="fa-solid fa-magnifying-glass"></i></span>
+        <h2>Primary Search Settings</h2>
+      </div>
+
+      <div class="new-run-field keyword-field">
+        {{ form.keyword.label_tag }}
+        {{ form.keyword }}
+        {% for error in form.keyword.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+      </div>
+
+      <div class="keyword-suggestion-head">
+        <span>Suggested Keywords</span>
+        <strong>{{ keyword_suggestions|length }} suggestions</strong>
+        <button class="btn btn-secondary btn-sm refresh-suggestions" type="button">
+          <i class="fa-solid fa-rotate"></i> Refresh suggestions
+        </button>
+      </div>
+
+      <div class="suggestion-badges new-run-suggestions">
+        {% for suggestion in keyword_suggestions %}
+          <button class="suggestion-badge" type="button" data-keyword="{{ suggestion }}">{{ suggestion }} <i class="fa-solid fa-plus"></i></button>
+        {% endfor %}
+      </div>
+
+      <div class="new-run-field-grid">
+        <div class="new-run-field">
+          {{ form.source_provider.label_tag }}
+          {{ form.source_provider }}
+          {% for error in form.source_provider.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+        </div>
+        <div class="new-run-field">
+          {{ form.max_books.label_tag }}
+          {{ form.max_books }}
+          {% for error in form.max_books.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+        </div>
+        <div class="new-run-field">
+          {{ form.marketplace.label_tag }}
+          {{ form.marketplace }}
+          {% for error in form.marketplace.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+        </div>
+        <div class="new-run-field">
+          {{ form.location_preference.label_tag }}
+          {{ form.location_preference }}
+          {% for error in form.location_preference.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+        </div>
+      </div>
+    </section>
+
+    <section class="new-run-panel pipeline-panel">
+      <div class="new-run-section-heading">
+        <span class="new-run-section-icon"><i class="fa-solid fa-sliders"></i></span>
+        <div>
+          <h2>Pipeline Toggles</h2>
+          <p>Customize the data requirements and enrichment for this run.</p>
+        </div>
+      </div>
+
+      <div class="new-run-toggle-grid">
+        <div class="new-run-toggle">
+          {{ form.require_amazon_url }}
+          <label for="{{ form.require_amazon_url.id_for_label }}">
+            <strong>Require Amazon URL</strong>
+            <span>Only include leads with an Amazon URL.</span>
+          </label>
+        </div>
+        <div class="new-run-toggle">
+          {{ form.require_public_email }}
+          <label for="{{ form.require_public_email.id_for_label }}">
+            <strong>Require direct public email</strong>
+            <span>Only include leads with a direct public email.</span>
+          </label>
+        </div>
+        <div class="new-run-toggle">
+          {{ form.include_social_only_leads }}
+          <label for="{{ form.include_social_only_leads.id_for_label }}">
+            <strong>Save social-only leads</strong>
+            <span>Include leads that only have social links.</span>
+          </label>
+        </div>
+        <div class="new-run-toggle">
+          {{ form.run_video_search }}
+          <label for="{{ form.run_video_search.id_for_label }}">
+            <strong>Check existing videos</strong>
+            <span>Skip leads with existing book trailer videos.</span>
+          </label>
+        </div>
+        <div class="new-run-toggle">
+          {{ form.run_groq_ai_extraction }}
+          <label for="{{ form.run_groq_ai_extraction.id_for_label }}">
+            <strong>Build AI sales brief</strong>
+            <span>Generate an AI sales brief for each lead.</span>
+          </label>
+        </div>
+      </div>
+
+      {% if form.require_public_email.help_text %}
+        <div class="new-run-note">
+          <i class="fa-solid fa-circle-info"></i>
+          <span>{{ form.require_public_email.help_text }}</span>
+        </div>
+      {% endif %}
+    </section>
+
+    <div class="new-run-actions">
+      <button class="btn btn-primary" type="submit">
+        <i class="fa-solid fa-play"></i> Run Research
+      </button>
+      <a class="btn btn-secondary" href="{% url 'leadfinder:booklife_run' %}">
+        <i class="fa-solid fa-book-open-reader"></i> BookLife Run
+      </a>
+    </div>
+  </form>
+</div>
+
+<script>
+let autotypeInterval = null;
+function autotypeKeyword(text) {
+  const input = document.getElementById('id_keyword');
+  if (!input) return;
+
+  if (autotypeInterval) {
+    clearInterval(autotypeInterval);
+  }
+
+  input.value = '';
+  let i = 0;
+  input.focus();
+
+  autotypeInterval = setInterval(() => {
+    if (i < text.length) {
+      input.value += text.charAt(i);
+      i++;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    } else {
+      clearInterval(autotypeInterval);
+      autotypeInterval = null;
+    }
+  }, 28);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('[data-keyword]').forEach((button) => {
+    button.addEventListener('click', () => autotypeKeyword(button.dataset.keyword || ''));
+  });
+
+  const refresh = document.querySelector('.refresh-suggestions');
+  if (refresh) {
+    refresh.addEventListener('click', () => {
+      const chips = Array.from(document.querySelectorAll('[data-keyword]'));
+      chips.forEach((chip, index) => {
+        chip.style.order = String((index + 5) % chips.length);
+      });
+    });
+  }
+});
+</script>
+{% endblock %}

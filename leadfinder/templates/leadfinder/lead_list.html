@@ -1,0 +1,440 @@
+{% extends "base.html" %}
+{% block title %}Leads - Book Trailer Lead Finder{% endblock %}
+{% block content %}
+<div class="leads-page">
+  <div class="leads-command">
+    <div>
+      <h1>Leads</h1>
+      <p class="page-subtitle">Find, review and manage high-quality book trailer opportunities.</p>
+    </div>
+    <div class="leads-toolbar">
+      <a class="btn btn-secondary" href="{% url 'leadfinder:export_leads_csv' %}?limit=700">
+        <i class="fa-regular fa-file-lines"></i> Export CSV
+      </a>
+      <a class="btn btn-primary" href="{% url 'leadfinder:export_leads_xlsx' %}?limit=700">
+        <i class="fa-regular fa-file-excel"></i> Export Excel
+      </a>
+      <button class="icon-button" type="button" title="Notifications" aria-label="Notifications">
+        <i class="fa-regular fa-bell"></i>
+      </button>
+      <button class="profile-button leads-profile" type="button" aria-label="User menu">
+        <span>JD</span>
+        <i class="fa-solid fa-chevron-down"></i>
+      </button>
+    </div>
+  </div>
+
+  <div class="lead-stat-grid">
+    <a class="lead-stat-card stat-total" href="{% url 'leadfinder:lead_list' %}?valid_only=0">
+      <span class="lead-stat-icon"><i class="fa-solid fa-globe"></i></span>
+      <span class="lead-stat-label">Total Crawled</span>
+      <strong>{{ stats.total }}</strong>
+      <span class="lead-stat-spark spark-total" aria-hidden="true"></span>
+    </a>
+    <a class="lead-stat-card stat-hot" href="{% url 'leadfinder:lead_list' %}?tier=hot&valid_only=0">
+      <span class="lead-stat-icon"><i class="fa-solid fa-fire-flame-curved"></i></span>
+      <span class="lead-stat-label">Hot Leads</span>
+      <strong>{{ stats.hot }}</strong>
+      <span class="lead-stat-spark spark-hot" aria-hidden="true"></span>
+    </a>
+    <a class="lead-stat-card stat-pending" href="{% url 'leadfinder:lead_list' %}?manual_review_status=needs_review&valid_only=0">
+      <span class="lead-stat-icon"><i class="fa-regular fa-clock"></i></span>
+      <span class="lead-stat-label">Pending Review</span>
+      <strong>{{ stats.pending }}</strong>
+      <span class="lead-stat-spark spark-pending" aria-hidden="true"></span>
+    </a>
+    <a class="lead-stat-card stat-contactable" href="{% url 'leadfinder:lead_list' %}?has_email=1&valid_only=0">
+      <span class="lead-stat-icon"><i class="fa-regular fa-envelope"></i></span>
+      <span class="lead-stat-label">Contactable</span>
+      <strong>{{ stats.email }}</strong>
+      <span class="lead-stat-spark spark-contactable" aria-hidden="true"></span>
+    </a>
+  </div>
+
+  <form method="get" class="leads-filter-panel" id="filter-form">
+    <div class="leads-filter-tabs" role="tablist" aria-label="Lead filters">
+      <button class="leads-filter-tab active" type="button">Quick Filters</button>
+      <button class="leads-filter-tab" type="button" id="toggle-advanced-btn" aria-expanded="true" aria-controls="advanced-filters-panel">Advanced Filters</button>
+    </div>
+
+    <div class="leads-filter-primary">
+      <div class="leads-search-field">
+        <label for="id_q" class="visually-hidden">Search leads</label>
+        <i class="fa-solid fa-magnifying-glass"></i>
+        {{ form.q }}
+      </div>
+      <div class="leads-select-field">
+        <span>Sort by:</span>
+        {{ form.sort_by }}
+      </div>
+      <div class="leads-select-field">
+        <span>Confidence:</span>
+        {{ form.min_confidence }}
+      </div>
+      <button class="btn btn-secondary save-view-button" type="button">
+        <i class="fa-regular fa-bookmark"></i> Save View
+      </button>
+    </div>
+
+    <div class="quick-filter-label">Quick Filters</div>
+    <div class="quick-filter-row leads-chip-row" aria-label="Quick filters">
+      <a href="{% url 'leadfinder:lead_list' %}" class="quick-filter chip-verified">Verified ready</a>
+      <a href="{% url 'leadfinder:lead_list' %}?tier=hot&valid_only=0" class="quick-filter chip-hot">Hot</a>
+      <a href="{% url 'leadfinder:lead_list' %}?has_email=1&valid_only=0" class="quick-filter chip-email">Has email</a>
+      <a href="{% url 'leadfinder:lead_list' %}?video_status=no_public_video_found&valid_only=0" class="quick-filter chip-video">No video found</a>
+      <a href="{% url 'leadfinder:lead_list' %}?manual_review_status=needs_review&valid_only=0" class="quick-filter chip-review">Needs review</a>
+      <a href="{% url 'leadfinder:lead_list' %}?pub_year_start=2025&valid_only=0" class="quick-filter chip-published">Published 2025+</a>
+      <button type="button" class="quick-filter chip-more"><i class="fa-solid fa-plus"></i> More</button>
+    </div>
+
+    <div id="advanced-filters-panel" class="leads-advanced-panel">
+      <div class="leads-filter-grid">
+        <div class="field-row">
+          <label for="id_tier">Tier</label>
+          {{ form.tier }}
+        </div>
+        <div class="field-row">
+          <label for="id_manual_review_status">Review status</label>
+          {{ form.manual_review_status }}
+        </div>
+        <div class="field-row">
+          <label for="id_video_status">Video status</label>
+          {{ form.video_status }}
+        </div>
+        <div class="field-row">
+          <label for="id_has_email">Has email</label>
+          <div class="leads-check-select">{{ form.has_email }} <span>Any</span></div>
+        </div>
+        <div class="field-row">
+          <label for="id_has_phone">Has phone</label>
+          <div class="leads-check-select">{{ form.has_phone }} <span>Any</span></div>
+        </div>
+        <div class="field-row">
+          <label for="id_has_website">Has website</label>
+          <div class="leads-check-select">{{ form.has_website }} <span>Any</span></div>
+        </div>
+        <div class="field-row">
+          <label for="id_has_amazon_url">Has Amazon URL</label>
+          <div class="leads-check-select">{{ form.has_amazon_url }} <span>Any</span></div>
+        </div>
+        <div class="field-row">
+          <label for="id_do_not_contact">Do not contact</label>
+          <div class="leads-check-select">{{ form.do_not_contact }} <span>Exclude</span></div>
+        </div>
+      </div>
+
+      <div class="leads-extra-filters">
+        <label class="leads-inline-check">{{ form.valid_only }} <span>Verified-ready only</span></label>
+        <label>Min score {{ form.score_min }}</label>
+        <label>Max score {{ form.score_max }}</label>
+        <label>Start year {{ form.pub_year_start }}</label>
+        <label>End year {{ form.pub_year_end }}</label>
+      </div>
+    </div>
+
+    <div class="leads-filter-actions">
+      <a class="btn btn-link leads-clear" href="{% url 'leadfinder:lead_list' %}">
+        <i class="fa-solid fa-rotate-left"></i> Clear all
+      </a>
+      <button class="btn btn-link leads-load-view" type="button">
+        <i class="fa-regular fa-folder-open"></i> Load saved view
+      </button>
+      <button class="btn btn-primary leads-apply" type="submit">
+        <i class="fa-solid fa-filter"></i> Apply filters
+      </button>
+    </div>
+  </form>
+
+  <form method="post" action="{% url 'leadfinder:lead_bulk_action' %}" id="bulk-action-form">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+
+    <section class="leads-table-panel">
+      <div class="leads-table-header">
+        <div class="leads-table-title">
+          <h2>Matching Leads</h2>
+          <span>{{ leads|length }} results</span>
+        </div>
+        <div class="leads-table-tools">
+          <div id="bulk-actions-bar" class="bulk-actions-bar" aria-live="polite">
+            <span id="selected-badge" class="selection-count">0 selected</span>
+            <button type="submit" name="action" value="bulk_reject" class="btn btn-secondary btn-sm">
+              <i class="fa-solid fa-ban text-amber"></i> Reject
+            </button>
+            <button type="submit" name="action" value="bulk_delete" class="btn btn-danger btn-sm" onclick="return confirm('Permanently delete all selected leads? This action cannot be undone.');">
+              <i class="fa-solid fa-trash-can"></i> Delete
+            </button>
+          </div>
+          <button class="view-toggle active" type="button" title="Table view" aria-label="Table view"><i class="fa-solid fa-list"></i></button>
+          <button class="view-toggle" type="button" title="Grid view" aria-label="Grid view"><i class="fa-solid fa-grip"></i></button>
+          <button class="btn btn-secondary btn-sm customize-button" type="button"><i class="fa-solid fa-gear"></i> Customize</button>
+        </div>
+      </div>
+
+      <div class="table-responsive leads-table-wrap">
+        <table class="table align-middle lead-table leads-reference-table">
+          <thead>
+            <tr>
+              <th class="select-cell">
+                <input type="checkbox" id="selectAll" class="form-check-input select-all-checkbox" aria-label="Select all leads">
+              </th>
+              <th>Lead Score</th>
+              <th>Book</th>
+              <th>Contact</th>
+              <th>Channels</th>
+              <th>Published</th>
+              <th>Review Status</th>
+              <th class="text-end">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for lead in leads %}
+            <tr class="clickable-row {% if lead.lead_tier == 'hot' %}hot-row{% endif %}" data-href="{% url 'leadfinder:lead_detail' lead.id %}">
+              <td class="select-cell" data-label="Select">
+                <input type="checkbox" name="lead_ids" value="{{ lead.id }}" class="form-check-input lead-checkbox" aria-label="Select {{ lead.book.title }}">
+              </td>
+              <td data-label="Lead Score">
+                <div class="lead-score-stack">
+                  <span class="score-badge score-{{ lead.lead_tier }}">{{ lead.lead_score }}</span>
+                  <span class="tier-mini tier-{{ lead.lead_tier }}">
+                    {% if lead.lead_tier == 'hot' %}
+                      <i class="fa-solid fa-fire"></i>
+                    {% elif lead.lead_tier == 'warm' %}
+                      <i class="fa-solid fa-fire-flame-curved"></i>
+                    {% elif lead.lead_tier == 'cold' %}
+                      <i class="fa-solid fa-snowflake"></i>
+                    {% elif lead.lead_tier == 'rejected' %}
+                      <i class="fa-solid fa-circle-xmark"></i>
+                    {% else %}
+                      <i class="fa-solid fa-circle-dot"></i>
+                    {% endif %}
+                    {{ lead.lead_tier|title }}
+                  </span>
+                </div>
+              </td>
+              <td data-label="Book">
+                <div class="book-cell">
+                  {% if lead.book.cover_image_url %}
+                    <img src="{{ lead.book.cover_image_url }}" alt="" class="book-cover-mini">
+                  {% else %}
+                    <div class="book-cover-mini no-cover-mini"><i class="fa-solid fa-book"></i></div>
+                  {% endif %}
+                  <div class="stacked-cell min-w-0">
+                    <strong class="row-title" title="{{ lead.book.title }}">{{ lead.book.title }}</strong>
+                    <span class="mini-meta">ASIN: {{ lead.book.asin|default:"-" }}</span>
+                    {% if lead.video_status == 'no_public_video_found' %}
+                      <span class="signal-chip signal-good"><i class="fa-solid fa-circle-info"></i> No video found</span>
+                    {% elif lead.video_status == 'found_trailer' or lead.video_status == 'found_animated_video' %}
+                      <span class="signal-chip signal-risk"><i class="fa-solid fa-film"></i> Trailer found</span>
+                    {% elif lead.video_status == 'found_read_aloud_only' %}
+                      <span class="signal-chip"><i class="fa-solid fa-volume-high"></i> Read aloud</span>
+                    {% elif lead.video_status == 'not_checked' %}
+                      <span class="signal-chip">Not checked</span>
+                    {% elif lead.video_status %}
+                      <span class="signal-chip">{{ lead.video_status }}</span>
+                    {% endif %}
+                  </div>
+                </div>
+              </td>
+              <td data-label="Contact">
+                <div class="stacked-cell">
+                  {% if lead.author_profile.amazon_author_url %}
+                    <a href="{{ lead.author_profile.amazon_author_url }}" target="_blank" class="row-link">
+                      {{ lead.author_profile.author_name|default:lead.book.author_name }} <i class="fa-solid fa-up-right-from-square"></i>
+                    </a>
+                  {% elif lead.author_profile.canonical_website %}
+                    <a href="{{ lead.author_profile.canonical_website }}" target="_blank" class="row-link">
+                      {{ lead.author_profile.author_name|default:lead.book.author_name }} <i class="fa-solid fa-up-right-from-square"></i>
+                    </a>
+                  {% else %}
+                    <strong class="text-light">{{ lead.author_profile.author_name|default:lead.book.author_name|default:"Unknown author" }}</strong>
+                  {% endif %}
+
+                  {% if lead.public_email %}
+                    <a href="mailto:{{ lead.public_email }}" class="contact-link"><i class="fa-regular fa-envelope"></i> {{ lead.public_email|truncatechars:30 }}</a>
+                  {% elif lead.representation_email %}
+                    <a href="mailto:{{ lead.representation_email }}" class="contact-link" title="{{ lead.representation_email }}"><i class="fa-solid fa-briefcase"></i> Agent contact</a>
+                  {% elif lead.publicist_email %}
+                    <a href="mailto:{{ lead.publicist_email }}" class="contact-link" title="{{ lead.publicist_email }}"><i class="fa-solid fa-bullhorn"></i> Publicist</a>
+                  {% else %}
+                    <span class="mini-meta">No email saved</span>
+                  {% endif %}
+                </div>
+              </td>
+              <td data-label="Channels">
+                <div class="channel-actions">
+                  {% if lead.book.amazon_book_url %}
+                    <a href="{{ lead.book.amazon_book_url }}" target="_blank" class="icon-link" title="Amazon book" aria-label="Amazon book">
+                      <i class="fa-brands fa-amazon"></i>
+                    </a>
+                  {% endif %}
+                  {% if lead.author_profile.canonical_website %}
+                    <a href="{{ lead.author_profile.canonical_website }}" target="_blank" class="icon-link" title="Author website" aria-label="Author website">
+                      <i class="fa-solid fa-globe"></i>
+                    </a>
+                  {% endif %}
+                  {% if lead.public_email or lead.representation_email or lead.publicist_email %}
+                    <span class="icon-link" title="Email available" aria-label="Email available">
+                      <i class="fa-regular fa-envelope"></i>
+                    </span>
+                  {% endif %}
+                  {% if lead.author_profile.contact_page_url %}
+                    <a href="{{ lead.author_profile.contact_page_url }}" target="_blank" class="icon-link" title="Contact page" aria-label="Contact page">
+                      <i class="fa-regular fa-address-card"></i>
+                    </a>
+                  {% endif %}
+                  {% if not lead.book.amazon_book_url and not lead.author_profile.canonical_website and not lead.author_profile.contact_page_url and not lead.public_email and not lead.representation_email and not lead.publicist_email %}
+                    <span class="mini-meta">-</span>
+                  {% endif %}
+                </div>
+              </td>
+              <td data-label="Published">
+                <span class="published-date">{{ lead.book.publication_date|default:"-" }}</span>
+              </td>
+              <td data-label="Review Status">
+                <span class="status-pill status-{{ lead.manual_review_status }}">
+                  {% if lead.manual_review_status == "needs_review" %}
+                    Needs review
+                  {% elif lead.manual_review_status == "do_not_contact" %}
+                    Do not contact
+                  {% else %}
+                    {{ lead.manual_review_status|default:"needs_review"|title }}
+                  {% endif %}
+                </span>
+              </td>
+              <td class="text-end" data-label="Action">
+                <div class="row-action-stack">
+                  <a class="btn btn-secondary btn-sm view-lead-button" href="{% url 'leadfinder:lead_detail' lead.id %}">View</a>
+                  <button class="btn btn-secondary btn-sm icon-only" type="button" title="More actions" aria-label="More actions">
+                    <i class="fa-solid fa-ellipsis-vertical"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="8" class="empty-state">
+                <i class="fa-solid fa-users-slash"></i>
+                <strong>No matching leads found.</strong>
+                <span>Adjust filters or start a new run.</span>
+              </td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="leads-table-footer">
+        <span>Showing 1 to {{ leads|length }} of {{ leads|length }} results</span>
+        <div class="leads-pagination" aria-label="Pagination">
+          <button class="btn btn-secondary btn-sm icon-only" type="button" aria-label="Previous page"><i class="fa-solid fa-chevron-left"></i></button>
+          <span>1</span>
+          <button class="btn btn-secondary btn-sm icon-only" type="button" aria-label="Next page"><i class="fa-solid fa-chevron-right"></i></button>
+        </div>
+        <label class="rows-per-page">Rows per page
+          <select aria-label="Rows per page">
+            <option selected>25</option>
+            <option>50</option>
+            <option>100</option>
+          </select>
+        </label>
+      </div>
+    </section>
+  </form>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const toggleBtn = document.getElementById('toggle-advanced-btn');
+  const advancedPanel = document.getElementById('advanced-filters-panel');
+
+  if (toggleBtn && advancedPanel) {
+    toggleBtn.addEventListener('click', () => {
+      const shouldHide = !advancedPanel.hidden;
+      advancedPanel.hidden = shouldHide;
+      toggleBtn.setAttribute('aria-expanded', shouldHide ? 'false' : 'true');
+      toggleBtn.classList.toggle('active', !shouldHide);
+    });
+  }
+
+  const selectAllCheckbox = document.getElementById('selectAll');
+  const leadCheckboxes = document.querySelectorAll('.lead-checkbox');
+  const bulkActionsBar = document.getElementById('bulk-actions-bar');
+  const selectedBadge = document.getElementById('selected-badge');
+
+  function updateBulkActionsBar() {
+    const checkedCount = document.querySelectorAll('.lead-checkbox:checked').length;
+    if (selectedBadge) {
+      selectedBadge.textContent = `${checkedCount} selected`;
+    }
+    if (bulkActionsBar) {
+      bulkActionsBar.classList.toggle('show', checkedCount > 0);
+    }
+    if (selectAllCheckbox) {
+      selectAllCheckbox.checked = checkedCount === leadCheckboxes.length && leadCheckboxes.length > 0;
+      selectAllCheckbox.indeterminate = checkedCount > 0 && checkedCount < leadCheckboxes.length;
+    }
+    leadCheckboxes.forEach((checkbox) => {
+      const row = checkbox.closest('tr');
+      if (row) {
+        row.classList.toggle('selected', checkbox.checked);
+      }
+    });
+  }
+
+  if (selectAllCheckbox) {
+    selectAllCheckbox.addEventListener('change', () => {
+      leadCheckboxes.forEach((checkbox) => {
+        checkbox.checked = selectAllCheckbox.checked;
+      });
+      updateBulkActionsBar();
+    });
+  }
+
+  leadCheckboxes.forEach((checkbox) => {
+    checkbox.addEventListener('change', updateBulkActionsBar);
+  });
+
+  document.querySelectorAll('.clickable-row').forEach((row) => {
+    row.addEventListener('click', (event) => {
+      if (event.target.closest('a, button, input, label, .icon-link')) {
+        return;
+      }
+      const href = row.getAttribute('data-href');
+      if (href) {
+        window.location.href = href;
+      }
+    });
+  });
+
+  const currentParams = new URLSearchParams(window.location.search);
+  const quickFilters = document.querySelectorAll('.quick-filter[href]');
+  
+  quickFilters.forEach(link => {
+    const url = new URL(link.href, window.location.origin);
+    const linkParams = url.searchParams;
+    let isMatch = true;
+    
+    if (linkParams.toString() === "") {
+      const hasOtherFilters = currentParams.has('tier') || currentParams.has('has_email') || 
+                              currentParams.has('video_status') || currentParams.has('manual_review_status') ||
+                              currentParams.has('pub_year_start');
+      isMatch = !hasOtherFilters && (currentParams.get('valid_only') !== '0');
+    } else {
+      for (const [key, val] of linkParams.entries()) {
+        if (currentParams.get(key) !== val) {
+          isMatch = false;
+          break;
+        }
+      }
+    }
+    
+    if (isMatch) {
+      link.classList.add('active');
+    }
+  });
+
+  updateBulkActionsBar();
+});
+</script>
+{% endblock %}

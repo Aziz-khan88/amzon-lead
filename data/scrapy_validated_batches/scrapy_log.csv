@@ -1,0 +1,25 @@
+﻿timestamp_utc,event,batch,total_rows,message
+2026-05-19T17:18:58.075543+00:00,start,1,0,Starting Scrapy no-Tavily crawl
+2026-05-19T17:19:03.956173+00:00,complete,1,0,Scrapy crawl completed
+2026-05-19T17:20:15.164538+00:00,start,1,0,Starting Scrapy no-Tavily crawl
+2026-05-19T17:20:18.645259+00:00,query,1,0,"""children's book author"" ""school visits"" ""amazon"""
+2026-05-19T17:20:18.687726+00:00,query,1,0,"""children's book author"" ""author visits"" ""amazon"""
+2026-05-19T17:20:18.693098+00:00,query,1,0,"""picture book author"" ""school visits"" ""amazon"""
+2026-05-19T17:20:18.697617+00:00,query,1,0,"""picture book author"" ""author visits"" ""amazon"""
+2026-05-19T17:20:18.699545+00:00,query,1,0,"""children's author"" ""school visits"" ""buy on amazon"""
+2026-05-19T17:20:18.701467+00:00,query,1,0,"""children's author"" ""contact"" ""amazon"""
+2026-05-19T17:20:18.703629+00:00,query,1,0,"""picture book illustrator"" ""school visits"" ""amazon"""
+2026-05-19T17:20:18.706310+00:00,query,1,0,"""children's book illustrator"" ""contact"" ""amazon"""
+2026-05-19T17:20:18.708305+00:00,query,1,0,"""kids book author"" ""school visits"" ""amazon"""
+2026-05-19T17:20:18.710153+00:00,query,1,0,"""author visits"" ""children's book"" ""amazon"""
+2026-05-19T17:20:18.712102+00:00,query,1,0,"""virtual author visit"" ""children's book"" ""amazon"""
+2026-05-19T17:20:18.714038+00:00,query,1,0,"""library visits"" ""children's author"" ""amazon"""
+2026-05-19T17:20:18.716116+00:00,query,1,0,"""children's author"" ""books"" ""amazon"" ""email"""
+2026-05-19T17:20:18.718500+00:00,query,1,0,"""picture book author"" ""books"" ""amazon"" ""email"""
+2026-05-19T17:20:18.721807+00:00,query,1,0,"""children's book author"" ""school visits"" ""buy on amazon"""
+2026-05-19T17:20:18.725077+00:00,query,1,0,"""children's book author"" ""school visits"" ""bookshop"""
+2026-05-19T17:20:18.727046+00:00,query,1,0,"""children's book author"" ""school visits"" ""email"""
+2026-05-19T17:20:18.730224+00:00,query,1,0,"""children's book author"" ""school visits"" ""contact"""
+2026-05-19T17:20:18.732281+00:00,query,1,0,"""children's book author"" ""author visits"" ""buy on amazon"""
+2026-05-19T17:20:18.736777+00:00,query,1,0,"""children's book author"" ""author visits"" ""bookshop"""
+2026-05-19T17:21:53.019523+00:00,complete,1,0,Scrapy crawl completed

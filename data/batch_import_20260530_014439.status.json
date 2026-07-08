@@ -1,0 +1,13 @@
+﻿{
+    "state":  "running",
+    "provider":  "ddgs",
+    "current_index":  1,
+    "total":  12,
+    "file":  "books_batch_001_rows_0001-0100.csv",
+    "exit_code":  0,
+    "updated_at":  "2026-05-30T01:44:42.0001898+05:00",
+    "log":  "C:\\Users\\Ali.Raza\\Desktop\\lead-scraping\\django\\booktrailer_leads\\data\\batch_import_20260530_014439.log",
+    "output_all":  "C:\\Users\\Ali.Raza\\Desktop\\lead-scraping\\django\\booktrailer_leads\\data\\batch_import_20260530_014439_all_leads.csv",
+    "output_contactable":  "C:\\Users\\Ali.Raza\\Desktop\\lead-scraping\\django\\booktrailer_leads\\data\\batch_import_20260530_014439_contactable_leads.csv",
+    "output_validated":  "C:\\Users\\Ali.Raza\\Desktop\\lead-scraping\\django\\booktrailer_leads\\data\\batch_import_20260530_014439_validated_author_leads.csv"
+}

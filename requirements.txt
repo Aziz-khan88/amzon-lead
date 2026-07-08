@@ -1,0 +1,30 @@
+# Runtime dependencies for Book Trailer Lead Finder.
+# Keep this list tied to code paths that are actually used by the app.
+
+# Core Django
+Django>=5.2,<7.0
+djangorestframework>=3.16,<4.0
+python-dotenv>=1.1,<2.0
+
+# Database
+psycopg[binary]>=3.2,<4.0
+
+# HTTP, search, and public-page crawling
+requests>=2.32,<3.0
+httpx>=0.28,<1.0
+beautifulsoup4>=4.13,<5.0
+lxml>=6.0,<7.0
+tldextract>=5.3,<6.0
+ddgs>=9.5,<10.0
+tavily-python>=0.7,<1.0
+google-api-python-client>=2.181,<3.0
+scrapy>=2.13,<3.0
+
+# Contact validation and exports
+dnspython>=2.8,<3.0
+email-validator>=2.3,<3.0
+phonenumbers>=9.0,<10.0
+openpyxl>=3.1,<4.0
+
+# AI-assisted extraction/classification
+groq>=0.31

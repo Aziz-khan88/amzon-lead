@@ -1,0 +1,14 @@
+{
+  "state": "running",
+  "mode": "batch_001_only",
+  "provider": "ddgs",
+  "run_id": "3747fd57-b032-4488-8a43-9c496d3a04b6",
+  "current_index": 0,
+  "total": 100,
+  "completed_books": 4,
+  "failed_books": 0,
+  "lead_count": 4,
+  "message": "Starting batch 001 only",
+  "exit_code": 0,
+  "output": "C:\\Users\\Ali.Raza\\Desktop\\lead-scraping\\django\\booktrailer_leads\\data\\batch_001_only_20260530_015254_leads.csv"
+}

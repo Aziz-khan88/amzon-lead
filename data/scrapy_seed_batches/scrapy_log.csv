@@ -1,0 +1,19 @@
+﻿timestamp_utc,event,batch,total_rows,message
+2026-05-19T17:23:49.517217+00:00,start,1,0,Starting Scrapy no-Tavily crawl
+2026-05-19T17:23:53.007599+00:00,query,1,0,"""children's book author"" ""school visits"" ""amazon"""
+2026-05-19T17:23:53.009697+00:00,query,1,0,"""children's book author"" ""author visits"" ""amazon"""
+2026-05-19T17:23:53.011635+00:00,query,1,0,"""picture book author"" ""school visits"" ""amazon"""
+2026-05-19T17:23:53.013506+00:00,query,1,0,"""picture book author"" ""author visits"" ""amazon"""
+2026-05-19T17:23:53.015340+00:00,query,1,0,"""children's author"" ""school visits"" ""buy on amazon"""
+2026-05-19T17:23:53.019248+00:00,query,1,0,"""children's author"" ""contact"" ""amazon"""
+2026-05-19T17:23:53.021147+00:00,query,1,0,"""picture book illustrator"" ""school visits"" ""amazon"""
+2026-05-19T17:23:53.023373+00:00,query,1,0,"""children's book illustrator"" ""contact"" ""amazon"""
+2026-05-19T17:23:53.027676+00:00,query,1,0,"""kids book author"" ""school visits"" ""amazon"""
+2026-05-19T17:23:53.030348+00:00,query,1,0,"""author visits"" ""children's book"" ""amazon"""
+2026-05-19T17:23:53.032322+00:00,query,1,0,"""virtual author visit"" ""children's book"" ""amazon"""
+2026-05-19T17:23:53.034524+00:00,query,1,0,"""library visits"" ""children's author"" ""amazon"""
+2026-05-19T17:23:53.036844+00:00,query,1,0,"""children's author"" ""books"" ""amazon"" ""email"""
+2026-05-19T17:23:53.039138+00:00,query,1,0,"""picture book author"" ""books"" ""amazon"" ""email"""
+2026-05-19T17:25:13.403939+00:00,complete,1,0,Scrapy crawl completed
+2026-05-19T17:26:05.516413+00:00,start,1,0,Starting Scrapy no-Tavily crawl
+2026-05-19T17:26:30.237417+00:00,complete,1,0,Scrapy crawl completed

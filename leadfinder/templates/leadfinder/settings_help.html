@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <p class="eyebrow">Diagnostics</p>
+    <h1>Tools and Settings</h1>
+  </div>
+</div>
+<div class="two-column">
+  <section class="panel">
+    <h2>API Keys</h2>
+    <table class="table table-sm align-middle">
+      <tr><th>SEARCH_PROVIDER</th><td>{{ search_provider }}</td></tr>
+      {% for name, is_set in keys.items %}
+        <tr><th>{{ name }}</th><td><span class="status-pill {% if is_set %}status-completed{% else %}status-pending{% endif %}">{% if is_set %}Configured{% else %}Missing{% endif %}</span></td></tr>
+      {% endfor %}
+    </table>
+  </section>
+  <section class="panel">
+    <h2>Local Checks</h2>
+    <div class="command-list">
+      {% for check in local_checks %}
+        <div class="command-item">
+          <strong>{{ check.label }}</strong>
+          <code>{{ check.command }}</code>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+</div>
+<section class="panel">
+  <h2>Scraping Tools</h2>
+  <div class="tool-grid">
+    {% for tool in scraping_tools %}
+      <div class="tool-card">
+        <div class="tool-card-header">
+          <strong>{{ tool.name }}</strong>
+          <span>{{ tool.status }}</span>
+        </div>
+        <p>{{ tool.purpose }}</p>
+      </div>
+    {% endfor %}
+  </div>
+</section>
+<div class="alert alert-info">
+  This app uses public sources only. It does not scrape Amazon product pages, bypass login walls or rate limits, use private enrichment databases, or auto-send outreach.
+</div>
+{% endblock %}

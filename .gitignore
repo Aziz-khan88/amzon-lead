@@ -1,0 +1,41 @@
+.env
+*.sqlite3
+db.sqlite3
+__pycache__/
+*.py[cod]
+.pytest_cache/
+pytest-cache-files-*/
+.cache/
+.coverage
+htmlcov/
+media/
+staticfiles/
+
+# Virtual Environments
+.venv/
+venv/
+env/
+ENV/
+
+# IDE / Editors
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Scratch Scripts & Outputs
+scratch/
+*.log
+
+# Data and exports
+data/isbn_keyword_database/
+data/*.csv
+data/*.xlsx
+

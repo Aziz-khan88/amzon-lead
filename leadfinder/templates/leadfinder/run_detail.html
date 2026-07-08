@@ -1,0 +1,673 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <p class="eyebrow">Run detail</p>
+    <h1>{{ run.keyword|default:"Untitled run" }}</h1>
+  </div>
+  <div class="action-row">
+    <span class="status-pill status-{{ run.status }}">{{ run.status }}</span>
+    <a class="btn btn-sm btn-outline-secondary" href="{% url 'leadfinder:run_detail' run.id %}">Refresh logs</a>
+    {% if run.status == "pending" or run.status == "running" %}
+      <form method="post" action="{% url 'leadfinder:run_stop' run.id %}" class="d-inline">
+        {% csrf_token %}
+        <button class="btn btn-sm btn-danger" onclick="return confirm('Stop this research run? Work already saved will remain.');">Stop runner</button>
+      </form>
+    {% elif run.status == "canceled" or run.status == "failed" or run.status == "completed" and not books %}
+      <form method="post" action="{% url 'leadfinder:run_retry' run.id %}" class="d-inline">
+        {% csrf_token %}
+        <button class="btn btn-sm btn-primary">Retry run</button>
+      </form>
+    {% endif %}
+  </div>
+</div>
+{% if run.status == "pending" or run.status == "running" %}
+  <div class="alert alert-info">Search is running in the background. Refresh this page to see new query logs and lead checks. Use Stop runner to cancel at the next safe checkpoint.</div>
+{% elif run.status == "canceled" %}
+  <div class="alert alert-warning">This run was stopped. Any books and leads already saved remain available for review. Use Retry run to start a clean new run with the same settings.</div>
+{% endif %}
+
+{% if run.status == "completed" and not books and no_search_results %}
+  <div class="alert alert-warning">
+    No search results came back from {{ run.source_provider }} for this keyword, so no books or leads could be created. Try a more specific keyword like “children picture book author”, “kids bedtime story”, or import a CSV with title, author, and Amazon URL.
+  </div>
+{% endif %}
+
+<style>
+  /* Premium Dark Mode HSL Variables & Theme Override for Dashboard */
+  .agent-visualizer-panel {
+    background: radial-gradient(135deg, rgba(23, 20, 38, 0.92) 0%, rgba(13, 11, 23, 0.96) 100%) !important;
+    border: 1px solid rgba(139, 92, 246, 0.3) !important;
+    border-radius: 16px !important;
+    padding: 24px !important;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+    backdrop-filter: blur(20px);
+    color: #e2e8f0 !important;
+    margin-top: 20px !important;
+    margin-bottom: 30px !important;
+    font-family: 'Outfit', 'Inter', system-ui, sans-serif !important;
+  }
+
+  .agent-visualizer-panel h2 {
+    color: #f8fafc !important;
+    font-size: 1.5rem !important;
+    font-weight: 700 !important;
+    margin: 0 !important;
+  }
+
+  .visualizer-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 20px;
+    margin-bottom: 24px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding-bottom: 16px;
+  }
+
+  .visualizer-title-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .pulse-dot {
+    width: 10px;
+    height: 10px;
+    background-color: hsl(142, 70%, 50%);
+    border-radius: 50%;
+    box-shadow: 0 0 10px hsl(142, 70%, 50%);
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+    70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); }
+    100% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+  }
+
+  .progress-container {
+    flex-grow: 1;
+    max-width: 400px;
+  }
+
+  .progress-label {
+    font-size: 0.85rem;
+    font-weight: 500;
+    margin-bottom: 6px;
+    color: #94a3b8;
+    text-align: right;
+  }
+
+  .progress-bar-bg {
+    width: 100%;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 9999px;
+    overflow: hidden;
+  }
+
+  .progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, hsl(263, 85%, 65%) 0%, hsl(217, 91%, 60%) 100%);
+    box-shadow: 0 0 8px hsl(263, 85%, 65%);
+    transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .stat-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 16px;
+    text-align: center;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  }
+
+  .stat-num {
+    font-size: 2rem;
+    font-weight: 800;
+    color: #f8fafc;
+    margin-bottom: 4px;
+    line-height: 1;
+  }
+
+  .stat-label {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  /* Agents grid layout */
+  .agents-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .agent-card {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  }
+
+  .agent-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    border-radius: 12px;
+    padding: 2px;
+    background: linear-gradient(135deg, transparent 40%, rgba(255,255,255,0.05), transparent 60%);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  .agent-icon {
+    font-size: 2.2rem;
+    margin-bottom: 12px;
+    transition: transform 0.4s ease;
+  }
+
+  .agent-info h3 {
+    font-size: 0.95rem !important;
+    font-weight: 700 !important;
+    margin: 0 0 2px 0 !important;
+    color: #f8fafc !important;
+  }
+
+  .agent-info p.role {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #8b5cf6;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .agent-info p.description {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    margin: 0;
+    line-height: 1.3;
+  }
+
+  .agent-status-badge {
+    margin-top: 12px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 2px 10px;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.05);
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    transition: all 0.3s ease;
+  }
+
+  /* Active glow style for agents */
+  .agent-card.active {
+    background: radial-gradient(circle at center, rgba(139, 92, 246, 0.15) 0%, rgba(23, 20, 38, 0.6) 100%);
+    border-color: rgba(139, 92, 246, 0.6) !important;
+    box-shadow: 0 0 25px rgba(139, 92, 246, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    transform: translateY(-4px);
+  }
+
+  .agent-card.active .agent-icon {
+    transform: scale(1.15);
+  }
+
+  .agent-card.active .agent-status-badge {
+    background: linear-gradient(90deg, hsl(263, 85%, 60%) 0%, hsl(280, 85%, 55%) 100%);
+    color: #ffffff;
+    box-shadow: 0 0 10px rgba(139, 92, 246, 0.5);
+  }
+
+  /* Code terminal styling */
+  .terminal-container {
+    background: #09070f;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  }
+
+  .terminal-header {
+    background: #120e1d;
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  }
+
+  .terminal-buttons {
+    display: flex;
+    gap: 6px;
+  }
+
+  .btn-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+
+  .btn-dot.close { background: #ef4444; }
+  .btn-dot.minimize { background: #f59e0b; }
+  .btn-dot.expand { background: #10b981; }
+
+  .terminal-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #64748b;
+    font-family: 'Fira Code', 'Courier New', monospace;
+    letter-spacing: 0.05em;
+  }
+
+  .terminal-status {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: hsl(142, 70%, 50%);
+    background: rgba(34, 197, 94, 0.1);
+    padding: 1px 6px;
+    border-radius: 4px;
+    letter-spacing: 0.05em;
+  }
+
+  .terminal-body {
+    padding: 16px;
+    height: 200px;
+    overflow-y: auto;
+    font-family: 'Fira Code', 'Courier New', monospace;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    color: #a78bfa;
+    scroll-behavior: smooth;
+  }
+
+  .terminal-body::-webkit-scrollbar {
+    width: 6px;
+  }
+  .terminal-body::-webkit-scrollbar-track {
+    background: #09070f;
+  }
+  .terminal-body::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+  }
+
+  .terminal-line {
+    margin-bottom: 6px;
+    display: flex;
+    gap: 10px;
+    animation: terminalFadeIn 0.3s ease-out;
+  }
+
+  @keyframes terminalFadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .timestamp {
+    color: #4b5563;
+    flex-shrink: 0;
+  }
+
+  .agent-tag {
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  .agent-tag.scout { color: #f59e0b; }
+  .agent-tag.harvester { color: #3b82f6; }
+  .agent-tag.auditor { color: #10b981; }
+  .agent-tag.copywriter { color: #ec4899; }
+  .agent-tag.coordinator { color: #8b5cf6; }
+
+  .msg-body {
+    color: #e2e8f0;
+  }
+
+  .system-line {
+    color: #64748b !important;
+    font-style: italic;
+  }
+</style>
+
+<!-- Live Multi-Agent Workflow Visualizer Dashboard -->
+<section class="panel agent-visualizer-panel">
+  <div class="visualizer-header">
+    <div class="visualizer-title-group">
+      <span class="pulse-dot"></span>
+      <h2>Live Agent Coordination Center</h2>
+    </div>
+    <div class="progress-container">
+      <div class="progress-label">Run Progress: <span id="progress-text">0% ({{ run.status }})</span></div>
+      <div class="progress-bar-bg">
+        <div id="progress-bar" class="progress-bar-fill" style="width: 0%;"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-num" id="stat-discovered">0</div>
+      <div class="stat-label">Discovered Candidates</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num text-success" id="stat-verified">0</div>
+      <div class="stat-label">Verified Leads</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num" id="stat-active-agent" style="color: hsl(260, 90%, 75%); font-weight: 800;">None</div>
+      <div class="stat-label">Current Leader</div>
+    </div>
+  </div>
+
+  <!-- Agent Flow Diagram -->
+  <div class="agents-grid">
+    <!-- Agent 1: Scout -->
+    <div class="agent-card" id="agent-Scout">
+      <div class="agent-icon">🔍</div>
+      <div class="agent-info">
+        <h3>The Scout</h3>
+        <p class="role">Discovery Agent</p>
+        <p class="description">Queries book databases & extracts seeds</p>
+      </div>
+      <div class="agent-status-badge">Idle</div>
+    </div>
+    <!-- Agent 2: Harvester -->
+    <div class="agent-card" id="agent-Harvester">
+      <div class="agent-icon">🌾</div>
+      <div class="agent-info">
+        <h3>The Harvester</h3>
+        <p class="role">Scraping Agent</p>
+        <p class="description">Crawls sites & extracts contacts & videos</p>
+      </div>
+      <div class="agent-status-badge">Idle</div>
+    </div>
+    <!-- Agent 3: Auditor -->
+    <div class="agent-card" id="agent-Auditor">
+      <div class="agent-icon">🛡️</div>
+      <div class="agent-info">
+        <h3>The Auditor</h3>
+        <p class="role">Audit Agent</p>
+        <p class="description">Performs similarity audits & MX checks</p>
+      </div>
+      <div class="agent-status-badge">Idle</div>
+    </div>
+    <!-- Agent 4: Copywriter -->
+    <div class="agent-card" id="agent-Copywriter">
+      <div class="agent-icon">✍️</div>
+      <div class="agent-info">
+        <h3>The Copywriter</h3>
+        <p class="role">Pitch Agent</p>
+        <p class="description">Synthesizes first-line pitches & summaries</p>
+      </div>
+      <div class="agent-status-badge">Idle</div>
+    </div>
+    <!-- Agent 5: Coordinator -->
+    <div class="agent-card" id="agent-Coordinator">
+      <div class="agent-icon">👑</div>
+      <div class="agent-info">
+        <h3>The Coordinator</h3>
+        <p class="role">Delivery Agent</p>
+        <p class="description">Enforces anti-spam & exports database</p>
+      </div>
+      <div class="agent-status-badge">Idle</div>
+    </div>
+  </div>
+
+  <!-- Real-time scrolling thought terminal -->
+  <div class="terminal-container">
+    <div class="terminal-header">
+      <div class="terminal-buttons">
+        <span class="btn-dot close"></span>
+        <span class="btn-dot minimize"></span>
+        <span class="btn-dot expand"></span>
+      </div>
+      <div class="terminal-title">Agent Thought Log Stream</div>
+      <div class="terminal-status">LIVE</div>
+    </div>
+    <div class="terminal-body" id="thought-terminal">
+      <div class="terminal-line system-line">[SYSTEM] Initializing Agent Thought ticker...</div>
+    </div>
+  </div>
+</section>
+
+<section class="panel">
+  <dl class="row mb-0">
+    <dt class="col-sm-2">Provider</dt><dd class="col-sm-10">{{ run.source_provider }}</dd>
+    <dt class="col-sm-2">Max books</dt><dd class="col-sm-10">{{ run.max_books }}</dd>
+    {% if run.source_provider == "booklife" %}
+      <dt class="col-sm-2">BookLife categories</dt><dd class="col-sm-10">{{ run.settings_json.booklife_category_labels|join:", " }}</dd>
+      <dt class="col-sm-2">Age filter</dt><dd class="col-sm-10">{{ run.settings_json.booklife_age_filter }}</dd>
+      <dt class="col-sm-2">Enrichment</dt><dd class="col-sm-10">{{ run.settings_json.enrichment_provider|default:"ddgs" }}</dd>
+    {% endif %}
+    <dt class="col-sm-2">Created</dt><dd class="col-sm-10">{{ run.created_at }}</dd>
+    <dt class="col-sm-2">Error</dt><dd class="col-sm-10 text-danger">{{ run.error_message|default:"None" }}</dd>
+  </dl>
+</section>
+<section class="panel">
+  <h2>Search Logs</h2>
+  <div class="table-responsive">
+    <table class="table table-sm align-middle">
+      <thead><tr><th>Status</th><th>Provider</th><th>Query</th><th>Results</th><th>Amazon candidates</th><th>Error</th></tr></thead>
+      <tbody>
+      {% for log in search_logs %}
+        <tr>
+          <td><span class="status-pill status-{{ log.status }}">{{ log.status }}</span></td>
+          <td>{{ log.provider }}</td>
+          <td class="log-query">{{ log.query }}</td>
+          <td>{{ log.total_results }}</td>
+          <td>{{ log.amazon_results }}</td>
+          <td class="text-danger">{{ log.error_message|default:"None"|truncatechars:120 }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6">No search logs for this run. CSV/manual runs start from uploaded rows.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% if book_errors %}
+<section class="notice-list">
+  <h2>Book Processing Errors</h2>
+  {% for item in book_errors %}
+    <div class="notice-item">
+      <strong>{{ item.book.title }}</strong>
+      <span>{{ item.errors|join:", " }}</span>
+    </div>
+  {% endfor %}
+</section>
+{% endif %}
+<section class="panel">
+  <h2>Books</h2>
+  <div class="table-responsive">
+    <table class="table table-sm align-middle">
+      <thead><tr><th>Title</th><th>Author</th><th>Amazon</th><th>ASIN</th><th>Confidence</th></tr></thead>
+      <tbody>
+      {% for book in books %}
+        <tr><td>{{ book.title }}</td><td>{{ book.author_name|default:"Missing" }}</td><td>{% if book.amazon_book_url %}<a href="{{ book.amazon_book_url }}">Amazon</a>{% else %}<span class="muted">Missing</span>{% endif %}</td><td>{{ book.asin|default:"Missing" }}</td><td>{{ book.book_data_confidence }}</td></tr>
+      {% empty %}
+        <tr><td colspan="5">No books found for this run.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+<section class="panel">
+  <h2>Leads</h2>
+  <div class="table-responsive">
+    <table class="table table-sm align-middle">
+      <thead><tr><th>Score</th><th>Tier</th><th>Book</th><th>Email</th><th>Video</th><th>Review</th><th></th></tr></thead>
+      <tbody>
+      {% for lead in leads %}
+        <tr><td><strong>{{ lead.lead_score }}</strong></td><td><span class="tier-pill tier-{{ lead.lead_tier }}">{{ lead.lead_tier }}</span></td><td>{{ lead.book.title }}</td><td>{{ lead.public_email|default:"Missing" }}</td><td>{{ lead.video_status }}</td><td>{{ lead.manual_review_status }}</td><td><a class="row-link" href="{% url 'leadfinder:lead_detail' lead.id %}">Open</a></td></tr>
+      {% empty %}
+        <tr><td colspan="7">No leads found for this run.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+<section class="panel">
+  <h2>Lead Checks</h2>
+  <div class="table-responsive">
+    <table class="table table-sm align-middle">
+      <thead><tr><th>Pass</th><th>Lead</th><th>Score</th><th>Review blockers</th></tr></thead>
+      <tbody>
+      {% for check in lead_checks %}
+        <tr>
+          <td>{% if check.passed %}<span class="check-pill check-pass">Pass</span>{% else %}<span class="check-pill check-warn">Needs fix</span>{% endif %}</td>
+          <td><a href="{% url 'leadfinder:lead_detail' check.lead.id %}">{{ check.lead.book.title }}</a></td>
+          <td>{{ check.lead.lead_score }}</td>
+          <td>{% if check.errors %}{{ check.errors|join:", " }}{% else %}<span class="muted">Ready for approval</span>{% endif %}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="4">No leads to check yet.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function() {
+    const runId = "{{ run.id }}";
+    const statusUrl = "{% url 'leadfinder:run_agent_status' run.id %}";
+    let knownThoughtsCount = 0;
+    
+    function updateDashboard() {
+      fetch(statusUrl)
+        .then(response => response.json())
+        .then(data => {
+          // 1. Update overall status & progress
+          const pBar = document.getElementById("progress-bar");
+          const pText = document.getElementById("progress-text");
+          pBar.style.width = data.progress + "%";
+          pText.textContent = `${data.progress}% (${data.status})`;
+          
+          // 2. Update Stats
+          document.getElementById("stat-discovered").textContent = data.discovered_count;
+          document.getElementById("stat-verified").textContent = data.verified_leads_count;
+          
+          const activeLabel = document.getElementById("stat-active-agent");
+          if (data.run_status_raw === "completed") {
+            activeLabel.textContent = "Completed";
+            activeLabel.style.color = "hsl(142, 70%, 55%)";
+          } else if (data.run_status_raw === "failed") {
+            activeLabel.textContent = "Failed";
+            activeLabel.style.color = "hsl(0, 70%, 55%)";
+          } else if (data.run_status_raw === "canceled") {
+            activeLabel.textContent = "Stopped";
+            activeLabel.style.color = "hsl(40, 70%, 55%)";
+          } else {
+            activeLabel.textContent = data.active_agent;
+            activeLabel.style.color = "hsl(260, 90%, 75%)";
+          }
+          
+          // 3. Highlight the currently active Agent Card
+          document.querySelectorAll(".agent-card").forEach(card => {
+            card.classList.remove("active");
+            const badge = card.querySelector(".agent-status-badge");
+            badge.textContent = "Idle";
+          });
+          
+          if (data.active_agent && data.active_agent !== "None") {
+            const activeCard = document.getElementById("agent-" + data.active_agent);
+            if (activeCard) {
+              activeCard.classList.add("active");
+              activeCard.querySelector(".agent-status-badge").textContent = "Active";
+            }
+          }
+          
+          // 4. Update the terminal lines if new thoughts have arrived
+          if (data.thoughts && data.thoughts.length > knownThoughtsCount) {
+            const terminal = document.getElementById("thought-terminal");
+            
+            for (let i = knownThoughtsCount; i < data.thoughts.length; i++) {
+              const thought = data.thoughts[i];
+              const line = document.createElement("div");
+              line.className = "terminal-line";
+              
+              const agentClass = thought.agent_name.toLowerCase();
+              
+              line.innerHTML = `
+                <span class="timestamp">[${thought.created_at}]</span>
+                <span class="agent-tag ${agentClass}">[${thought.agent_name.toUpperCase()}]</span>
+                <span class="msg-body">${escapeHTML(thought.message)}</span>
+              `;
+              terminal.appendChild(line);
+            }
+            knownThoughtsCount = data.thoughts.length;
+            terminal.scrollTop = terminal.scrollHeight;
+          }
+          
+          // If run is no longer running or pending, slow down polling or stop
+          if (data.run_status_raw !== "running" && data.run_status_raw !== "pending") {
+            clearInterval(pollInterval);
+            const pulse = document.querySelector(".pulse-dot");
+            if (pulse) {
+              if (data.run_status_raw === "completed") {
+                pulse.style.backgroundColor = "hsl(142, 70%, 50%)";
+                pulse.style.boxShadow = "0 0 10px hsl(142, 70%, 50%)";
+              } else if (data.run_status_raw === "failed") {
+                pulse.style.backgroundColor = "hsl(0, 70%, 50%)";
+                pulse.style.boxShadow = "0 0 10px hsl(0, 70%, 50%)";
+              } else {
+                pulse.style.backgroundColor = "hsl(40, 70%, 50%)";
+                pulse.style.boxShadow = "0 0 10px hsl(40, 70%, 50%)";
+              }
+              pulse.style.animation = "none";
+            }
+            const statusBadge = document.querySelector(".terminal-status");
+            if (statusBadge) {
+              statusBadge.textContent = "STOPPED";
+              statusBadge.style.color = "#ef4444";
+              statusBadge.style.background = "rgba(239, 68, 68, 0.1)";
+            }
+          }
+        })
+        .catch(err => console.error("Error polling agent status:", err));
+    }
+    
+    function escapeHTML(str) {
+      return str.replace(/[&<>'"]/g, 
+        tag => ({
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          "'": '&#39;',
+          '"': '&quot;'
+        }[tag] || tag)
+      );
+    }
+    
+    updateDashboard();
+    const pollInterval = setInterval(updateDashboard, 2500);
+  });
+</script>
+
+{% endblock %}
