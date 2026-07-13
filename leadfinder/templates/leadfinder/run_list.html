@@ -7,50 +7,50 @@
       <h1>Research Runs</h1>
       <p class="page-subtitle">Track and manage all your research runs and their results.</p>
     </div>
-    <div class="runs-toolbar">
+    <div class="runs-toolbar" style="flex-wrap:wrap;gap:.5rem;">
       <button class="runs-map-button" type="button" title="Run health" aria-label="Run health">
-        <i class="fa-solid fa-location-dot"></i>
+        <i class="ph-bold ph-map-pin"></i>
       </button>
       <a class="btn btn-primary" href="{% url 'leadfinder:run_new' %}">
-        <i class="fa-solid fa-plus"></i> New Research Run
+        <i class="ph-bold ph-plus"></i> New Research Run
       </a>
       <a class="btn btn-secondary" href="{% url 'leadfinder:isbn_search' %}">
-        <i class="fa-solid fa-database"></i> Batch ISBN Run
+        <i class="ph-bold ph-database"></i> Batch ISBN Run
       </a>
     </div>
   </div>
 
   <div class="run-stat-grid">
     <div class="run-stat-card stat-runs-total">
-      <span class="run-stat-icon"><i class="fa-solid fa-wave-square"></i></span>
+      <span class="run-stat-icon"><i class="ph ph-wave-sine"></i></span>
       <span class="run-stat-label">Total Runs</span>
       <strong>{{ stats.total }}</strong>
       <small>All time</small>
     </div>
     <div class="run-stat-card stat-runs-completed">
-      <span class="run-stat-icon"><i class="fa-solid fa-check"></i></span>
+      <span class="run-stat-icon"><i class="ph ph-check"></i></span>
       <span class="run-stat-label">Completed</span>
       <strong>{{ stats.completed }}</strong>
       <small>{% widthratio stats.completed stats.total 100 %}%</small>
     </div>
     <div class="run-stat-card stat-runs-review">
-      <span class="run-stat-icon"><i class="fa-regular fa-clock"></i></span>
+      <span class="run-stat-icon"><i class="ph ph-clock"></i></span>
       <span class="run-stat-label">Needs Review</span>
       <strong>{{ stats.running }}</strong>
       <small>{% widthratio stats.running stats.total 100 %}%</small>
     </div>
     <div class="run-stat-card stat-runs-failed">
-      <span class="run-stat-icon"><i class="fa-solid fa-exclamation"></i></span>
+      <span class="run-stat-icon"><i class="ph-fill ph-warning"></i></span>
       <span class="run-stat-label">Failed / Blocked</span>
       <strong>{{ stats.failed }}</strong>
       <small>{% widthratio stats.failed stats.total 100 %}%</small>
     </div>
   </div>
 
-  <section class="runs-filter-panel">
+  <section class="runs-filter-panel" style="flex-wrap:wrap;">
     <div class="runs-search-row">
       <div class="runs-search-field">
-        <i class="fa-solid fa-magnifying-glass"></i>
+        <i class="ph-bold ph-magnifying-glass"></i>
         <input type="search" id="run-search" placeholder="Search runs by name or source..." autocomplete="off">
         <kbd>⌘K</kbd>
       </div>
@@ -74,10 +74,10 @@
         </select>
       </label>
       <label>Date Range
-        <span class="runs-date-field">All Time <i class="fa-regular fa-calendar"></i></span>
+        <span class="runs-date-field">All Time <i class="ph ph-calendar"></i></span>
       </label>
       <button class="btn btn-secondary runs-more-filters" type="button">
-        <i class="fa-solid fa-filter"></i> More Filters
+        <i class="ph-bold ph-funnel"></i> More Filters
       </button>
       <a class="runs-reset" href="{% url 'leadfinder:run_list' %}">Reset</a>
     </div>
@@ -91,25 +91,25 @@
       <a class="runs-tab" href="{% url 'leadfinder:run_list' %}?status=failed">Failed <span>{{ stats.failed }}</span></a>
     </div>
     <div class="runs-table-tools">
-      <button class="btn btn-secondary btn-sm" type="button"><i class="fa-solid fa-download"></i> Export</button>
-      <button class="view-toggle active" type="button" title="Table view" aria-label="Table view"><i class="fa-solid fa-list"></i></button>
-      <button class="view-toggle" type="button" title="Compact view" aria-label="Compact view"><i class="fa-solid fa-table-list"></i></button>
-      <button class="view-toggle" type="button" title="Table settings" aria-label="Table settings"><i class="fa-solid fa-gear"></i></button>
+      <button class="btn btn-secondary btn-sm" type="button"><i class="ph-bold ph-download-simple"></i> Export</button>
+      <button class="view-toggle active" type="button" title="Table view" aria-label="Table view"><i class="ph-bold ph-list"></i></button>
+      <button class="view-toggle" type="button" title="Compact view" aria-label="Compact view"><i class="ph-bold ph-table"></i></button>
+      <button class="view-toggle" type="button" title="Table settings" aria-label="Table settings"><i class="ph-bold ph-gear"></i></button>
     </div>
   </div>
 
   <section class="runs-table-panel">
-    <div class="table-responsive runs-table-wrap">
-      <table class="table align-middle runs-reference-table">
+    <div class="table-responsive runs-table-wrap table-scroll-x">
+      <table class="table align-middle runs-reference-table runs-table">
         <thead>
           <tr>
             <th class="select-cell"><input type="checkbox" class="form-check-input" aria-label="Select all runs"></th>
-            <th>Run Name / Source <i class="fa-solid fa-sort"></i></th>
-            <th>Provider <i class="fa-solid fa-sort"></i></th>
-            <th>Status <i class="fa-solid fa-sort"></i></th>
-            <th>Created <i class="fa-solid fa-sort"></i></th>
-            <th>Records <i class="fa-solid fa-sort"></i></th>
-            <th>Results <i class="fa-solid fa-sort"></i></th>
+            <th>Run Name / Source <i class="ph ph-arrows-down-up"></i></th>
+            <th>Provider <i class="ph ph-arrows-down-up"></i></th>
+            <th>Status <i class="ph ph-arrows-down-up"></i></th>
+            <th>Created <i class="ph ph-arrows-down-up"></i></th>
+            <th>Records <i class="ph ph-arrows-down-up"></i></th>
+            <th>Results <i class="ph ph-arrows-down-up"></i></th>
             <th class="text-end">Actions</th>
           </tr>
         </thead>
@@ -143,9 +143,9 @@
                 {% if run.status == "completed" %}
                   Completed
                 {% elif run.status == "running" %}
-                  Processing <i class="fa-solid fa-spinner fa-spin"></i>
+                  Processing <i class="ph ph-circle-notch" style="display:inline-block;animation:ph-spin 1s linear infinite"></i>
                 {% elif run.status == "pending" %}
-                  Processing <i class="fa-solid fa-spinner fa-spin"></i>
+                  Processing <i class="ph ph-circle-notch" style="display:inline-block;animation:ph-spin 1s linear infinite"></i>
                 {% elif run.status == "failed" %}
                   Failed
                 {% elif run.status == "canceled" %}
@@ -170,30 +170,30 @@
             <td data-label="Actions" class="text-end">
               <div class="runs-row-actions">
                 <a class="btn btn-secondary btn-sm run-open-button" href="{% url 'leadfinder:run_detail' run.id %}">
-                  <i class="fa-regular fa-folder-open"></i> Open
+                  <i class="ph ph-folder-open"></i> Open
                 </a>
                 {% if run.status == "pending" or run.status == "running" %}
                   <form method="post" action="{% url 'leadfinder:run_stop' run.id %}">
                     {% csrf_token %}
                     <input type="hidden" name="next" value="{{ request.get_full_path }}">
                     <button class="btn btn-sm btn-danger" onclick="return confirm('Stop this research run? Work already saved will remain.');">
-                      <i class="fa-solid fa-circle-stop"></i>
+                      <i class="ph-fill ph-stop-circle"></i>
                     </button>
                   </form>
                 {% elif run.status == "canceled" or run.status == "failed" %}
                   <form method="post" action="{% url 'leadfinder:run_retry' run.id %}">
                     {% csrf_token %}
-                    <button class="btn btn-sm btn-secondary"><i class="fa-solid fa-rotate-right"></i> Retry</button>
+                    <button class="btn btn-sm btn-secondary"><i class="ph-bold ph-arrow-clockwise"></i> Retry</button>
                   </form>
                 {% endif %}
-                <button class="btn btn-secondary btn-sm icon-only" type="button" title="More actions" aria-label="More actions"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+                <button class="btn btn-secondary btn-sm icon-only" type="button" title="More actions" aria-label="More actions"><i class="ph ph-dots-three-vertical"></i></button>
               </div>
             </td>
           </tr>
         {% empty %}
           <tr>
             <td colspan="8" class="empty-state">
-              <i class="fa-solid fa-list-check"></i>
+              <i class="ph-bold ph-checks"></i>
               <strong>No research runs yet.</strong>
               <span>Start a keyword, BookLife, ISBN, or CSV run.</span>
             </td>
@@ -212,7 +212,7 @@
         </select>
       </label>
       <div class="runs-pagination" aria-label="Pagination">
-        <button class="btn btn-secondary btn-sm icon-only" type="button" aria-label="Previous page"><i class="fa-solid fa-chevron-left"></i></button>
+        <button class="btn btn-secondary btn-sm icon-only" type="button" aria-label="Previous page"><i class="ph ph-caret-left"></i></button>
         <span>1</span>
         <button type="button">2</button>
         <button type="button">3</button>
@@ -220,7 +220,7 @@
         <button type="button">5</button>
         <em>...</em>
         <button type="button">8</button>
-        <button class="btn btn-secondary btn-sm icon-only" type="button" aria-label="Next page"><i class="fa-solid fa-chevron-right"></i></button>
+        <button class="btn btn-secondary btn-sm icon-only" type="button" aria-label="Next page"><i class="ph ph-caret-right"></i></button>
       </div>
     </div>
   </section>

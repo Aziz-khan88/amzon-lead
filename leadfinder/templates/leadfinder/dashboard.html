@@ -10,33 +10,33 @@
     <div class="dashboard-toolbar" aria-label="Dashboard tools">
       <form class="dashboard-search" action="{% url 'leadfinder:lead_list' %}" method="get">
         <label class="visually-hidden" for="dashboard-search-input">Search leads, runs, or ISBN</label>
-        <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+        <i class="ph-bold ph-magnifying-glass" aria-hidden="true"></i>
         <input id="dashboard-search-input" name="q" type="search" placeholder="Search leads, runs, or ISBN...">
         <kbd>⌘K</kbd>
       </form>
       <button class="icon-button" type="button" title="Notifications" aria-label="Notifications">
-        <i class="fa-regular fa-bell"></i>
+        <i class="ph ph-bell"></i>
         {% if needs_review > 0 %}<span class="notification-dot"></span>{% endif %}
       </button>
       <button class="profile-button" type="button" aria-label="User menu">
         <span>JD</span>
-        <i class="fa-solid fa-chevron-down"></i>
+        <i class="ph ph-caret-down"></i>
       </button>
     </div>
   </div>
 
   <div class="dashboard-actions" aria-label="Primary dashboard actions">
     <a class="btn btn-primary" href="{% url 'leadfinder:run_new' %}">
-      <i class="fa-solid fa-plus"></i> New Research Run
+      <i class="ph-bold ph-plus"></i> New Research Run
     </a>
     <a class="btn btn-secondary" href="{% url 'leadfinder:import_csv' %}">
-      <i class="fa-solid fa-arrow-up-from-bracket"></i> Import CSV
+      <i class="ph-bold ph-upload-simple"></i> Import CSV
     </a>
     <a class="btn btn-secondary" href="{% url 'leadfinder:export_leads_csv' %}?limit=700">
-      <i class="fa-solid fa-download"></i> Export Leads
+      <i class="ph-bold ph-download-simple"></i> Export Leads
     </a>
     <a class="btn btn-secondary" href="{% url 'leadfinder:export_leads_xlsx' %}?limit=700">
-      <i class="fa-solid fa-file-excel text-teal"></i> Export Excel
+      <i class="ph ph-file-xls text-teal"></i> Export Excel
     </a>
   </div>
 </div>
@@ -44,7 +44,7 @@
 <section class="panel dashboard-panel quick-start-panel">
   <div class="section-heading">
     <div>
-      <h2><i class="fa-solid fa-rocket text-teal"></i> Quick Start Workflow</h2>
+      <h2><i class="ph-fill ph-rocket text-teal"></i> Quick Start Workflow</h2>
       <p class="section-subtitle">Follow these steps to find and qualify the best book trailer opportunities.</p>
     </div>
   </div>
@@ -52,31 +52,31 @@
   <div class="workflow-grid dashboard-workflow-grid">
     <article class="walkthrough-card">
       <div class="step-badge">1</div>
-      <div class="card-icon icon-search"><i class="fa-solid fa-magnifying-glass"></i></div>
+      <div class="card-icon icon-search"><i class="ph-bold ph-magnifying-glass"></i></div>
       <h3>Search Books</h3>
       <p>Run keyword lookups or paste ASINs/ISBNs to find books, authors, and Amazon URLs.</p>
       <a href="{% url 'leadfinder:isbn_search' %}" class="btn btn-primary btn-sm w-100 mt-auto">
-        Start Book Search <i class="fa-solid fa-chevron-right"></i>
+        Start Book Search <i class="ph ph-caret-right"></i>
       </a>
     </article>
 
     <article class="walkthrough-card">
       <div class="step-badge">2</div>
-      <div class="card-icon icon-review"><i class="fa-regular fa-clipboard"></i></div>
+      <div class="card-icon icon-review"><i class="ph ph-clipboard"></i></div>
       <h3>Review Leads</h3>
       <p>Inspect emails, confidence scores, source evidence, and existing video signals before outreach.</p>
       <a href="{% url 'leadfinder:lead_list' %}?manual_review_status=needs_review&valid_only=0" class="btn btn-secondary btn-sm w-100 mt-auto text-teal">
-        Open Review Queue <i class="fa-solid fa-chevron-right"></i>
+        Open Review Queue <i class="ph ph-caret-right"></i>
       </a>
     </article>
 
     <article class="walkthrough-card">
       <div class="step-badge">3</div>
-      <div class="card-icon icon-outreach"><i class="fa-solid fa-video"></i></div>
+      <div class="card-icon icon-outreach"><i class="ph-bold ph-video-camera"></i></div>
       <h3>Export & Pitch</h3>
       <p>Filter no-video opportunities and export clean lead sheets for the outreach team.</p>
       <a href="{% url 'leadfinder:lead_list' %}?video_status=no_public_video_found&valid_only=0" class="btn btn-secondary btn-sm w-100 mt-auto">
-        View Video Opportunities <i class="fa-solid fa-chevron-right"></i>
+        View Video Opportunities <i class="ph ph-caret-right"></i>
       </a>
     </article>
   </div>
@@ -85,37 +85,37 @@
 <section class="panel dashboard-panel manager-workbench">
   <div class="section-heading">
     <div>
-      <h2><i class="fa-regular fa-clipboard"></i> Lead Manager Workbench</h2>
+      <h2><i class="ph ph-clipboard"></i> Lead Manager Workbench</h2>
     </div>
   </div>
   <div class="workbench-grid dashboard-workbench-grid">
     <a class="workbench-card card-needs-review" href="{% url 'leadfinder:lead_list' %}?manual_review_status=needs_review&valid_only=0">
-      <span class="workbench-icon"><i class="fa-solid fa-users"></i></span>
+      <span class="workbench-icon"><i class="ph-bold ph-users-three"></i></span>
       <span class="workbench-label">Review Queue</span>
       <strong>{{ needs_review }}</strong>
       <small>Needs human decision</small>
-      <i class="fa-solid fa-chevron-right workbench-arrow"></i>
+      <i class="ph ph-caret-right workbench-arrow"></i>
     </a>
     <a class="workbench-card card-contactable" href="{% url 'leadfinder:lead_list' %}?has_email=1&valid_only=0">
       <span class="workbench-icon"><i class="fa-solid fa-user"></i></span>
       <span class="workbench-label">Contactable Leads</span>
       <strong>{{ public_emails }}</strong>
       <small>Ready for outreach prep</small>
-      <i class="fa-solid fa-chevron-right workbench-arrow"></i>
+      <i class="ph ph-caret-right workbench-arrow"></i>
     </a>
     <a class="workbench-card card-no-video" href="{% url 'leadfinder:lead_list' %}?video_status=no_public_video_found&valid_only=0">
-      <span class="workbench-icon"><i class="fa-solid fa-video"></i></span>
+      <span class="workbench-icon"><i class="ph-bold ph-video-camera"></i></span>
       <span class="workbench-label">No-Video Opportunities</span>
       <strong>{{ no_public_video_found }}</strong>
       <small>Potential trailer fit</small>
-      <i class="fa-solid fa-chevron-right workbench-arrow"></i>
+      <i class="ph ph-caret-right workbench-arrow"></i>
     </a>
     <a class="workbench-card card-hot-prospects" href="{% url 'leadfinder:lead_list' %}?tier=hot&valid_only=0">
-      <span class="workbench-icon"><i class="fa-solid fa-fire-flame-curved"></i></span>
+      <span class="workbench-icon"><i class="ph ph-fire-simple"></i></span>
       <span class="workbench-label">Hot Prospects</span>
       <strong>{{ hot_leads }}</strong>
       <small>Highest score first</small>
-      <i class="fa-solid fa-chevron-right workbench-arrow"></i>
+      <i class="ph ph-caret-right workbench-arrow"></i>
     </a>
   </div>
 </section>
@@ -123,7 +123,7 @@
 <div class="dashboard-insights-grid">
   <section class="panel dashboard-panel insight-panel">
     <div class="metric-group-header">
-      <i class="fa-solid fa-filter"></i> Lead Pipeline
+      <i class="ph-bold ph-funnel"></i> Lead Pipeline
     </div>
     <div class="pipeline-visual">
       <a href="{% url 'leadfinder:lead_list' %}?valid_only=0" class="pipeline-ring" aria-label="{{ total_leads }} total leads">
@@ -141,16 +141,16 @@
       <form method="post" action="{% url 'leadfinder:delete_rejected_leads' %}" class="delete-rejected-inline">
         {% csrf_token %}
         <button type="submit" class="btn btn-secondary btn-sm" onclick="return confirm('Are you sure you want to permanently delete all {{ rejected_leads }} rejected leads? This action cannot be undone.');">
-          <i class="fa-solid fa-trash-can"></i> Delete Rejected
+          <i class="ph-bold ph-trash"></i> Delete Rejected
         </button>
       </form>
     {% endif %}
-    <a href="{% url 'leadfinder:lead_list' %}?valid_only=0" class="btn btn-secondary btn-sm w-100 mt-auto">View All Leads <i class="fa-solid fa-chevron-right"></i></a>
+    <a href="{% url 'leadfinder:lead_list' %}?valid_only=0" class="btn btn-secondary btn-sm w-100 mt-auto">View All Leads <i class="ph ph-caret-right"></i></a>
   </section>
 
   <section class="panel dashboard-panel insight-panel">
     <div class="metric-group-header">
-      <i class="fa-regular fa-envelope"></i> Outreach & Reviews
+      <i class="ph ph-envelope"></i> Outreach & Reviews
     </div>
     <div class="metric-grid dashboard-mini-grid">
       <a href="{% url 'leadfinder:lead_list' %}?has_email=1&valid_only=0" class="metric text-decoration-none">
@@ -174,12 +174,12 @@
         <strong>{{ do_not_contact }}</strong>
       </a>
     </div>
-    <a href="{% url 'leadfinder:lead_list' %}?has_email=1&valid_only=0" class="btn btn-secondary btn-sm w-100 mt-auto">View Outreach <i class="fa-solid fa-chevron-right"></i></a>
+    <a href="{% url 'leadfinder:lead_list' %}?has_email=1&valid_only=0" class="btn btn-secondary btn-sm w-100 mt-auto">View Outreach <i class="ph ph-caret-right"></i></a>
   </section>
 
   <section class="panel dashboard-panel insight-panel">
     <div class="metric-group-header">
-      <i class="fa-solid fa-video"></i> Video Fitting & Status
+      <i class="ph-bold ph-video-camera"></i> Video Fitting & Status
     </div>
     <div class="metric-grid dashboard-mini-grid">
       <a href="{% url 'leadfinder:lead_list' %}?video_status=no_public_video_found&valid_only=0" class="metric text-decoration-none">
@@ -195,13 +195,13 @@
         <strong>{{ failed_runs }}</strong>
       </a>
     </div>
-    <a href="{% url 'leadfinder:lead_list' %}?video_status=no_public_video_found&valid_only=0" class="btn btn-secondary btn-sm w-100 mt-auto">View Video Opportunities <i class="fa-solid fa-chevron-right"></i></a>
+    <a href="{% url 'leadfinder:lead_list' %}?video_status=no_public_video_found&valid_only=0" class="btn btn-secondary btn-sm w-100 mt-auto">View Video Opportunities <i class="ph ph-caret-right"></i></a>
   </section>
 </div>
 
 {% if latest_errors %}
   <section class="notice-list dashboard-panel mb-4">
-    <h2 class="text-danger"><i class="fa-solid fa-triangle-exclamation"></i> Recent Run Failures</h2>
+    <h2 class="text-danger"><i class="ph-fill ph-warning"></i> Recent Run Failures</h2>
     <div class="row g-3">
       {% for run in latest_errors %}
         <div class="col-md-6">
@@ -220,9 +220,9 @@
 
 <section class="panel dashboard-panel latest-runs-panel">
   <div class="section-heading mb-3">
-    <h2><i class="fa-solid fa-clock-rotate-left"></i> Latest Research Runs</h2>
+    <h2><i class="ph-bold ph-clock-counter-clockwise"></i> Latest Research Runs</h2>
     <a href="{% url 'leadfinder:run_list' %}" class="btn btn-secondary btn-sm">
-      <i class="fa-solid fa-list"></i> View All Runs <i class="fa-solid fa-chevron-right"></i>
+      <i class="ph-bold ph-list"></i> View All Runs <i class="ph ph-caret-right"></i>
     </a>
   </div>
   <div class="table-responsive dashboard-table-wrap">
@@ -248,13 +248,13 @@
             <td data-label="Status">
               <span class="status-pill status-{{ run.status }}">
                 {% if run.status == 'completed' %}
-                  <i class="fa-solid fa-circle-check"></i>
+                  <i class="ph-fill ph-check-circle"></i>
                 {% elif run.status == 'running' %}
-                  <i class="fa-solid fa-spinner fa-spin"></i>
+                  <i class="ph ph-circle-notch" style="display:inline-block;animation:ph-spin 1s linear infinite"></i>
                 {% elif run.status == 'failed' %}
-                  <i class="fa-solid fa-circle-xmark"></i>
+                  <i class="ph-fill ph-x-circle"></i>
                 {% else %}
-                  <i class="fa-regular fa-circle-dot"></i>
+                  <i class="ph ph-circle-dashed"></i>
                 {% endif %}
                 {{ run.status }}
               </span>
@@ -263,21 +263,21 @@
             <td data-label="Actions" class="text-end">
               <span class="dashboard-row-actions">
                 <a class="btn btn-secondary btn-sm" href="{% url 'leadfinder:run_detail' run.id %}">
-                  <i class="fa-solid fa-folder-open"></i> Open
+                  <i class="ph-bold ph-folder-open"></i> Open
                 </a>
                 {% if run.status == "pending" or run.status == "running" %}
                   <form method="post" action="{% url 'leadfinder:run_stop' run.id %}">
                     {% csrf_token %}
                     <input type="hidden" name="next" value="{{ request.get_full_path }}">
                     <button class="btn btn-sm btn-danger" onclick="return confirm('Stop this research run? Work already saved will remain.');">
-                      <i class="fa-solid fa-circle-stop"></i> Stop
+                      <i class="ph-fill ph-stop-circle"></i> Stop
                     </button>
                   </form>
                 {% elif run.status == "canceled" or run.status == "failed" %}
                   <form method="post" action="{% url 'leadfinder:run_retry' run.id %}">
                     {% csrf_token %}
                     <button class="btn btn-sm btn-primary">
-                      <i class="fa-solid fa-rotate-left"></i> Retry
+                      <i class="ph-bold ph-arrow-counter-clockwise"></i> Retry
                     </button>
                   </form>
                 {% endif %}
@@ -290,7 +290,7 @@
         {% empty %}
           <tr>
             <td colspan="5" class="text-center py-4 text-muted">
-              <i class="fa-solid fa-triangle-exclamation fa-2x mb-2 d-block"></i> No research runs found.
+              <i class="ph-fill ph-warning fa-2x mb-2 d-block"></i> No research runs found.
             </td>
           </tr>
         {% endfor %}

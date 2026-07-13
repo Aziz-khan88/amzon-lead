@@ -32,6 +32,15 @@ body {
   font-size: 15px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Global: prevent horizontal page scroll; tables scroll within their own containers */
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+
+/* Prevent grid / flex children from blowing out their container */
+*, *::before, *::after {
+  box-sizing: border-box;
+  min-width: 0;
 }
 
 /* Base elements */
@@ -610,6 +619,21 @@ pre {
   display: grid;
   gap: 1.5rem;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  min-width: 0;
+  width: 100%;
+}
+
+/* Each grid cell in two-column must not blow out past its column width */
+.two-column > * {
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* On mobile, stack two-column to a single column */
+@media (max-width: 768px) {
+  .two-column {
+    grid-template-columns: 1fr;
+  }
 }
 
 .command-list,
@@ -4103,11 +4127,13 @@ body {
   border-radius: 0;
   max-width: 100%;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  min-width: 0;
 }
 
 .leads-reference-table {
   font-size: .84rem;
-  min-width: 100%;
+  min-width: 700px;
   table-layout: fixed;
   width: 100%;
 }
@@ -4735,12 +4761,14 @@ body {
   border-radius: 0;
   max-width: 100%;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  min-width: 0;
 }
 
 .runs-reference-table {
   font-size: .86rem;
   margin: 0;
-  min-width: 100%;
+  min-width: 680px;
   table-layout: fixed;
   width: 100%;
 }
@@ -5007,8 +5035,15 @@ body {
     display: none;
   }
 
+  /* Card-flip mode — no min-width needed */
   .runs-reference-table {
-    min-width: 820px;
+    min-width: 0;
+    table-layout: auto;
+  }
+
+  .runs-reference-table th,
+  .runs-reference-table td {
+    width: auto !important;
   }
 }
 
@@ -5397,5 +5432,1008 @@ body {
   .new-run-suggestions {
     max-height: 184px;
     overflow: auto;
+  }
+}
+
+/* ==========================================================================
+   GLOBAL RESPONSIVE SYSTEM — All Pages
+   Breakpoints: 1024px (tablet-landscape), 768px (tablet), 640px (mobile-lg), 480px (mobile)
+   ========================================================================== */
+
+/* ── Shared layout helpers ───────────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .page-wrap {
+    padding: 1.5rem 1rem;
+  }
+
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .side-help {
+    display: none !important;
+  }
+
+  h1 {
+    font-size: 1.8rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .page-wrap {
+    padding: 1rem 0.75rem;
+  }
+
+  h1 {
+    font-size: 1.5rem;
+  }
+
+  h2 {
+    font-size: 1.1rem;
+  }
+
+  .panel,
+  .narrow-form,
+  .filter-bar {
+    padding: 1rem;
+    border-radius: 10px;
+  }
+
+  .action-row,
+  .form-actions,
+  .filter-actions {
+    gap: 0.5rem;
+  }
+
+  .btn {
+    font-size: 0.85rem;
+    padding: 0.45rem 0.85rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .page-wrap {
+    padding: 0.75rem 0.5rem;
+  }
+
+  .panel,
+  .narrow-form,
+  .filter-bar {
+    padding: 0.8rem;
+  }
+}
+
+/* ── Navigation ───────────────────────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .nav-links a {
+    font-size: 0.8rem;
+    padding: 0.4rem 0.5rem;
+  }
+}
+
+/* ── Dashboard ───────────────────────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .dashboard-hero {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .dashboard-toolbar {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .dashboard-search {
+    flex: 1 1 200px;
+    min-width: 0;
+  }
+
+  .dashboard-search input {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .dashboard-actions {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .dashboard-actions .btn {
+    flex: 1 1 140px;
+    text-align: center;
+    justify-content: center;
+  }
+
+  .workflow-grid,
+  .dashboard-workflow-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  .metric-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .dashboard-command {
+    gap: 0.75rem;
+  }
+
+  .dashboard-hero {
+    gap: 0.75rem;
+  }
+
+  .workflow-grid,
+  .dashboard-workflow-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .metric-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  .walkthrough-card {
+    padding: 1rem;
+  }
+
+  .section-heading {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .section-heading .action-row {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .metric-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .dashboard-actions .btn {
+    flex: 1 1 100%;
+  }
+}
+
+/* ── Lead List Page ──────────────────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .leads-filter-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .leads-filter-bar .filter-group {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .leads-filter-bar select,
+  .leads-filter-bar input[type="search"],
+  .leads-filter-bar input[type="text"] {
+    width: 100%;
+  }
+
+  /* Responsive table: contained scroll within panel only */
+  .table-responsive-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* No min-width on tablet — card-flip kicks in at 768px */
+  .leads-table {
+    min-width: 0;
+  }
+
+  .lead-row-actions {
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+
+  .lead-row-actions .btn {
+    width: 100%;
+    text-align: center;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 768px) {
+  /* Stack lead card view instead of table */
+  .leads-table thead {
+    display: none;
+  }
+
+  /* Reset fixed layout so no min-width columns bleed out */
+  .leads-table,
+  .leads-reference-table {
+    table-layout: auto !important;
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  .leads-reference-table th,
+  .leads-reference-table td {
+    width: auto !important;
+  }
+
+  .leads-table,
+  .leads-table tbody,
+  .leads-table tr,
+  .leads-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .leads-table tr {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    margin-bottom: 0.75rem;
+    padding: 0.75rem;
+    background: var(--panel);
+  }
+
+  .leads-table td {
+    border: none;
+    padding: 0.3rem 0;
+    font-size: 0.85rem;
+    text-align: left !important;
+  }
+
+  .leads-table td::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.15rem;
+  }
+
+  .bulk-select-row {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .bulk-action-bar {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .bulk-action-bar select,
+  .bulk-action-bar .btn {
+    width: 100%;
+  }
+}
+
+/* ── Run List Page ───────────────────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .runs-table {
+    min-width: 700px;
+  }
+
+  .run-actions-cell {
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+
+  .run-actions-cell .btn {
+    width: 100%;
+    text-align: center;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 768px) {
+  .runs-table thead {
+    display: none;
+  }
+
+  .runs-table,
+  .runs-table tbody,
+  .runs-table tr,
+  .runs-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .runs-table tr {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    margin-bottom: 0.75rem;
+    padding: 0.75rem;
+    background: var(--panel);
+  }
+
+  .runs-table td {
+    border: none;
+    padding: 0.3rem 0;
+    font-size: 0.85rem;
+  }
+
+  .runs-table td::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.15rem;
+  }
+
+  /* Run list header row */
+  .run-list-header {
+    flex-direction: column;
+    gap: 0.75rem;
+    align-items: flex-start;
+  }
+
+  .run-list-header .action-row {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .run-list-header .action-row .btn {
+    flex: 1 1 140px;
+  }
+}
+
+/* ── Import CSV Page ─────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .import-csv-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .import-dropzone {
+    padding: 1.5rem 1rem;
+  }
+
+  .csv-field-map-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ── ISBN Search Page ────────────────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .isbn-search-layout {
+    grid-template-columns: 1fr !important;
+    gap: 1rem;
+  }
+
+  .isbn-results-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .isbn-search-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .isbn-input-row {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .isbn-input-row input,
+  .isbn-input-row .btn {
+    width: 100%;
+  }
+
+  .isbn-results-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .isbn-result-card {
+    padding: 0.75rem;
+  }
+
+  .isbn-task-list {
+    flex-direction: column;
+  }
+
+  .isbn-task-item {
+    width: 100%;
+  }
+}
+
+/* ── Run Detail / Progress Console ──────────────────────────────────────── */
+@media (max-width: 768px) {
+  .progress-header-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .run-meta-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .run-detail-actions {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .run-detail-actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .book-queue-list {
+    gap: 0.5rem;
+  }
+
+  .book-queue-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.4rem;
+    padding: 0.75rem;
+  }
+}
+
+/* ── Lead Detail Page ────────────────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .lead-detail-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .lead-sidebar {
+    order: -1;
+  }
+
+  .evidence-table {
+    min-width: 600px;
+  }
+}
+
+@media (max-width: 768px) {
+  .author-header-card {
+    flex-direction: column;
+    text-align: center;
+    gap: 1rem;
+  }
+
+  .author-header-card .author-avatar {
+    margin: 0 auto;
+  }
+
+  .lead-score-ring {
+    margin: 0 auto 0.5rem;
+  }
+
+  .lead-action-bar {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .lead-action-bar .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .contact-channels-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .socials-row {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .evidence-table thead {
+    display: none;
+  }
+
+  .evidence-table,
+  .evidence-table tbody,
+  .evidence-table tr,
+  .evidence-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .evidence-table tr {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    margin-bottom: 0.5rem;
+    padding: 0.6rem;
+  }
+
+  .evidence-table td {
+    border: none;
+    padding: 0.25rem 0;
+    font-size: 0.82rem;
+  }
+
+  .evidence-table td::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.1rem;
+  }
+}
+
+/* ── Settings Help Page ──────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .settings-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .command-card {
+    padding: 0.75rem;
+  }
+
+  .command-card pre,
+  .command-card code {
+    font-size: 0.78rem;
+    overflow-x: auto;
+  }
+}
+
+/* ── BookLife Run Page ───────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .booklife-category-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  .booklife-filter-row {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .booklife-filter-row select,
+  .booklife-filter-row .btn {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .booklife-category-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ── Generic Table Responsive Wrapper ────────────────────────────────────── */
+/* Add class table-scroll-x to any panel containing a wide table */
+.table-scroll-x {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 0 0 10px 10px;
+}
+
+/* All Bootstrap tables inside panels get horizontal scroll on small screens */
+@media (max-width: 768px) {
+  .panel .table-responsive,
+  .panel > .table-scroll-x {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Prevent page-level horizontal overflow */
+  html,
+  body {
+    overflow-x: hidden;
+    max-width: 100vw;
+  }
+
+
+  /* Fix long words / URLs breaking layout */
+  .panel, .narrow-form, td, th {
+    word-break: break-word;
+    overflow-wrap: break-word;
+  }
+}
+
+/* ── Filter bars & search inputs ─────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .filter-bar {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.65rem !important;
+  }
+
+  .filter-bar > *,
+  .filter-bar select,
+  .filter-bar input {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .filter-bar .btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* ── Pagination ──────────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .pagination {
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    justify-content: center;
+  }
+
+  .pagination .page-item {
+    margin: 0;
+  }
+
+  .pagination .page-link {
+    padding: 0.35rem 0.6rem;
+    font-size: 0.82rem;
+  }
+}
+
+/* ── Badges, pills, status chips ────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .badge,
+  .status-pill,
+  .tier-badge {
+    font-size: 0.7rem;
+    padding: 0.2rem 0.45rem;
+  }
+}
+
+/* ── Fix side-help for tablets ───────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .side-help {
+    display: none !important;
+  }
+}
+
+/* ── Sticky action/bottom bars on mobile ─────────────────────────────────── */
+@media (max-width: 768px) {
+  .sticky-action-bar,
+  .new-run-actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 20;
+    background: rgba(10, 15, 26, 0.95);
+    backdrop-filter: blur(12px);
+    margin-left: -0.75rem;
+    margin-right: -0.75rem;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+    padding-bottom: env(safe-area-inset-bottom, 0.5rem);
+    border-top: 1px solid var(--line);
+    border-radius: 0 !important;
+  }
+}
+
+/* ── Typography scale for very small screens ─────────────────────────────── */
+@media (max-width: 480px) {
+  h1 { font-size: 1.35rem; }
+  h2 { font-size: 1rem; }
+  h3 { font-size: 0.95rem; }
+  .eyebrow { font-size: 0.72rem; }
+  .page-subtitle { font-size: 0.85rem; }
+  .metric-val { font-size: 1.6rem; }
+}
+
+/* ==========================================================================
+   PAGE-SPECIFIC COMMAND HEADERS & STAT GRIDS
+   ========================================================================== */
+
+/* ── Leads command header ────────────────────────────────────────────────── */
+.leads-command,
+.runs-command {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+@media (max-width: 768px) {
+  .leads-command,
+  .runs-command {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .leads-toolbar,
+  .runs-toolbar {
+    width: 100%;
+    flex-wrap: wrap !important;
+    gap: 0.5rem !important;
+  }
+
+  .leads-toolbar .btn,
+  .runs-toolbar .btn {
+    flex: 1 1 120px;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .icon-button,
+  .profile-button,
+  .leads-profile,
+  .runs-map-button {
+    margin-left: auto;
+  }
+}
+
+/* ── Lead stat cards ─────────────────────────────────────────────────────── */
+.lead-stat-grid,
+.run-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+@media (max-width: 1024px) {
+  .lead-stat-grid,
+  .run-stat-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .lead-stat-grid,
+  .run-stat-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.65rem;
+  }
+
+  .lead-stat-card,
+  .run-stat-card {
+    padding: 0.75rem !important;
+  }
+
+  .lead-stat-card strong,
+  .run-stat-card strong {
+    font-size: 1.4rem !important;
+  }
+}
+
+/* ── Quick filter chip row ───────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .quick-filter-row,
+  .leads-chip-row {
+    flex-wrap: wrap !important;
+    gap: 0.4rem !important;
+  }
+
+  .quick-filter {
+    font-size: 0.78rem !important;
+    padding: 0.3rem 0.65rem !important;
+  }
+}
+
+/* ── Leads filter panel ──────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .leads-filter-panel {
+    padding: 1rem;
+  }
+
+  .leads-filter-primary {
+    flex-direction: column !important;
+    gap: 0.65rem !important;
+  }
+
+  .leads-search-field,
+  .leads-select-field {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .leads-filter-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.65rem !important;
+  }
+
+  .leads-extra-filters {
+    flex-direction: column !important;
+    gap: 0.5rem !important;
+  }
+
+  .leads-filter-actions {
+    flex-wrap: wrap !important;
+    gap: 0.5rem !important;
+  }
+
+  .leads-filter-actions .btn {
+    flex: 1 1 120px;
+    justify-content: center;
+  }
+
+  .save-view-button {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .leads-filter-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ── Runs filter panel ───────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .runs-filter-panel {
+    padding: 0.85rem;
+  }
+
+  .runs-search-row {
+    width: 100%;
+  }
+
+  .runs-search-field {
+    width: 100% !important;
+  }
+
+  .runs-search-field input {
+    width: 100% !important;
+  }
+
+  .runs-filter-grid {
+    flex-direction: column !important;
+    gap: 0.65rem !important;
+  }
+
+  .runs-filter-grid label {
+    width: 100% !important;
+  }
+
+  .runs-filter-grid select {
+    width: 100% !important;
+  }
+
+  .runs-more-filters,
+  .runs-reset {
+    width: 100%;
+    text-align: center;
+  }
+}
+
+/* ── Runs list controls / tabs ───────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .runs-list-controls {
+    flex-direction: column !important;
+    gap: 0.75rem !important;
+    align-items: flex-start !important;
+  }
+
+  .runs-tabs {
+    flex-wrap: wrap !important;
+    gap: 0.35rem !important;
+    width: 100%;
+  }
+
+  .runs-tab {
+    flex: 1 1 auto;
+    text-align: center;
+    font-size: 0.82rem !important;
+    padding: 0.45rem 0.65rem !important;
+  }
+
+  .runs-table-tools {
+    width: 100%;
+    justify-content: flex-start !important;
+    flex-wrap: wrap !important;
+    gap: 0.4rem !important;
+  }
+}
+
+/* ── Leads table header row ──────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .leads-table-header {
+    flex-direction: column !important;
+    gap: 0.65rem !important;
+    align-items: flex-start !important;
+  }
+
+  .leads-table-tools {
+    width: 100%;
+    justify-content: flex-start !important;
+    flex-wrap: wrap !important;
+    gap: 0.4rem !important;
+  }
+
+  .leads-table-title {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .bulk-actions-bar {
+    flex-wrap: wrap !important;
+    gap: 0.4rem !important;
+  }
+
+  .bulk-actions-bar .btn {
+    flex: 1 1 100px;
+    justify-content: center;
+  }
+}
+
+/* ── Table footers ───────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .leads-table-footer,
+  .runs-table-footer {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.65rem !important;
+  }
+
+  .leads-pagination,
+  .runs-pagination {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .runs-pagination button {
+    flex: 0 0 auto;
+  }
+
+  .rows-per-page {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .rows-per-page select {
+    width: auto;
+  }
+}
+
+/* ── Runs row actions (Open + stop/retry buttons) ────────────────────────── */
+@media (max-width: 768px) {
+  .runs-row-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    justify-content: flex-start;
+  }
+
+  .runs-row-actions .btn {
+    flex: 1 1 auto;
+    justify-content: center;
+    white-space: nowrap;
+  }
+}
+
+/* ── Prevent any overflowing fixed-width items from breaking mobile layout ── */
+@media (max-width: 768px) {
+  img,
+  video,
+  iframe,
+  embed,
+  object {
+    max-width: 100%;
+    height: auto;
+  }
+
+  pre {
+    overflow-x: auto;
+    white-space: pre;
+  }
+
+  .leads-filter-tabs {
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+
+  .leads-filter-tab {
+    flex: 1 1 auto;
+    text-align: center;
   }
 }

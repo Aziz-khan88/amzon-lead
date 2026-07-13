@@ -3,7 +3,7 @@
 {% block content %}
 <div class="page-header">
   <div>
-    <p class="eyebrow"><i class="fa-solid fa-file-import text-teal"></i> Seed data</p>
+    <p class="eyebrow"><i class="ph-bold ph-file-arrow-up text-teal"></i> Seed data</p>
     <h1>Import CSV</h1>
     <p class="page-subtitle">Upload client-supplied book seeds, preview the first rows, and start enrichment.</p>
   </div>
@@ -13,11 +13,11 @@
   
   <div class="panel mb-4">
     <div class="section-heading">
-      <h2><i class="fa-solid fa-file-csv text-teal"></i> Upload Lead Seeds</h2>
+      <h2><i class="ph-bold ph-file-csv text-teal"></i> Upload Lead Seeds</h2>
     </div>
     
     <div class="alert alert-info mb-4">
-      <i class="fa-solid fa-circle-info me-2"></i>
+      <i class="ph-fill ph-info me-2"></i>
       <strong>CSV Format:</strong> Needs <code>title</code> (or <code>book_title</code>) and <code>author</code> (or <code>author_name</code>) columns. <code>asin</code>/<code>amazon_book_url</code> is optional but highly recommended.
     </div>
 
@@ -25,7 +25,7 @@
     <div class="field-row mb-4">
       <label for="id_csv_file" class="form-label text-white">Select CSV File</label>
       <div class="csv-upload-dropzone">
-        <i class="fa-solid fa-cloud-arrow-up upload-icon text-teal mb-2"></i>
+        <i class="ph-bold ph-upload-simple upload-icon text-teal mb-2"></i>
         <div class="upload-text text-white" id="upload-filename">Drag & drop your CSV file here, or click to browse</div>
         <div class="upload-subtext small text-muted">Supports standard .csv format with headers</div>
         {{ form.csv_file }}
@@ -48,10 +48,10 @@
 
   <div class="form-actions">
     <button class="btn btn-secondary" name="preview" value="1" type="submit">
-      <i class="fa-solid fa-table-list"></i> Preview First 20 Rows
+      <i class="ph-bold ph-table"></i> Preview First 20 Rows
     </button>
     <button class="btn btn-primary" type="submit">
-      <i class="fa-solid fa-file-import"></i> Import and Run Enrichment
+      <i class="ph-bold ph-file-arrow-up"></i> Import and Run Enrichment
     </button>
   </div>
 </form>

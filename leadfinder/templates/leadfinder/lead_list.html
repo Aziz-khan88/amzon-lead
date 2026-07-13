@@ -7,44 +7,44 @@
       <h1>Leads</h1>
       <p class="page-subtitle">Find, review and manage high-quality book trailer opportunities.</p>
     </div>
-    <div class="leads-toolbar">
+    <div class="leads-toolbar" style="flex-wrap:wrap;gap:.5rem;">
       <a class="btn btn-secondary" href="{% url 'leadfinder:export_leads_csv' %}?limit=700">
-        <i class="fa-regular fa-file-lines"></i> Export CSV
+        <i class="ph ph-file-text"></i> Export CSV
       </a>
       <a class="btn btn-primary" href="{% url 'leadfinder:export_leads_xlsx' %}?limit=700">
-        <i class="fa-regular fa-file-excel"></i> Export Excel
+        <i class="ph ph-file-xls"></i> Export Excel
       </a>
       <button class="icon-button" type="button" title="Notifications" aria-label="Notifications">
-        <i class="fa-regular fa-bell"></i>
+        <i class="ph ph-bell"></i>
       </button>
       <button class="profile-button leads-profile" type="button" aria-label="User menu">
         <span>JD</span>
-        <i class="fa-solid fa-chevron-down"></i>
+        <i class="ph ph-caret-down"></i>
       </button>
     </div>
   </div>
 
   <div class="lead-stat-grid">
     <a class="lead-stat-card stat-total" href="{% url 'leadfinder:lead_list' %}?valid_only=0">
-      <span class="lead-stat-icon"><i class="fa-solid fa-globe"></i></span>
+      <span class="lead-stat-icon"><i class="ph-bold ph-globe"></i></span>
       <span class="lead-stat-label">Total Crawled</span>
       <strong>{{ stats.total }}</strong>
       <span class="lead-stat-spark spark-total" aria-hidden="true"></span>
     </a>
     <a class="lead-stat-card stat-hot" href="{% url 'leadfinder:lead_list' %}?tier=hot&valid_only=0">
-      <span class="lead-stat-icon"><i class="fa-solid fa-fire-flame-curved"></i></span>
+      <span class="lead-stat-icon"><i class="ph ph-fire-simple"></i></span>
       <span class="lead-stat-label">Hot Leads</span>
       <strong>{{ stats.hot }}</strong>
       <span class="lead-stat-spark spark-hot" aria-hidden="true"></span>
     </a>
     <a class="lead-stat-card stat-pending" href="{% url 'leadfinder:lead_list' %}?manual_review_status=needs_review&valid_only=0">
-      <span class="lead-stat-icon"><i class="fa-regular fa-clock"></i></span>
+      <span class="lead-stat-icon"><i class="ph ph-clock"></i></span>
       <span class="lead-stat-label">Pending Review</span>
       <strong>{{ stats.pending }}</strong>
       <span class="lead-stat-spark spark-pending" aria-hidden="true"></span>
     </a>
     <a class="lead-stat-card stat-contactable" href="{% url 'leadfinder:lead_list' %}?has_email=1&valid_only=0">
-      <span class="lead-stat-icon"><i class="fa-regular fa-envelope"></i></span>
+      <span class="lead-stat-icon"><i class="ph ph-envelope"></i></span>
       <span class="lead-stat-label">Contactable</span>
       <strong>{{ stats.email }}</strong>
       <span class="lead-stat-spark spark-contactable" aria-hidden="true"></span>
@@ -60,7 +60,7 @@
     <div class="leads-filter-primary">
       <div class="leads-search-field">
         <label for="id_q" class="visually-hidden">Search leads</label>
-        <i class="fa-solid fa-magnifying-glass"></i>
+        <i class="ph-bold ph-magnifying-glass"></i>
         {{ form.q }}
       </div>
       <div class="leads-select-field">
@@ -72,7 +72,7 @@
         {{ form.min_confidence }}
       </div>
       <button class="btn btn-secondary save-view-button" type="button">
-        <i class="fa-regular fa-bookmark"></i> Save View
+        <i class="ph ph-bookmark"></i> Save View
       </button>
     </div>
 
@@ -84,7 +84,7 @@
       <a href="{% url 'leadfinder:lead_list' %}?video_status=no_public_video_found&valid_only=0" class="quick-filter chip-video">No video found</a>
       <a href="{% url 'leadfinder:lead_list' %}?manual_review_status=needs_review&valid_only=0" class="quick-filter chip-review">Needs review</a>
       <a href="{% url 'leadfinder:lead_list' %}?pub_year_start=2025&valid_only=0" class="quick-filter chip-published">Published 2025+</a>
-      <button type="button" class="quick-filter chip-more"><i class="fa-solid fa-plus"></i> More</button>
+      <button type="button" class="quick-filter chip-more"><i class="ph-bold ph-plus"></i> More</button>
     </div>
 
     <div id="advanced-filters-panel" class="leads-advanced-panel">
@@ -134,13 +134,13 @@
 
     <div class="leads-filter-actions">
       <a class="btn btn-link leads-clear" href="{% url 'leadfinder:lead_list' %}">
-        <i class="fa-solid fa-rotate-left"></i> Clear all
+        <i class="ph-bold ph-arrow-counter-clockwise"></i> Clear all
       </a>
       <button class="btn btn-link leads-load-view" type="button">
-        <i class="fa-regular fa-folder-open"></i> Load saved view
+        <i class="ph ph-folder-open"></i> Load saved view
       </button>
       <button class="btn btn-primary leads-apply" type="submit">
-        <i class="fa-solid fa-filter"></i> Apply filters
+        <i class="ph-bold ph-funnel"></i> Apply filters
       </button>
     </div>
   </form>
@@ -159,20 +159,20 @@
           <div id="bulk-actions-bar" class="bulk-actions-bar" aria-live="polite">
             <span id="selected-badge" class="selection-count">0 selected</span>
             <button type="submit" name="action" value="bulk_reject" class="btn btn-secondary btn-sm">
-              <i class="fa-solid fa-ban text-amber"></i> Reject
+              <i class="ph-bold ph-prohibit text-amber"></i> Reject
             </button>
             <button type="submit" name="action" value="bulk_delete" class="btn btn-danger btn-sm" onclick="return confirm('Permanently delete all selected leads? This action cannot be undone.');">
-              <i class="fa-solid fa-trash-can"></i> Delete
+              <i class="ph-bold ph-trash"></i> Delete
             </button>
           </div>
-          <button class="view-toggle active" type="button" title="Table view" aria-label="Table view"><i class="fa-solid fa-list"></i></button>
-          <button class="view-toggle" type="button" title="Grid view" aria-label="Grid view"><i class="fa-solid fa-grip"></i></button>
-          <button class="btn btn-secondary btn-sm customize-button" type="button"><i class="fa-solid fa-gear"></i> Customize</button>
+          <button class="view-toggle active" type="button" title="Table view" aria-label="Table view"><i class="ph-bold ph-list"></i></button>
+          <button class="view-toggle" type="button" title="Grid view" aria-label="Grid view"><i class="ph-bold ph-grid-four"></i></button>
+          <button class="btn btn-secondary btn-sm customize-button" type="button"><i class="ph-bold ph-gear"></i> Customize</button>
         </div>
       </div>
 
-      <div class="table-responsive leads-table-wrap">
-        <table class="table align-middle lead-table leads-reference-table">
+      <div class="table-responsive leads-table-wrap table-scroll-x">
+        <table class="table align-middle lead-table leads-reference-table leads-table">
           <thead>
             <tr>
               <th class="select-cell">
@@ -198,15 +198,15 @@
                   <span class="score-badge score-{{ lead.lead_tier }}">{{ lead.lead_score }}</span>
                   <span class="tier-mini tier-{{ lead.lead_tier }}">
                     {% if lead.lead_tier == 'hot' %}
-                      <i class="fa-solid fa-fire"></i>
+                      <i class="ph-fill ph-fire"></i>
                     {% elif lead.lead_tier == 'warm' %}
-                      <i class="fa-solid fa-fire-flame-curved"></i>
+                      <i class="ph ph-fire-simple"></i>
                     {% elif lead.lead_tier == 'cold' %}
-                      <i class="fa-solid fa-snowflake"></i>
+                      <i class="ph ph-snowflake"></i>
                     {% elif lead.lead_tier == 'rejected' %}
-                      <i class="fa-solid fa-circle-xmark"></i>
+                      <i class="ph-fill ph-x-circle"></i>
                     {% else %}
-                      <i class="fa-solid fa-circle-dot"></i>
+                      <i class="ph ph-circle-dashed"></i>
                     {% endif %}
                     {{ lead.lead_tier|title }}
                   </span>
@@ -217,17 +217,17 @@
                   {% if lead.book.cover_image_url %}
                     <img src="{{ lead.book.cover_image_url }}" alt="" class="book-cover-mini">
                   {% else %}
-                    <div class="book-cover-mini no-cover-mini"><i class="fa-solid fa-book"></i></div>
+                    <div class="book-cover-mini no-cover-mini"><i class="ph-bold ph-book"></i></div>
                   {% endif %}
                   <div class="stacked-cell min-w-0">
                     <strong class="row-title" title="{{ lead.book.title }}">{{ lead.book.title }}</strong>
                     <span class="mini-meta">ASIN: {{ lead.book.asin|default:"-" }}</span>
                     {% if lead.video_status == 'no_public_video_found' %}
-                      <span class="signal-chip signal-good"><i class="fa-solid fa-circle-info"></i> No video found</span>
+                      <span class="signal-chip signal-good"><i class="ph-fill ph-info"></i> No video found</span>
                     {% elif lead.video_status == 'found_trailer' or lead.video_status == 'found_animated_video' %}
-                      <span class="signal-chip signal-risk"><i class="fa-solid fa-film"></i> Trailer found</span>
+                      <span class="signal-chip signal-risk"><i class="ph-fill ph-film-strip"></i> Trailer found</span>
                     {% elif lead.video_status == 'found_read_aloud_only' %}
-                      <span class="signal-chip"><i class="fa-solid fa-volume-high"></i> Read aloud</span>
+                      <span class="signal-chip"><i class="ph-bold ph-speaker-high"></i> Read aloud</span>
                     {% elif lead.video_status == 'not_checked' %}
                       <span class="signal-chip">Not checked</span>
                     {% elif lead.video_status %}
@@ -240,22 +240,22 @@
                 <div class="stacked-cell">
                   {% if lead.author_profile.amazon_author_url %}
                     <a href="{{ lead.author_profile.amazon_author_url }}" target="_blank" class="row-link">
-                      {{ lead.author_profile.author_name|default:lead.book.author_name }} <i class="fa-solid fa-up-right-from-square"></i>
+                      {{ lead.author_profile.author_name|default:lead.book.author_name }} <i class="ph ph-arrow-square-out"></i>
                     </a>
                   {% elif lead.author_profile.canonical_website %}
                     <a href="{{ lead.author_profile.canonical_website }}" target="_blank" class="row-link">
-                      {{ lead.author_profile.author_name|default:lead.book.author_name }} <i class="fa-solid fa-up-right-from-square"></i>
+                      {{ lead.author_profile.author_name|default:lead.book.author_name }} <i class="ph ph-arrow-square-out"></i>
                     </a>
                   {% else %}
                     <strong class="text-light">{{ lead.author_profile.author_name|default:lead.book.author_name|default:"Unknown author" }}</strong>
                   {% endif %}
 
                   {% if lead.public_email %}
-                    <a href="mailto:{{ lead.public_email }}" class="contact-link"><i class="fa-regular fa-envelope"></i> {{ lead.public_email|truncatechars:30 }}</a>
+                    <a href="mailto:{{ lead.public_email }}" class="contact-link"><i class="ph ph-envelope"></i> {{ lead.public_email|truncatechars:30 }}</a>
                   {% elif lead.representation_email %}
-                    <a href="mailto:{{ lead.representation_email }}" class="contact-link" title="{{ lead.representation_email }}"><i class="fa-solid fa-briefcase"></i> Agent contact</a>
+                    <a href="mailto:{{ lead.representation_email }}" class="contact-link" title="{{ lead.representation_email }}"><i class="ph-bold ph-briefcase"></i> Agent contact</a>
                   {% elif lead.publicist_email %}
-                    <a href="mailto:{{ lead.publicist_email }}" class="contact-link" title="{{ lead.publicist_email }}"><i class="fa-solid fa-bullhorn"></i> Publicist</a>
+                    <a href="mailto:{{ lead.publicist_email }}" class="contact-link" title="{{ lead.publicist_email }}"><i class="ph-bold ph-megaphone"></i> Publicist</a>
                   {% else %}
                     <span class="mini-meta">No email saved</span>
                   {% endif %}
@@ -270,17 +270,17 @@
                   {% endif %}
                   {% if lead.author_profile.canonical_website %}
                     <a href="{{ lead.author_profile.canonical_website }}" target="_blank" class="icon-link" title="Author website" aria-label="Author website">
-                      <i class="fa-solid fa-globe"></i>
+                      <i class="ph-bold ph-globe"></i>
                     </a>
                   {% endif %}
                   {% if lead.public_email or lead.representation_email or lead.publicist_email %}
                     <span class="icon-link" title="Email available" aria-label="Email available">
-                      <i class="fa-regular fa-envelope"></i>
+                      <i class="ph ph-envelope"></i>
                     </span>
                   {% endif %}
                   {% if lead.author_profile.contact_page_url %}
                     <a href="{{ lead.author_profile.contact_page_url }}" target="_blank" class="icon-link" title="Contact page" aria-label="Contact page">
-                      <i class="fa-regular fa-address-card"></i>
+                      <i class="ph ph-address-book"></i>
                     </a>
                   {% endif %}
                   {% if not lead.book.amazon_book_url and not lead.author_profile.canonical_website and not lead.author_profile.contact_page_url and not lead.public_email and not lead.representation_email and not lead.publicist_email %}
@@ -306,7 +306,7 @@
                 <div class="row-action-stack">
                   <a class="btn btn-secondary btn-sm view-lead-button" href="{% url 'leadfinder:lead_detail' lead.id %}">View</a>
                   <button class="btn btn-secondary btn-sm icon-only" type="button" title="More actions" aria-label="More actions">
-                    <i class="fa-solid fa-ellipsis-vertical"></i>
+                    <i class="ph ph-dots-three-vertical"></i>
                   </button>
                 </div>
               </td>
@@ -314,7 +314,7 @@
           {% empty %}
             <tr>
               <td colspan="8" class="empty-state">
-                <i class="fa-solid fa-users-slash"></i>
+                <i class="ph-bold ph-prohibit"></i>
                 <strong>No matching leads found.</strong>
                 <span>Adjust filters or start a new run.</span>
               </td>
@@ -327,9 +327,9 @@
       <div class="leads-table-footer">
         <span>Showing 1 to {{ leads|length }} of {{ leads|length }} results</span>
         <div class="leads-pagination" aria-label="Pagination">
-          <button class="btn btn-secondary btn-sm icon-only" type="button" aria-label="Previous page"><i class="fa-solid fa-chevron-left"></i></button>
+          <button class="btn btn-secondary btn-sm icon-only" type="button" aria-label="Previous page"><i class="ph ph-caret-left"></i></button>
           <span>1</span>
-          <button class="btn btn-secondary btn-sm icon-only" type="button" aria-label="Next page"><i class="fa-solid fa-chevron-right"></i></button>
+          <button class="btn btn-secondary btn-sm icon-only" type="button" aria-label="Next page"><i class="ph ph-caret-right"></i></button>
         </div>
         <label class="rows-per-page">Rows per page
           <select aria-label="Rows per page">

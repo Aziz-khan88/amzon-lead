@@ -2,12 +2,12 @@
 {% block content %}
 <div class="page-header align-items-center mb-4">
   <div>
-    <p class="eyebrow"><i class="fa-solid fa-book-open text-teal"></i> Lead Details & Intelligence</p>
+    <p class="eyebrow"><i class="ph-bold ph-book-open text-teal"></i> Lead Details & Intelligence</p>
     <h1>{{ lead.book.title }}</h1>
   </div>
   <div>
     <span class="score-badge score-{{ lead.lead_tier }} p-2.5 px-4" style="font-size: 1.3rem;">
-      <i class="fa-solid fa-fire text-teal"></i> {{ lead.lead_score }} <span class="text-muted mx-1">|</span> <span style="font-size: 0.95rem; text-transform: uppercase;">{{ lead.lead_tier }}</span>
+      <i class="ph-fill ph-fire text-teal"></i> {{ lead.lead_score }} <span class="text-muted mx-1">|</span> <span style="font-size: 0.95rem; text-transform: uppercase;">{{ lead.lead_tier }}</span>
     </span>
   </div>
 </div>
@@ -24,11 +24,11 @@
       <h2 class="border-0 pb-0 mb-0 text-white font-heading" style="font-size: 1.8rem;">
         {% if lead.author_profile.amazon_author_url %}
           <a href="{{ lead.author_profile.amazon_author_url }}" target="_blank" class="author-name-link">
-            {{ lead.author_profile.author_name|default:lead.book.author_name|default:"Unknown Author" }} <i class="fa-solid fa-up-right-from-square small text-teal ms-1" style="font-size: 0.85rem;"></i>
+            {{ lead.author_profile.author_name|default:lead.book.author_name|default:"Unknown Author" }} <i class="ph ph-arrow-square-out small text-teal ms-1" style="font-size: 0.85rem;"></i>
           </a>
         {% elif lead.author_profile.canonical_website %}
           <a href="{{ lead.author_profile.canonical_website }}" target="_blank" class="author-name-link">
-            {{ lead.author_profile.author_name|default:lead.book.author_name|default:"Unknown Author" }} <i class="fa-solid fa-up-right-from-square small text-teal ms-1" style="font-size: 0.85rem;"></i>
+            {{ lead.author_profile.author_name|default:lead.book.author_name|default:"Unknown Author" }} <i class="ph ph-arrow-square-out small text-teal ms-1" style="font-size: 0.85rem;"></i>
           </a>
         {% else %}
           {{ lead.author_profile.author_name|default:lead.book.author_name|default:"Unknown Author" }}
@@ -54,17 +54,17 @@
           <div class="amazon-rating-stars" style="color: #ffb703; font-size: 1.1rem; filter: drop-shadow(0 0 4px rgba(255, 183, 3, 0.4));">
             {% if lead.book.rating %}
               {% if lead.book.rating >= 4.8 %}
-                <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
+                <i class="ph-fill ph-star"></i><i class="ph-fill ph-star"></i><i class="ph-fill ph-star"></i><i class="ph-fill ph-star"></i><i class="ph-fill ph-star"></i>
               {% elif lead.book.rating >= 4.3 %}
-                <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star-half-stroke"></i>
+                <i class="ph-fill ph-star"></i><i class="ph-fill ph-star"></i><i class="ph-fill ph-star"></i><i class="ph-fill ph-star"></i><i class="ph-fill ph-star-half"></i>
               {% elif lead.book.rating >= 3.8 %}
-                <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-regular fa-star"></i>
+                <i class="ph-fill ph-star"></i><i class="ph-fill ph-star"></i><i class="ph-fill ph-star"></i><i class="ph-fill ph-star"></i><i class="ph-regular ph-star"></i>
               {% elif lead.book.rating >= 3.3 %}
-                <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star-half-stroke"></i><i class="fa-regular fa-star"></i>
+                <i class="ph-fill ph-star"></i><i class="ph-fill ph-star"></i><i class="ph-fill ph-star"></i><i class="ph-fill ph-star-half"></i><i class="ph-regular ph-star"></i>
               {% elif lead.book.rating >= 2.8 %}
-                <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-regular fa-star"></i><i class="fa-regular fa-star"></i>
+                <i class="ph-fill ph-star"></i><i class="ph-fill ph-star"></i><i class="ph-fill ph-star"></i><i class="ph-regular ph-star"></i><i class="ph-regular ph-star"></i>
               {% else %}
-                <i class="fa-solid fa-star"></i><i class="fa-regular fa-star"></i><i class="fa-regular fa-star"></i><i class="fa-regular fa-star"></i><i class="fa-regular fa-star"></i>
+                <i class="ph-fill ph-star"></i><i class="ph-regular ph-star"></i><i class="ph-regular ph-star"></i><i class="ph-regular ph-star"></i><i class="ph-regular ph-star"></i>
               {% endif %}
             {% else %}
               <span class="text-muted">—</span>
@@ -76,7 +76,7 @@
         </div>
         <span class="text-muted small mt-1 d-block">
           {% if lead.book.review_count %}
-            <span class="badge bg-secondary-subtle text-light border border-secondary-subtle" style="font-size: 0.75rem;"><i class="fa-solid fa-comments"></i> {{ lead.book.review_count }} reviews</span>
+            <span class="badge bg-secondary-subtle text-light border border-secondary-subtle" style="font-size: 0.75rem;"><i class="ph-fill ph-chat-text"></i> {{ lead.book.review_count }} reviews</span>
           {% else %}
             0 reviews
           {% endif %}
@@ -92,25 +92,25 @@
       <span class="text-muted d-block small mb-2">Active Contact Channels</span>
       <div class="contact-badge-grid">
         {% if lead.public_email %}
-          <a href="mailto:{{ lead.public_email }}" class="contact-badge badge-email"><i class="fa-solid fa-envelope"></i> {{ lead.public_email }}</a>
+          <a href="mailto:{{ lead.public_email }}" class="contact-badge badge-email"><i class="ph-bold ph-envelope"></i> {{ lead.public_email }}</a>
         {% endif %}
         {% if lead.author_profile.canonical_website %}
-          <a href="{{ lead.author_profile.canonical_website }}" target="_blank" class="contact-badge badge-web"><i class="fa-solid fa-globe"></i> Website</a>
+          <a href="{{ lead.author_profile.canonical_website }}" target="_blank" class="contact-badge badge-web"><i class="ph-bold ph-globe"></i> Website</a>
         {% endif %}
         {% if lead.author_profile.instagram_url %}
-          <a href="{{ lead.author_profile.instagram_url }}" target="_blank" class="contact-badge badge-instagram"><i class="fa-brands fa-instagram"></i> Instagram</a>
+          <a href="{{ lead.author_profile.instagram_url }}" target="_blank" class="contact-badge badge-instagram"><i class="ph-bold ph-instagram-logo"></i> Instagram</a>
         {% endif %}
         {% if lead.author_profile.tiktok_url %}
-          <a href="{{ lead.author_profile.tiktok_url }}" target="_blank" class="contact-badge badge-tiktok"><i class="fa-brands fa-tiktok"></i> TikTok</a>
+          <a href="{{ lead.author_profile.tiktok_url }}" target="_blank" class="contact-badge badge-tiktok"><i class="ph-bold ph-tiktok-logo"></i> TikTok</a>
         {% endif %}
         {% if lead.author_profile.youtube_url %}
-          <a href="{{ lead.author_profile.youtube_url }}" target="_blank" class="contact-badge badge-youtube"><i class="fa-brands fa-youtube"></i> YouTube</a>
+          <a href="{{ lead.author_profile.youtube_url }}" target="_blank" class="contact-badge badge-youtube"><i class="ph-bold ph-youtube-logo"></i> YouTube</a>
         {% endif %}
         {% if lead.author_profile.facebook_url %}
-          <a href="{{ lead.author_profile.facebook_url }}" target="_blank" class="contact-badge badge-facebook"><i class="fa-brands fa-facebook"></i> Facebook</a>
+          <a href="{{ lead.author_profile.facebook_url }}" target="_blank" class="contact-badge badge-facebook"><i class="ph-bold ph-facebook-logo"></i> Facebook</a>
         {% endif %}
         {% if lead.author_profile.linkedin_url %}
-          <a href="{{ lead.author_profile.linkedin_url }}" target="_blank" class="contact-badge badge-linkedin"><i class="fa-brands fa-linkedin"></i> LinkedIn</a>
+          <a href="{{ lead.author_profile.linkedin_url }}" target="_blank" class="contact-badge badge-linkedin"><i class="ph-bold ph-linkedin-logo"></i> LinkedIn</a>
         {% endif %}
       </div>
     </div>
@@ -122,7 +122,7 @@
   <div class="col-lg-8">
     <section class="panel">
       <div class="detail-section-title">
-        <i class="fa-solid fa-briefcase"></i> Outreach Sales Brief
+        <i class="ph-bold ph-briefcase"></i> Outreach Sales Brief
       </div>
       <p class="text-light lead mb-4" style="line-height: 1.6; font-size: 1.05rem;">{{ lead.sales_agent_summary }}</p>
       
@@ -130,7 +130,7 @@
         <div class="col-md-6">
           <div class="p-3 h-100" style="background: rgba(15, 23, 42, 0.4); border: 1px solid var(--line); border-radius: 10px;">
             <div class="text-teal font-heading font-weight-700 small uppercase mb-1">
-              <i class="fa-solid fa-bullseye"></i> Why This Lead Fits
+              <i class="ph-bold ph-target"></i> Why This Lead Fits
             </div>
             <p class="text-white mb-0 small">{{ lead.fit_reason }}</p>
           </div>
@@ -139,7 +139,7 @@
         <div class="col-md-6">
           <div class="p-3 h-100" style="background: rgba(15, 23, 42, 0.4); border: 1px solid var(--line); border-radius: 10px;">
             <div class="text-info font-heading font-weight-700 small uppercase mb-1">
-              <i class="fa-solid fa-compass"></i> Suggested Pitch Angle
+              <i class="ph-bold ph-compass"></i> Suggested Pitch Angle
             </div>
             <p class="text-white mb-0 small">{{ lead.suggested_pitch_angle }}</p>
           </div>
@@ -148,7 +148,7 @@
         <div class="col-12">
           <div class="p-3" style="background: rgba(20, 184, 166, 0.04); border: 1px dashed rgba(20, 184, 166, 0.3); border-radius: 10px;">
             <div class="text-teal font-heading font-weight-700 small uppercase mb-1">
-              <i class="fa-solid fa-quote-left"></i> Suggested First Line
+              <i class="ph-bold ph-quotes"></i> Suggested First Line
             </div>
             <blockquote class="text-white mb-0 small font-italic">"{{ lead.suggested_first_line }}"</blockquote>
           </div>
@@ -157,7 +157,7 @@
         <div class="col-md-6">
           <div class="p-3 h-100" style="background: rgba(52, 211, 153, 0.04); border: 1px solid rgba(52, 211, 153, 0.15); border-radius: 10px;">
             <div class="text-success font-heading font-weight-700 small uppercase mb-1">
-              <i class="fa-solid fa-circle-check"></i> Compliant: What To Say
+              <i class="ph-fill ph-check-circle"></i> Compliant: What To Say
             </div>
             <p class="text-white mb-0 small">{{ lead.what_to_say }}</p>
           </div>
@@ -166,7 +166,7 @@
         <div class="col-md-6">
           <div class="p-3 h-100" style="background: rgba(248, 113, 113, 0.04); border: 1px solid rgba(248, 113, 113, 0.15); border-radius: 10px;">
             <div class="text-danger font-heading font-weight-700 small uppercase mb-1">
-              <i class="fa-solid fa-circle-xmark"></i> Compliant: What NOT To Say
+              <i class="ph-fill ph-x-circle"></i> Compliant: What NOT To Say
             </div>
             <p class="text-white mb-0 small">{{ lead.what_not_to_say }}</p>
           </div>
@@ -175,7 +175,7 @@
         <div class="col-12">
           <div class="p-3" style="background: rgba(251, 191, 36, 0.04); border: 1px solid rgba(251, 191, 36, 0.15); border-radius: 10px;">
             <div class="text-amber font-heading font-weight-700 small uppercase mb-1">
-              <i class="fa-solid fa-arrow-trend-up"></i> Recommended Next Action
+              <i class="ph-bold ph-trend-up"></i> Recommended Next Action
             </div>
             <p class="text-white mb-0 small">{{ lead.next_best_action }}</p>
           </div>
@@ -186,7 +186,7 @@
     <!-- Component 4: Interactive Multi-Angle Outreach Hub -->
     <section class="panel" style="border-color: rgba(20, 184, 166, 0.25);">
       <div class="detail-section-title">
-        <i class="fa-solid fa-paper-plane text-teal"></i> Interactive Outreach Pitch Center
+        <i class="ph-fill ph-paper-plane text-teal"></i> Interactive Outreach Pitch Center
       </div>
       <p class="text-muted small mb-3">Select the specific target angle depending on the contact channel to copy a pre-drafted outreach pitch tailored to their role.</p>
       
@@ -235,13 +235,13 @@ Warm regards,
       <!-- Pitch Tabs Nav -->
       <div class="pitch-tabs-container">
         <button class="pitch-tab active" onclick="switchPitchTab('direct')">
-          <i class="fa-solid fa-user"></i> Direct Author Pitch
+          <i class="ph-bold ph-user"></i> Direct Author Pitch
         </button>
         <button class="pitch-tab" onclick="switchPitchTab('agent')">
-          <i class="fa-solid fa-user-tie"></i> Literary Agent Pitch
+          <i class="ph-bold ph-user-gear"></i> Literary Agent Pitch
         </button>
         <button class="pitch-tab" onclick="switchPitchTab('publicist')">
-          <i class="fa-solid fa-bullhorn"></i> Publicist Booking Pitch
+          <i class="ph-bold ph-megaphone"></i> Publicist Booking Pitch
         </button>
       </div>
 
@@ -254,7 +254,7 @@ Warm regards,
               <span class="field-label">Subject:</span>
               <span class="field-value text-info font-weight-700" id="subject-direct">...</span>
               <button class="btn btn-sm btn-dark border border-secondary text-muted ms-auto copy-btn-compact" onclick="copyPitchField('subject-direct', this)" title="Copy Subject">
-                <i class="fa-solid fa-copy"></i> Copy
+                <i class="ph ph-copy"></i> Copy
               </button>
             </div>
           </div>
@@ -262,10 +262,10 @@ Warm regards,
             <span class="text-muted small">Outreach Message Body</span>
             <div class="d-flex gap-2">
               <button class="btn btn-sm btn-secondary copy-btn" onclick="copyPitchField('body-direct', this)">
-                <i class="fa-solid fa-align-left"></i> Copy Body
+                <i class="ph ph-text-align-left"></i> Copy Body
               </button>
               <button class="btn btn-sm btn-primary copy-btn" onclick="copyFullPitch('direct', this)">
-                <i class="fa-solid fa-envelope"></i> Copy Full Email
+                <i class="ph ph-envelope"></i> Copy Full Email
               </button>
             </div>
           </div>
@@ -281,7 +281,7 @@ Warm regards,
               <span class="field-label">Subject:</span>
               <span class="field-value text-info font-weight-700" id="subject-agent">...</span>
               <button class="btn btn-sm btn-dark border border-secondary text-muted ms-auto copy-btn-compact" onclick="copyPitchField('subject-agent', this)" title="Copy Subject">
-                <i class="fa-solid fa-copy"></i> Copy
+                <i class="ph ph-copy"></i> Copy
               </button>
             </div>
           </div>
@@ -289,10 +289,10 @@ Warm regards,
             <span class="text-muted small">Outreach Message Body</span>
             <div class="d-flex gap-2">
               <button class="btn btn-sm btn-secondary copy-btn" onclick="copyPitchField('body-agent', this)">
-                <i class="fa-solid fa-align-left"></i> Copy Body
+                <i class="ph ph-text-align-left"></i> Copy Body
               </button>
               <button class="btn btn-sm btn-primary copy-btn" onclick="copyFullPitch('agent', this)">
-                <i class="fa-solid fa-envelope"></i> Copy Full Email
+                <i class="ph ph-envelope"></i> Copy Full Email
               </button>
             </div>
           </div>
@@ -308,7 +308,7 @@ Warm regards,
               <span class="field-label">Subject:</span>
               <span class="field-value text-info font-weight-700" id="subject-publicist">...</span>
               <button class="btn btn-sm btn-dark border border-secondary text-muted ms-auto copy-btn-compact" onclick="copyPitchField('subject-publicist', this)" title="Copy Subject">
-                <i class="fa-solid fa-copy"></i> Copy
+                <i class="ph ph-copy"></i> Copy
               </button>
             </div>
           </div>
@@ -316,10 +316,10 @@ Warm regards,
             <span class="text-muted small">Outreach Message Body</span>
             <div class="d-flex gap-2">
               <button class="btn btn-sm btn-secondary copy-btn" onclick="copyPitchField('body-publicist', this)">
-                <i class="fa-solid fa-align-left"></i> Copy Body
+                <i class="ph ph-text-align-left"></i> Copy Body
               </button>
               <button class="btn btn-sm btn-primary copy-btn" onclick="copyFullPitch('publicist', this)">
-                <i class="fa-solid fa-envelope"></i> Copy Full Email
+                <i class="ph ph-envelope"></i> Copy Full Email
               </button>
             </div>
           </div>
@@ -331,7 +331,7 @@ Warm regards,
     <!-- Section: Contact Audit Details -->
     <section class="panel">
       <div class="detail-section-title">
-        <i class="fa-solid fa-clipboard-check"></i> Author Contact Audit
+        <i class="ph-bold ph-clipboard-text"></i> Author Contact Audit
       </div>
       <div class="table-responsive">
         <table class="table align-middle table-fixed">
@@ -359,7 +359,7 @@ Warm regards,
                   {% if row.value %}
                     {% if row.is_url %}
                       <a href="{{ row.value }}" target="_blank" class="text-info d-inline-flex align-items-center gap-1" style="max-width: 100%; min-width: 0; width: 100%;">
-                        <i class="fa-solid fa-link small" style="flex-shrink: 0;"></i>
+                        <i class="ph ph-link small" style="flex-shrink: 0;"></i>
                         <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex-grow: 1;">{{ row.value }}</span>
                       </a>
                     {% else %}
@@ -374,7 +374,7 @@ Warm regards,
                     {% for item in row.evidences %}
                       <div class="mb-1" style="max-width: 100%;">
                         <a href="{{ item.source_url }}" target="_blank" class="text-muted small d-inline-flex align-items-center gap-1" style="max-width: 100%; min-width: 0; width: 100%;">
-                          <i class="fa-solid fa-magnifying-glass small" style="flex-shrink: 0;"></i>
+                          <i class="ph-bold ph-magnifying-glass small" style="flex-shrink: 0;"></i>
                           <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex-grow: 1;">{{ item.source_url }}</span>
                         </a>
                         {% if item.source_snippet %}
@@ -414,7 +414,7 @@ Warm regards,
     <!-- Component: Cross-Lead Contact Consensus & Verification Hub -->
     <section class="panel" style="border-color: rgba(20, 184, 166, 0.25);">
       <div class="detail-section-title">
-        <i class="fa-solid fa-code-merge text-teal"></i> Cross-Lead Contact Consensus Hub
+        <i class="ph ph-git-merge text-teal"></i> Cross-Lead Contact Consensus Hub
       </div>
       <p class="text-muted small mb-3">
         This panel aggregates contact data across all <strong>{{ sibling_leads_count }} book records</strong> found in the database for this author. It calculates the statistical consensus value for each channel, helping you spot discrepancies and retrieve missing details.
@@ -449,14 +449,14 @@ Warm regards,
                     {% if item.current_value %}
                       {% if item.is_url %}
                         <a href="{{ item.current_value }}" target="_blank" class="text-info d-inline-flex align-items-center gap-1 text-truncate-custom" style="max-width: 100%;">
-                          <i class="fa-solid fa-link small"></i>
+                          <i class="ph ph-link small"></i>
                           <span>{{ item.current_value }}</span>
                         </a>
                       {% else %}
                         <span class="text-light" style="word-break: break-all;">{{ item.current_value }}</span>
                       {% endif %}
                     {% else %}
-                      <span class="badge bg-secondary-subtle text-muted" style="font-size: 0.75rem; border: 1px dashed rgba(255,255,255,0.1);"><i class="fa-solid fa-ban"></i> Missing for this book</span>
+                      <span class="badge bg-secondary-subtle text-muted" style="font-size: 0.75rem; border: 1px dashed rgba(255,255,255,0.1);"><i class="ph-bold ph-prohibit"></i> Missing for this book</span>
                     {% endif %}
                   </td>
                   <td data-label="Consensus Value">
@@ -464,7 +464,7 @@ Warm regards,
                       <div class="d-flex flex-column gap-1">
                         {% if item.is_url %}
                           <a href="{{ item.consensus_value }}" id="consensus-val-{{ key }}" target="_blank" class="text-teal font-weight-600 d-inline-flex align-items-center gap-1 text-truncate-custom" style="max-width: 100%;">
-                            <i class="fa-solid fa-globe"></i>
+                            <i class="ph-bold ph-globe"></i>
                             <span>{{ item.consensus_value }}</span>
                           </a>
                         {% else %}
@@ -479,9 +479,9 @@ Warm regards,
                         {% if item.consensus_sources %}
                           <div class="mt-1">
                             <button class="btn btn-xs btn-outline-teal text-teal py-0.5 px-2 d-inline-flex align-items-center gap-1" onclick="toggleConsensusSources('{{ key }}')" style="font-size: 0.68rem; font-weight: 700; border-radius: 4px;">
-                              <i class="fa-solid fa-database" style="font-size: 0.62rem;"></i>
+                              <i class="ph-bold ph-database" style="font-size: 0.62rem;"></i>
                               <span>Show Scraped Sources ({{ item.consensus_sources|length }})</span>
-                              <i class="fa-solid fa-chevron-down ms-0.5" id="chevron-{{ key }}" style="font-size: 0.58rem; transition: transform 0.2s ease;"></i>
+                              <i class="ph ph-caret-down ms-0.5" id="chevron-{{ key }}" style="font-size: 0.58rem; transition: transform 0.2s ease;"></i>
                             </button>
                           </div>
 
@@ -493,7 +493,7 @@ Warm regards,
                                 <div class="p-1.5 rounded" style="background: rgba(255,255,255,0.015); border: 1px solid rgba(255,255,255,0.03);">
                                   <div class="d-flex justify-content-between align-items-start gap-2">
                                     <a href="{% url 'leadfinder:lead_detail' src.lead_id %}" class="text-white font-weight-600 small hover-underline text-truncate-custom" style="max-width: 180px; text-decoration: none;" title="{{ src.book_title }}">
-                                      <i class="fa-solid fa-book-open text-teal small me-1"></i>{{ src.book_title }}
+                                      <i class="ph-bold ph-book-open text-teal small me-1"></i>{{ src.book_title }}
                                     </a>
                                     {% if src.book_asin %}
                                       <span class="text-muted font-monospace" style="font-size: 0.68rem;">{{ src.book_asin }}</span>
@@ -508,12 +508,12 @@ Warm regards,
                                       {% for ev in src.evidences %}
                                         <div class="d-flex align-items-center justify-content-between text-muted" style="font-size: 0.65rem; gap: 4px;">
                                           <span class="text-truncate-custom" style="max-width: 160px;">
-                                            <i class="fa-solid fa-code text-muted me-1"></i>Found: <span class="text-info">{{ ev.evidence_type }}</span>
+                                            <i class="ph-bold ph-code text-muted me-1"></i>Found: <span class="text-info">{{ ev.evidence_type }}</span>
                                           </span>
                                           <div class="d-flex align-items-center gap-1.5">
                                             <span class="badge" style="font-size: 0.6rem; background: rgba(20, 184, 166, 0.08); border: 1px solid rgba(20, 184, 166, 0.2); color: var(--teal);">{{ ev.confidence }}% Conf</span>
                                             {% if ev.source_url %}
-                                              <a href="{{ ev.source_url }}" target="_blank" class="text-info hover-scale" title="Open source scrap link"><i class="fa-solid fa-arrow-up-right-from-square"></i></a>
+                                              <a href="{{ ev.source_url }}" target="_blank" class="text-info hover-scale" title="Open source scrap link"><i class="ph ph-arrow-square-out"></i></a>
                                             {% endif %}
                                           </div>
                                         </div>
@@ -533,7 +533,7 @@ Warm regards,
                               <div class="text-muted small mt-1.5" style="font-size: 0.75rem;">
                                 <div class="d-flex align-items-center justify-content-between gap-2">
                                   <span>
-                                    <i class="fa-solid fa-circle-exclamation text-amber small me-1"></i>
+                                    <i class="ph-fill ph-warning-circle text-amber small me-1"></i>
                                     <span class="text-light font-monospace" style="word-break: break-all;">{{ alt.value }}</span>
                                   </span>
                                   <span class="text-muted font-weight-600">({{ alt.percentage }}%)</span>
@@ -544,7 +544,7 @@ Warm regards,
                                   <div class="mt-1 text-end">
                                     <button class="btn btn-xs btn-link p-0 text-muted hover-teal" onclick="toggleConsensusSources('{{ key }}-alt-{{ forloop.counter }}')" style="font-size: 0.62rem; text-decoration: none;">
                                       <span>Show Sources ({{ alt.sources|length }})</span>
-                                      <i class="fa-solid fa-chevron-down ms-0.5" id="chevron-{{ key }}-alt-{{ forloop.counter }}" style="font-size: 0.55rem; transition: transform 0.2s ease;"></i>
+                                      <i class="ph ph-caret-down ms-0.5" id="chevron-{{ key }}-alt-{{ forloop.counter }}" style="font-size: 0.55rem; transition: transform 0.2s ease;"></i>
                                     </button>
                                   </div>
 
@@ -555,7 +555,7 @@ Warm regards,
                                         <div style="font-size: 0.68rem; border-bottom: 1px solid rgba(255,255,255,0.02); padding-bottom: 4px; margin-bottom: 4px;">
                                           <div class="d-flex justify-content-between align-items-center">
                                             <a href="{% url 'leadfinder:lead_detail' src.lead_id %}" class="text-white hover-underline text-truncate-custom font-weight-600" style="max-width: 140px; text-decoration: none;" title="{{ src.book_title }}">
-                                              <i class="fa-solid fa-book text-amber small me-1"></i>{{ src.book_title }}
+                                              <i class="ph-bold ph-book text-amber small me-1"></i>{{ src.book_title }}
                                             </a>
                                             <span class="text-muted" style="font-size: 0.65rem;">{{ src.source_provider }}</span>
                                           </div>
@@ -563,8 +563,8 @@ Warm regards,
                                             <div class="mt-1" style="font-size: 0.62rem; color: rgba(255,255,255,0.4);">
                                               {% for ev in src.evidences %}
                                                 <div class="d-flex align-items-center justify-content-between">
-                                                  <span class="text-truncate-custom" style="max-width: 120px;"><i class="fa-solid fa-link me-1"></i>{{ ev.evidence_type }}</span>
-                                                  <a href="{{ ev.source_url }}" target="_blank" class="text-info"><i class="fa-solid fa-up-right-from-square"></i></a>
+                                                  <span class="text-truncate-custom" style="max-width: 120px;"><i class="ph ph-link me-1"></i>{{ ev.evidence_type }}</span>
+                                                  <a href="{{ ev.source_url }}" target="_blank" class="text-info"><i class="ph ph-arrow-square-out"></i></a>
                                                 </div>
                                               {% endfor %}
                                             </div>
@@ -586,19 +586,19 @@ Warm regards,
                   <td data-label="Status">
                     {% if item.status == 'consistent' %}
                       <span class="status-pill status-success py-1 px-2" style="font-size: 0.72rem; border-radius: 6px;">
-                        <i class="fa-solid fa-circle-check"></i> Consistent
+                        <i class="ph-fill ph-check-circle"></i> Consistent
                       </span>
                     {% elif item.status == 'consistent_with_conflict' %}
                       <span class="status-pill status-success py-1 px-2" style="font-size: 0.72rem; border-radius: 6px; background: rgba(52, 211, 153, 0.08); border-color: rgba(52, 211, 153, 0.15);">
-                        <i class="fa-solid fa-circle-exclamation"></i> Consensus ({{ item.confidence_percentage }}%)
+                        <i class="ph-fill ph-warning-circle"></i> Consensus ({{ item.confidence_percentage }}%)
                       </span>
                     {% elif item.status == 'conflict' %}
                       <span class="status-pill status-failed py-1 px-2" style="font-size: 0.72rem; border-radius: 6px; background: rgba(248, 113, 113, 0.18); border-color: rgba(248, 113, 113, 0.4); animation: pulse-glow-red 2s infinite;">
-                        <i class="fa-solid fa-triangle-exclamation"></i> Discrepancy
+                        <i class="ph-fill ph-warning"></i> Discrepancy
                       </span>
                     {% elif item.status == 'available_elsewhere' %}
                       <span class="status-pill status-running py-1 px-2" style="font-size: 0.72rem; border-radius: 6px; background: rgba(56, 189, 248, 0.12); color: var(--blue); border-color: rgba(56, 189, 248, 0.25);">
-                        <i class="fa-solid fa-folder-plus"></i> Found in other book
+                        <i class="ph-bold ph-folder-open"></i> Found in other book
                       </span>
                     {% else %}
                       <span class="text-muted">—</span>
@@ -607,7 +607,7 @@ Warm regards,
                   <td class="text-end" data-label="Action">
                     {% if item.consensus_value %}
                       <button class="btn btn-sm btn-dark border border-secondary text-muted copy-btn-compact" onclick="copyConsensusText('consensus-val-{{ key }}', this)" title="Copy Consensus Value">
-                        <i class="fa-solid fa-copy"></i>
+                        <i class="ph ph-copy"></i>
                       </button>
                     {% else %}
                       <span class="text-muted">—</span>
@@ -624,7 +624,7 @@ Warm regards,
     <!-- Section: Video Evidence -->
     <section class="panel">
       <div class="detail-section-title">
-        <i class="fa-solid fa-video"></i> Video Evidence Audit
+        <i class="ph-bold ph-video-camera"></i> Video Evidence Audit
       </div>
       
       <div class="d-flex flex-wrap gap-4 mb-3 p-3 bg-dark-subtle border border-secondary-subtle" style="border-radius: 10px; background: rgba(15,23,42,0.3);">
@@ -632,9 +632,9 @@ Warm regards,
           <span class="text-muted small d-block">Video Status</span>
           <strong class="text-white">
             {% if lead.video_status == "no_public_video_found" %}
-              <i class="fa-solid fa-circle-question text-success"></i> No public video found
+              <i class="ph ph-question-mark text-success"></i> No public video found
             {% else %}
-              <i class="fa-solid fa-film text-danger"></i> {{ lead.video_status }}
+              <i class="ph-fill ph-film-strip text-danger"></i> {{ lead.video_status }}
             {% endif %}
           </strong>
         </div>
@@ -666,7 +666,7 @@ Warm regards,
                 <td class="text-white" data-label="Video Title"><strong>{{ video.title }}</strong></td>
                 <td data-label="URL">
                   <a href="{{ video.video_url }}" target="_blank" class="text-info d-inline-flex align-items-center gap-1">
-                    <i class="fa-brands fa-youtube text-danger"></i> Play Video
+                    <i class="ph-bold ph-youtube-logo text-danger"></i> Play Video
                   </a>
                 </td>
                 <td class="text-muted small" data-label="Reason">{{ video.classification_reason }}</td>
@@ -677,7 +677,7 @@ Warm regards,
             {% empty %}
               <tr>
                 <td colspan="4" class="text-center py-4 text-muted">
-                  <i class="fa-solid fa-video-slash fa-2x mb-2 d-block"></i> No video evidence found.
+                  <i class="ph-bold ph-video-camera fa-2x mb-2 d-block"></i> No video evidence found.
                 </td>
               </tr>
             {% endfor %}
@@ -696,7 +696,7 @@ Warm regards,
         <div style="position: absolute; top: -50px; right: -50px; width: 150px; height: 150px; background: radial-gradient(circle, rgba(251, 146, 60, 0.15) 0%, transparent 70%); pointer-events: none; border-radius: 50%;"></div>
         
         <div class="detail-section-title text-amber">
-          <i class="fa-brands fa-amazon text-warning"></i> Amazon Creator Spotlight
+          <i class="ph-bold ph-amazon-logo text-warning"></i> Amazon Creator Spotlight
         </div>
 
         <div class="d-flex flex-column align-items-center text-center mt-3 mb-4">
@@ -706,18 +706,18 @@ Warm regards,
             </div>
           {% else %}
             <div class="author-spotlight-avatar-placeholder mb-3">
-              <i class="fa-solid fa-user-pen fa-3x text-amber"></i>
+              <i class="ph-bold ph-user-pen fa-3x text-amber"></i>
             </div>
           {% endif %}
           
           <h3 class="font-heading mb-1" style="font-size: 1.4rem; font-weight: 700;">
             {% if lead.author_profile.amazon_author_url %}
               <a href="{{ lead.author_profile.amazon_author_url }}" target="_blank" class="author-name-link">
-                {{ lead.author_profile.author_name }} <i class="fa-solid fa-up-right-from-square small text-teal ms-1" style="font-size: 0.75rem;"></i>
+                {{ lead.author_profile.author_name }} <i class="ph ph-arrow-square-out small text-teal ms-1" style="font-size: 0.75rem;"></i>
               </a>
             {% elif lead.author_profile.canonical_website %}
               <a href="{{ lead.author_profile.canonical_website }}" target="_blank" class="author-name-link">
-                {{ lead.author_profile.author_name }} <i class="fa-solid fa-up-right-from-square small text-teal ms-1" style="font-size: 0.75rem;"></i>
+                {{ lead.author_profile.author_name }} <i class="ph ph-arrow-square-out small text-teal ms-1" style="font-size: 0.75rem;"></i>
               </a>
             {% else %}
               <span class="text-white">{{ lead.author_profile.author_name }}</span>
@@ -727,7 +727,7 @@ Warm regards,
           
           {% if lead.author_profile.amazon_author_url %}
             <a href="{{ lead.author_profile.amazon_author_url }}" target="_blank" class="btn btn-sm btn-amber w-100 py-2 d-flex align-items-center justify-content-center gap-2" style="font-weight: 600; border-radius: 8px; transition: all 0.3s ease;">
-              <i class="fa-brands fa-amazon"></i> View Amazon Author Page
+              <i class="ph-bold ph-amazon-logo"></i> View Amazon Author Page
             </a>
           {% endif %}
         </div>
@@ -735,14 +735,14 @@ Warm regards,
         <!-- Bio pane with dynamic reading toggle -->
         {% if lead.author_profile.author_bio %}
           <div class="mb-4">
-            <span class="text-muted d-block small mb-2 uppercase font-weight-700" style="letter-spacing: 0.5px;"><i class="fa-solid fa-address-card text-amber"></i> Author Biography</span>
+            <span class="text-muted d-block small mb-2 uppercase font-weight-700" style="letter-spacing: 0.5px;"><i class="ph ph-address-book text-amber"></i> Author Biography</span>
             <div class="p-3" style="background: rgba(15, 23, 42, 0.4); border: 1px solid var(--line); border-radius: 10px;">
               <div id="author-bio-text" class="text-light small bio-collapsed" style="line-height: 1.6; max-height: 100px; overflow: hidden; transition: max-height 0.4s ease-out; position: relative;">
                 {{ lead.author_profile.author_bio }}
                 <div class="bio-fade-overlay" id="bio-fade"></div>
               </div>
               <button id="toggle-bio-btn" class="btn btn-link btn-sm text-teal p-0 mt-2 d-none align-items-center gap-1" style="font-size: 0.82rem; text-decoration: none; font-weight: 600;">
-                Read More <i class="fa-solid fa-chevron-down small"></i>
+                Read More <i class="ph ph-caret-down small"></i>
               </button>
             </div>
           </div>
@@ -751,11 +751,11 @@ Warm regards,
         <!-- Other books list -->
         {% if lead.author_profile.other_books %}
           <div>
-            <span class="text-muted d-block small mb-2 uppercase font-weight-700" style="letter-spacing: 0.5px;"><i class="fa-solid fa-book-journal-whills text-amber"></i> Other Amazon Books</span>
+            <span class="text-muted d-block small mb-2 uppercase font-weight-700" style="letter-spacing: 0.5px;"><i class="ph-bold ph-books text-amber"></i> Other Amazon Books</span>
             <div class="other-books-grid">
               {% for book_title in lead.author_profile.other_books %}
                 <div class="other-book-item d-flex align-items-start gap-2 p-2.5 mb-2" style="background: rgba(15, 23, 42, 0.35); border: 1px solid var(--line); border-radius: 8px; transition: all 0.2s ease;">
-                  <i class="fa-solid fa-book text-warning mt-1" style="font-size: 0.95rem;"></i>
+                  <i class="ph-bold ph-book text-warning mt-1" style="font-size: 0.95rem;"></i>
                   <span class="text-white small text-truncate-2 font-weight-600" style="line-height: 1.4;">{{ book_title }}</span>
                 </div>
               {% endfor %}
@@ -767,7 +767,7 @@ Warm regards,
     <!-- Component 4: Premium Glassmorphic Representation Panel -->
     <section class="panel" style="border-color: rgba(56, 189, 248, 0.25); background: rgba(17, 24, 39, 0.75);">
       <div class="detail-section-title">
-        <i class="fa-solid fa-user-tie text-info"></i> Representation & Agency Contacts
+        <i class="ph-bold ph-user-gear text-info"></i> Representation & Agency Contacts
       </div>
       
       {% if lead.author_profile.agent_name or lead.representation_email or lead.author_profile.representation_email or lead.publicist_email or lead.author_profile.publicist_email %}
@@ -775,7 +775,7 @@ Warm regards,
           <!-- Literary Agent Section -->
           <div class="p-3" style="background: rgba(15, 23, 42, 0.4); border: 1px solid var(--line); border-radius: 10px;">
             <div class="text-info font-heading font-weight-700 small uppercase mb-2">
-              <i class="fa-solid fa-feather text-info"></i> Literary Agent / Rights Team
+              <i class="ph-bold ph-feather text-info"></i> Literary Agent / Rights Team
             </div>
             <div class="mb-2.5">
               <span class="text-muted d-block small mb-0.5">Agent Name</span>
@@ -787,11 +787,11 @@ Warm regards,
                 {% with rep_email=lead.representation_email|default:lead.author_profile.representation_email %}
                   <div class="d-flex align-items-center justify-content-between gap-2 mt-1">
                     <a href="mailto:{{ rep_email }}" class="text-info d-inline-flex align-items-center gap-1.5 font-monospace" style="font-size: 0.9rem; max-width: 100%; min-width: 0; width: 100%;">
-                      <i class="fa-solid fa-envelope" style="flex-shrink: 0;"></i>
+                      <i class="ph-bold ph-envelope" style="flex-shrink: 0;"></i>
                       <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex-grow: 1;">{{ rep_email }}</span>
                     </a>
                     <button class="btn btn-sm btn-dark border border-secondary text-muted copy-btn-compact" data-clipboard-text="{{ rep_email }}" title="Copy Email" style="flex-shrink: 0;">
-                      <i class="fa-solid fa-copy"></i>
+                      <i class="ph ph-copy"></i>
                     </button>
                   </div>
                 {% endwith %}
@@ -804,7 +804,7 @@ Warm regards,
           <!-- Publisher Publicist Section -->
           <div class="p-3" style="background: rgba(15, 23, 42, 0.4); border: 1px solid var(--line); border-radius: 10px;">
             <div class="text-teal font-heading font-weight-700 small uppercase mb-2">
-              <i class="fa-solid fa-bullhorn text-teal"></i> Publicity & Bookings Desk
+              <i class="ph-bold ph-megaphone text-teal"></i> Publicity & Bookings Desk
             </div>
             <div>
               <span class="text-muted d-block small mb-0.5">Publicist / Booking Email</span>
@@ -812,11 +812,11 @@ Warm regards,
                 {% with pub_email=lead.publicist_email|default:lead.author_profile.publicist_email %}
                   <div class="d-flex align-items-center justify-content-between gap-2 mt-1">
                     <a href="mailto:{{ pub_email }}" class="text-teal d-inline-flex align-items-center gap-1.5 font-monospace" style="font-size: 0.9rem; max-width: 100%; min-width: 0; width: 100%;">
-                      <i class="fa-solid fa-envelope" style="flex-shrink: 0;"></i>
+                      <i class="ph-bold ph-envelope" style="flex-shrink: 0;"></i>
                       <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex-grow: 1;">{{ pub_email }}</span>
                     </a>
                     <button class="btn btn-sm btn-dark border border-secondary text-muted copy-btn-compact" data-clipboard-text="{{ pub_email }}" title="Copy Email" style="flex-shrink: 0;">
-                      <i class="fa-solid fa-copy"></i>
+                      <i class="ph ph-copy"></i>
                     </button>
                   </div>
                 {% endwith %}
@@ -828,7 +828,7 @@ Warm regards,
         </div>
       {% else %}
         <div class="text-center py-4 text-muted" style="background: rgba(15, 23, 42, 0.3); border: 1px dashed var(--line); border-radius: 10px;">
-          <i class="fa-solid fa-user-slash fa-2x mb-2.5 d-block text-secondary"></i>
+          <i class="ph-bold ph-prohibit fa-2x mb-2.5 d-block text-secondary"></i>
           <span style="font-size: 0.9rem; line-height: 1.4; display: block; padding: 0 1rem;">No specialized agency representation detected. Outreach to direct author channels is recommended.</span>
         </div>
       {% endif %}
@@ -837,7 +837,7 @@ Warm regards,
     <!-- Component: AI Audit & Verification Report -->
     <section class="panel" style="border-color: rgba(20, 184, 166, 0.35); background: linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(13, 148, 136, 0.05) 100%);">
       <div class="detail-section-title text-teal">
-        <i class="fa-solid fa-shield-halved text-teal"></i> AI Verification Report
+        <i class="ph-bold ph-shield-check text-teal"></i> AI Verification Report
       </div>
       
       <div class="d-flex align-items-center gap-3 mb-3">
@@ -877,7 +877,7 @@ Warm regards,
           {% for warning in lead.warnings_json %}
             {% if "AI Review Check: " in warning %}
               <div class="d-flex align-items-start gap-2 p-2.5" style="background: rgba(52, 211, 153, 0.03); border: 1px solid rgba(52, 211, 153, 0.1); border-radius: 8px;">
-                <i class="fa-solid fa-circle-check text-success mt-0.5" style="font-size: 0.85rem;"></i>
+                <i class="ph-fill ph-check-circle text-success mt-0.5" style="font-size: 0.85rem;"></i>
                 <span class="text-light small" style="line-height: 1.4;">{{ warning|slice:"17:" }}</span>
               </div>
             {% endif %}
@@ -885,14 +885,14 @@ Warm regards,
           
           {% if lead.book.is_childrens_book %}
             <div class="d-flex align-items-start gap-2 p-2.5" style="background: rgba(20, 184, 166, 0.03); border: 1px solid rgba(20, 184, 166, 0.1); border-radius: 8px;">
-              <i class="fa-solid fa-child text-teal mt-0.5" style="font-size: 0.85rem;"></i>
+              <i class="ph-bold ph-user-child text-teal mt-0.5" style="font-size: 0.85rem;"></i>
               <span class="text-light small" style="line-height: 1.4;">Book classification verified: Children's Book (Confidence: {{ lead.book.book_classification_confidence }})</span>
             </div>
           {% endif %}
           
           {% if lead.public_email %}
             <div class="d-flex align-items-start gap-2 p-2.5" style="background: rgba(56, 189, 248, 0.03); border: 1px solid rgba(56, 189, 248, 0.1); border-radius: 8px;">
-              <i class="fa-solid fa-envelope text-info mt-0.5" style="font-size: 0.85rem;"></i>
+              <i class="ph-bold ph-envelope text-info mt-0.5" style="font-size: 0.85rem;"></i>
               <span class="text-light small" style="line-height: 1.4;">Active email verification: syntax is valid and active DNS MX records resolved.</span>
             </div>
           {% endif %}
@@ -903,7 +903,7 @@ Warm regards,
     <!-- Manual Review Action Console -->
     <section class="panel" style="border-color: rgba(20, 184, 166, 0.25);">
       <div class="detail-section-title">
-        <i class="fa-solid fa-gavel"></i> Manual Review Console
+        <i class="ph-bold ph-gavel"></i> Manual Review Console
       </div>
       
       <div class="mb-4">
@@ -911,20 +911,20 @@ Warm regards,
         <div class="d-flex align-items-center gap-2 mt-1">
           {% if lead.manual_review_status == 'needs_review' %}
             <span class="status-pill status-running py-1.5 px-3" style="font-size: 0.95rem;">
-              <i class="fa-solid fa-spinner fa-spin"></i> Needs Review
+              <i class="ph ph-circle-notch" style="display:inline-block;animation:ph-spin 1s linear infinite"></i> Needs Review
             </span>
           {% elif lead.manual_review_status == 'approved' %}
             <span class="status-pill status-success py-1.5 px-3" style="font-size: 0.95rem;">
-              <i class="fa-solid fa-circle-check"></i> Approved Lead
+              <i class="ph-fill ph-check-circle"></i> Approved Lead
             </span>
           {% elif lead.manual_review_status == 'rejected' %}
             <span class="status-pill status-failed py-1.5 px-3" style="font-size: 0.95rem;">
-              <i class="fa-solid fa-circle-xmark"></i> Rejected Lead
+              <i class="ph-fill ph-x-circle"></i> Rejected Lead
             </span>
           {% endif %}
           
           {% if lead.do_not_contact %}
-            <span class="badge bg-danger p-2"><i class="fa-solid fa-ban"></i> Do Not Contact</span>
+            <span class="badge bg-danger p-2"><i class="ph-bold ph-prohibit"></i> Do Not Contact</span>
           {% endif %}
         </div>
       </div>
@@ -933,13 +933,13 @@ Warm regards,
         <form method="post" action="{% url 'leadfinder:lead_action' lead.id 'approve' %}" class="flex-grow-1">
           {% csrf_token %}
           <button class="btn btn-primary w-100">
-            <i class="fa-solid fa-check"></i> Approve
+            <i class="ph ph-check"></i> Approve
           </button>
         </form>
         <form method="post" action="{% url 'leadfinder:lead_action' lead.id 'reject' %}" class="flex-grow-1">
           {% csrf_token %}
           <button class="btn btn-secondary w-100">
-            <i class="fa-solid fa-xmark"></i> Reject
+            <i class="ph-bold ph-x"></i> Reject
           </button>
         </form>
       </div>
@@ -947,14 +947,14 @@ Warm regards,
       <form method="post" action="{% url 'leadfinder:lead_action' lead.id 'do-not-contact' %}" class="mb-2">
         {% csrf_token %}
         <button class="btn btn-danger w-100">
-          <i class="fa-solid fa-ban"></i> Add to Do-Not-Contact List
+          <i class="ph-bold ph-prohibit"></i> Add to Do-Not-Contact List
         </button>
       </form>
 
       <form method="post" action="{% url 'leadfinder:lead_action' lead.id 'delete' %}" class="mb-4">
         {% csrf_token %}
         <button class="btn btn-danger w-100" style="background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%); border: none; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);" onclick="return confirm('Are you sure you want to permanently delete this lead? This action cannot be undone.');">
-          <i class="fa-solid fa-trash-can"></i> Delete Lead
+          <i class="ph-bold ph-trash"></i> Delete Lead
         </button>
       </form>
 
@@ -962,10 +962,10 @@ Warm regards,
 
       <form method="post" action="{% url 'leadfinder:lead_action' lead.id 'reject' %}">
         {% csrf_token %}
-        <label for="review-note"><i class="fa-solid fa-pen-to-square"></i> Activity Log / Review Notes</label>
+        <label for="review-note"><i class="ph-bold ph-pencil-simple"></i> Activity Log / Review Notes</label>
         <textarea id="review-note" class="form-control" name="note" placeholder="Type internal notes or reasons here..." required></textarea>
         <button class="btn btn-secondary w-100 mt-2">
-          <i class="fa-solid fa-plus"></i> Save Activity Log
+          <i class="ph-bold ph-plus"></i> Save Activity Log
         </button>
       </form>
       
@@ -978,7 +978,7 @@ Warm regards,
     <!-- Visual Vertical Step Tracker -->
     <section class="panel">
       <div class="detail-section-title">
-        <i class="fa-solid fa-route"></i> Extraction Path Evidence
+        <i class="ph-bold ph-route"></i> Extraction Path Evidence
       </div>
       
       <div class="timeline-tracker">
@@ -993,12 +993,12 @@ Warm regards,
               Source: <a href="{{ evidence.source_url }}" target="_blank" class="text-info d-inline-flex align-items-center gap-1" style="max-width: 100%; min-width: 0; vertical-align: middle;">
                 <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; max-width: 250px;">{{ evidence.source_url }}</span>
               </a>
-              <div class="mt-0.5"><i class="fa-solid fa-calendar-day"></i> Verified: {{ evidence.created_at|date:"M d, Y" }}</div>
+              <div class="mt-0.5"><i class="ph ph-calendar"></i> Verified: {{ evidence.created_at|date:"M d, Y" }}</div>
             </div>
           </div>
         {% empty %}
           <div class="text-muted py-3 text-center">
-            <i class="fa-solid fa-timeline fa-2x mb-2 d-block"></i> No verification history found.
+            <i class="ph-bold ph-clock-counter-clockwise fa-2x mb-2 d-block"></i> No verification history found.
           </div>
         {% endfor %}
       </div>
@@ -1010,7 +1010,7 @@ Warm regards,
 <div class="col-12 mt-4 mb-4">
   <section class="panel" style="border-color: rgba(251, 191, 36, 0.25); background: linear-gradient(180deg, rgba(17, 24, 39, 0.8) 0%, rgba(15, 23, 42, 0.95) 100%); backdrop-filter: blur(16px);">
     <div class="detail-section-title text-amber">
-      <i class="fa-solid fa-book-bookmark text-warning"></i> Author's Global Publishing Portfolio & Scrape Footprint
+      <i class="ph-bold ph-bookmarks text-warning"></i> Author's Global Publishing Portfolio & Scrape Footprint
     </div>
     <p class="text-muted small mb-3">
       The following grid displays all books by this author recorded across the system. It tracks exactly where each book is published (publisher, date, ASIN), its performance ratings, its discovery source, and the active outreach lead status.
@@ -1047,14 +1047,14 @@ Warm regards,
                     <img src="{{ bk.cover_image_url }}" alt="{{ bk.title }} Cover" style="width: 48px; height: 68px; object-fit: cover; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 4px 8px rgba(0,0,0,0.3);">
                   {% else %}
                     <div style="width: 48px; height: 68px; background: rgba(255,255,255,0.03); border: 1px dashed rgba(255,255,255,0.15); border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--muted);">
-                      <i class="fa-solid fa-book fa-lg"></i>
+                      <i class="ph-bold ph-book fa-lg"></i>
                     </div>
                   {% endif %}
                   
                   <div style="min-width: 0;">
                     {% if bk.amazon_book_url %}
                       <a href="{{ bk.amazon_book_url }}" target="_blank" class="text-white font-weight-700 row-link d-block text-truncate-custom" style="font-size: 0.98rem; text-decoration: none;" title="{{ bk.title }}">
-                        {{ bk.title }} <i class="fa-solid fa-up-right-from-square small text-teal ms-1" style="font-size: 0.72rem;"></i>
+                        {{ bk.title }} <i class="ph ph-arrow-square-out small text-teal ms-1" style="font-size: 0.72rem;"></i>
                       </a>
                     {% else %}
                       <strong class="text-white font-weight-700 d-block text-truncate-custom" style="font-size: 0.98rem;" title="{{ bk.title }}">{{ bk.title }}</strong>
@@ -1063,7 +1063,7 @@ Warm regards,
                     <div class="d-flex align-items-center gap-2 mt-1">
                       <div class="amazon-rating-stars small" style="color: #ffb703; font-size: 0.82rem;">
                         {% if bk.rating %}
-                          <i class="fa-solid fa-star"></i> <span class="text-white font-weight-700">{{ bk.rating }}</span>
+                          <i class="ph-fill ph-star"></i> <span class="text-white font-weight-700">{{ bk.rating }}</span>
                         {% else %}
                           <span class="text-muted">No rating</span>
                         {% endif %}
@@ -1086,11 +1086,11 @@ Warm regards,
                     {% if bk.email %}
                       <div class="contact-badge-item d-flex align-items-center justify-content-between gap-2 p-1.5 rounded-2" style="background: rgba(20, 184, 166, 0.08); border: 1px solid rgba(20, 184, 166, 0.2); word-break: break-all; white-space: normal;">
                         <div class="d-flex align-items-center gap-1.5" style="min-width: 0; flex-grow: 1;">
-                          <i class="fa-solid fa-envelope text-teal" style="flex-shrink: 0; font-size: 0.85rem;" title="Public Email"></i>
+                          <i class="ph-bold ph-envelope text-teal" style="flex-shrink: 0; font-size: 0.85rem;" title="Public Email"></i>
                           <span style="color: #2dd4bf; font-size: 0.82rem; font-weight: 500; min-width: 0; word-break: break-all; white-space: normal;">{{ bk.email }}</span>
                         </div>
                         <button class="btn btn-sm btn-dark border border-secondary text-muted copy-btn-compact ms-1" data-clipboard-text="{{ bk.email }}" title="Copy Email" style="flex-shrink: 0; padding: 0.1rem 0.3rem; line-height: 1; font-size: 0.75rem;">
-                          <i class="fa-regular fa-copy"></i>
+                          <i class="ph ph-copy"></i>
                         </button>
                       </div>
                     {% endif %}
@@ -1102,7 +1102,7 @@ Warm regards,
                           <span style="color: #60a5fa; font-size: 0.82rem; font-weight: 500; min-width: 0; word-break: break-all; white-space: normal;">{{ bk.phone }}</span>
                         </div>
                         <button class="btn btn-sm btn-dark border border-secondary text-muted copy-btn-compact ms-1" data-clipboard-text="{{ bk.phone }}" title="Copy Phone" style="flex-shrink: 0; padding: 0.1rem 0.3rem; line-height: 1; font-size: 0.75rem;">
-                          <i class="fa-regular fa-copy"></i>
+                          <i class="ph ph-copy"></i>
                         </button>
                       </div>
                     {% endif %}
@@ -1122,18 +1122,18 @@ Warm regards,
                     {% if bk.publicist_email %}
                       <div class="contact-badge-item d-flex align-items-center justify-content-between gap-2 p-1.5 rounded-2" style="background: rgba(168, 85, 247, 0.08); border: 1px solid rgba(168, 85, 247, 0.2); word-break: break-all; white-space: normal;">
                         <div class="d-flex align-items-center gap-1.5" style="min-width: 0; flex-grow: 1;">
-                          <i class="fa-solid fa-bullhorn" style="color: #c084fc !important; flex-shrink: 0; font-size: 0.85rem;" title="Publicist Email"></i>
+                          <i class="ph-bold ph-megaphone" style="color: #c084fc !important; flex-shrink: 0; font-size: 0.85rem;" title="Publicist Email"></i>
                           <span style="color: #c084fc; font-size: 0.82rem; font-weight: 500; min-width: 0; word-break: break-all; white-space: normal;">{{ bk.publicist_email }}</span>
                         </div>
                         <button class="btn btn-sm btn-dark border border-secondary text-muted copy-btn-compact ms-1" data-clipboard-text="{{ bk.publicist_email }}" title="Copy Publicist Email" style="flex-shrink: 0; padding: 0.1rem 0.3rem; line-height: 1; font-size: 0.75rem;">
-                          <i class="fa-regular fa-copy"></i>
+                          <i class="ph ph-copy"></i>
                         </button>
                       </div>
                     {% endif %}
 
                     {% if bk.location %}
                       <div class="contact-badge-item d-flex align-items-center gap-1.5 p-1.5 rounded-2" style="background: rgba(34, 197, 94, 0.08); border: 1px solid rgba(34, 197, 94, 0.2); word-break: break-all; white-space: normal;">
-                        <i class="fa-solid fa-location-dot text-success" style="flex-shrink: 0; font-size: 0.85rem;" title="Location"></i>
+                        <i class="ph-bold ph-map-pin text-success" style="flex-shrink: 0; font-size: 0.85rem;" title="Location"></i>
                         <span style="color: #4ade80; font-size: 0.82rem; font-weight: 500; min-width: 0; word-break: break-all; white-space: normal;">{{ bk.location }}</span>
                       </div>
                     {% endif %}
@@ -1141,19 +1141,19 @@ Warm regards,
                     {% if bk.website %}
                       <div class="contact-badge-item d-flex align-items-center justify-content-between gap-2 p-1.5 rounded-2" style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); word-break: break-all; white-space: normal;">
                         <div class="d-flex align-items-center gap-1.5" style="min-width: 0; flex-grow: 1;">
-                          <i class="fa-solid fa-globe text-danger" style="flex-shrink: 0; font-size: 0.85rem;" title="Website"></i>
+                          <i class="ph-bold ph-globe text-danger" style="flex-shrink: 0; font-size: 0.85rem;" title="Website"></i>
                           <a href="{{ bk.website }}" target="_blank" class="text-hover-underline" style="color: #f87171; font-size: 0.82rem; font-weight: 500; min-width: 0; word-break: break-all; white-space: normal; text-decoration: none;">
-                            {{ bk.website }} <i class="fa-solid fa-up-right-from-square" style="font-size: 0.65rem; opacity: 0.8;"></i>
+                            {{ bk.website }} <i class="ph ph-arrow-square-out" style="font-size: 0.65rem; opacity: 0.8;"></i>
                           </a>
                         </div>
                         <button class="btn btn-sm btn-dark border border-secondary text-muted copy-btn-compact ms-1" data-clipboard-text="{{ bk.website }}" title="Copy Website URL" style="flex-shrink: 0; padding: 0.1rem 0.3rem; line-height: 1; font-size: 0.75rem;">
-                          <i class="fa-regular fa-copy"></i>
+                          <i class="ph ph-copy"></i>
                         </button>
                       </div>
                     {% endif %}
 
                   {% else %}
-                    <span class="text-muted small italic" style="font-size: 0.82rem;"><i class="fa-solid fa-circle-minus"></i> No contact scraped</span>
+                    <span class="text-muted small italic" style="font-size: 0.82rem;"><i class="ph ph-minus-circle"></i> No contact scraped</span>
                   {% endif %}
                 </div>
               </td>
@@ -1165,7 +1165,7 @@ Warm regards,
               </td>
               <td data-label="Discovery Channel">
                 <span class="text-info d-block font-weight-600" style="text-transform: uppercase; font-size: 0.78rem;">
-                  <i class="fa-solid fa-magnifying-glass small"></i> {{ bk.source_provider }}
+                  <i class="ph-bold ph-magnifying-glass small"></i> {{ bk.source_provider }}
                 </span>
                 <span class="text-muted small d-block text-truncate-custom" style="max-width: 180px;" title="{{ bk.run_keyword }}">Run: {{ bk.run_keyword }}</span>
               </td>
@@ -1173,7 +1173,7 @@ Warm regards,
                 {% if bk.has_lead %}
                   <div class="d-flex flex-column gap-1 align-items-start">
                     <a href="{% url 'leadfinder:lead_detail' bk.lead_id %}" class="btn btn-sm btn-outline-teal py-1 px-2.5 d-inline-flex align-items-center gap-1.5" style="border-radius: 6px; font-size: 0.8rem; font-weight: 700; transition: all 0.2s ease; text-decoration: none;">
-                      <i class="fa-solid fa-fire text-teal"></i> Lead #{{ bk.lead_score }}
+                      <i class="ph-fill ph-fire text-teal"></i> Lead #{{ bk.lead_score }}
                     </a>
                     <div class="d-flex gap-1 flex-wrap mt-0.5">
                       <span class="tier-pill tier-{{ bk.lead_tier }}" style="font-size: 0.68rem; padding: 0.15rem 0.4rem; border-radius: 4px;">{{ bk.lead_tier }}</span>
@@ -1181,14 +1181,14 @@ Warm regards,
                     </div>
                   </div>
                 {% else %}
-                  <span class="badge bg-secondary-subtle text-muted" style="border: 1px dashed rgba(255,255,255,0.1);"><i class="fa-solid fa-circle-minus"></i> No Outreach Lead</span>
+                  <span class="badge bg-secondary-subtle text-muted" style="border: 1px dashed rgba(255,255,255,0.1);"><i class="ph ph-minus-circle"></i> No Outreach Lead</span>
                 {% endif %}
               </td>
             </tr>
           {% empty %}
             <tr>
               <td colspan="7" class="text-center py-4 text-muted">
-                <i class="fa-solid fa-book-open fa-2x mb-2 d-block text-secondary"></i>
+                <i class="ph-bold ph-book-open fa-2x mb-2 d-block text-secondary"></i>
                 No portfolio book footprint recorded.
               </td>
             </tr>

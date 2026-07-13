@@ -4,7 +4,7 @@
 <div class="new-run-page">
   <div class="new-run-header">
     <a class="new-run-back" href="{% url 'leadfinder:run_list' %}">
-      <i class="fa-solid fa-arrow-left"></i> Search Discovery
+      <i class="ph-bold ph-arrow-left"></i> Search Discovery
     </a>
     <h1>New Research Run</h1>
     <p class="page-subtitle">Launch a keyword discovery run with the enrichment and verification settings you need.</p>
@@ -16,7 +16,7 @@
 
     <section class="new-run-panel primary-search-panel">
       <div class="new-run-section-heading">
-        <span class="new-run-section-icon"><i class="fa-solid fa-magnifying-glass"></i></span>
+        <span class="new-run-section-icon"><i class="ph-bold ph-magnifying-glass"></i></span>
         <h2>Primary Search Settings</h2>
       </div>
 
@@ -30,13 +30,13 @@
         <span>Suggested Keywords</span>
         <strong>{{ keyword_suggestions|length }} suggestions</strong>
         <button class="btn btn-secondary btn-sm refresh-suggestions" type="button">
-          <i class="fa-solid fa-rotate"></i> Refresh suggestions
+          <i class="ph-bold ph-arrow-clockwise"></i> Refresh suggestions
         </button>
       </div>
 
       <div class="suggestion-badges new-run-suggestions">
         {% for suggestion in keyword_suggestions %}
-          <button class="suggestion-badge" type="button" data-keyword="{{ suggestion }}">{{ suggestion }} <i class="fa-solid fa-plus"></i></button>
+          <button class="suggestion-badge" type="button" data-keyword="{{ suggestion }}">{{ suggestion }} <i class="ph-bold ph-plus"></i></button>
         {% endfor %}
       </div>
 
@@ -113,7 +113,7 @@
 
       {% if form.require_public_email.help_text %}
         <div class="new-run-note">
-          <i class="fa-solid fa-circle-info"></i>
+          <i class="ph-fill ph-info"></i>
           <span>{{ form.require_public_email.help_text }}</span>
         </div>
       {% endif %}
@@ -123,9 +123,9 @@
       <button class="btn btn-primary" type="submit">
         <i class="fa-solid fa-play"></i> Run Research
       </button>
-      <a class="btn btn-secondary" href="{% url 'leadfinder:booklife_run' %}">
-        <i class="fa-solid fa-book-open-reader"></i> BookLife Run
-      </a>
+      <!-- <a class="btn btn-secondary" href="{% url 'leadfinder:booklife_run' %}">
+        <i class="ph-bold ph-book-open"></i> BookLife Run
+      </a> -->
     </div>
   </form>
 </div>
