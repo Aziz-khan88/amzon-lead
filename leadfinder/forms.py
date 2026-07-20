@@ -161,7 +161,7 @@ class LeadFilterForm(forms.Form):
             ("0.9", ">= 90%"),
         ],
     )
-    valid_only = forms.BooleanField(required=False, initial=True, label="Verified-ready only")
+    valid_only = forms.BooleanField(required=False, initial=False, label="Verified-ready only")
     tier = forms.ChoiceField(
         required=False,
         choices=[("", "Any tier"), ("hot", "Hot"), ("warm", "Warm"), ("cold", "Cold"), ("rejected", "Rejected")],

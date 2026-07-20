@@ -52,11 +52,8 @@
   </div>
 
   <form method="get" class="leads-filter-panel" id="filter-form">
-    <div class="leads-filter-tabs" role="tablist" aria-label="Lead filters">
-      <button class="leads-filter-tab active" type="button">Quick Filters</button>
-      <button class="leads-filter-tab" type="button" id="toggle-advanced-btn" aria-expanded="true" aria-controls="advanced-filters-panel">Advanced Filters</button>
-    </div>
-
+    <input type="hidden" name="page" id="id_page" value="{{ page_obj.number }}">
+    <input type="hidden" name="per_page" id="id_per_page" value="{{ per_page }}">
     <div class="leads-filter-primary">
       <div class="leads-search-field">
         <label for="id_q" class="visually-hidden">Search leads</label>
@@ -78,16 +75,20 @@
 
     <div class="quick-filter-label">Quick Filters</div>
     <div class="quick-filter-row leads-chip-row" aria-label="Quick filters">
-      <a href="{% url 'leadfinder:lead_list' %}" class="quick-filter chip-verified">Verified ready</a>
-      <a href="{% url 'leadfinder:lead_list' %}?tier=hot&valid_only=0" class="quick-filter chip-hot">Hot</a>
-      <a href="{% url 'leadfinder:lead_list' %}?has_email=1&valid_only=0" class="quick-filter chip-email">Has email</a>
-      <a href="{% url 'leadfinder:lead_list' %}?video_status=no_public_video_found&valid_only=0" class="quick-filter chip-video">No video found</a>
-      <a href="{% url 'leadfinder:lead_list' %}?manual_review_status=needs_review&valid_only=0" class="quick-filter chip-review">Needs review</a>
-      <a href="{% url 'leadfinder:lead_list' %}?pub_year_start=2025&valid_only=0" class="quick-filter chip-published">Published 2025+</a>
+      <a href="{% url 'leadfinder:lead_list' %}" class="quick-filter chip-all">All Leads</a>
+      <a href="{% url 'leadfinder:lead_list' %}?valid_only=1" class="quick-filter chip-verified">Verified ready</a>
+      <a href="{% url 'leadfinder:lead_list' %}?tier=hot" class="quick-filter chip-hot">Hot</a>
+      <a href="{% url 'leadfinder:lead_list' %}?has_email=1" class="quick-filter chip-email">Has email</a>
+      <a href="{% url 'leadfinder:lead_list' %}?video_status=no_public_video_found" class="quick-filter chip-video">No video found</a>
+      <a href="{% url 'leadfinder:lead_list' %}?manual_review_status=needs_review" class="quick-filter chip-review">Needs review</a>
+      <a href="{% url 'leadfinder:lead_list' %}?pub_year_start=2025" class="quick-filter chip-published">Published 2025+</a>
       <button type="button" class="quick-filter chip-more"><i class="ph-bold ph-plus"></i> More</button>
+      <button type="button" class="btn btn-outline-secondary btn-sm ms-auto" id="toggle-advanced-btn" aria-expanded="false" aria-controls="advanced-filters-panel" style="border-radius: 20px; font-size: 0.8rem; padding: 0.25rem 0.75rem;">
+        <i class="ph ph-faders"></i> Advanced Filters
+      </button>
     </div>
 
-    <div id="advanced-filters-panel" class="leads-advanced-panel">
+    <div id="advanced-filters-panel" class="leads-advanced-panel mt-3" hidden>
       <div class="leads-filter-grid">
         <div class="field-row">
           <label for="id_tier">Tier</label>
@@ -103,23 +104,23 @@
         </div>
         <div class="field-row">
           <label for="id_has_email">Has email</label>
-          <div class="leads-check-select">{{ form.has_email }} <span>Any</span></div>
+          <div class="leads-check-select">{{ form.has_email }}</div>
         </div>
         <div class="field-row">
           <label for="id_has_phone">Has phone</label>
-          <div class="leads-check-select">{{ form.has_phone }} <span>Any</span></div>
+          <div class="leads-check-select">{{ form.has_phone }}</div>
         </div>
         <div class="field-row">
           <label for="id_has_website">Has website</label>
-          <div class="leads-check-select">{{ form.has_website }} <span>Any</span></div>
+          <div class="leads-check-select">{{ form.has_website }}</div>
         </div>
         <div class="field-row">
           <label for="id_has_amazon_url">Has Amazon URL</label>
-          <div class="leads-check-select">{{ form.has_amazon_url }} <span>Any</span></div>
+          <div class="leads-check-select">{{ form.has_amazon_url }}</div>
         </div>
         <div class="field-row">
           <label for="id_do_not_contact">Do not contact</label>
-          <div class="leads-check-select">{{ form.do_not_contact }} <span>Exclude</span></div>
+          <div class="leads-check-select">{{ form.do_not_contact }}</div>
         </div>
       </div>
 
@@ -153,7 +154,7 @@
       <div class="leads-table-header">
         <div class="leads-table-title">
           <h2>Matching Leads</h2>
-          <span>{{ leads|length }} results</span>
+          <span>{{ page_obj.paginator.count }} results</span>
         </div>
         <div class="leads-table-tools">
           <div id="bulk-actions-bar" class="bulk-actions-bar" aria-live="polite">
@@ -188,7 +189,7 @@
             </tr>
           </thead>
           <tbody>
-          {% for lead in leads %}
+          {% for lead in page_obj %}
             <tr class="clickable-row {% if lead.lead_tier == 'hot' %}hot-row{% endif %}" data-href="{% url 'leadfinder:lead_detail' lead.id %}">
               <td class="select-cell" data-label="Select">
                 <input type="checkbox" name="lead_ids" value="{{ lead.id }}" class="form-check-input lead-checkbox" aria-label="Select {{ lead.book.title }}">
@@ -325,17 +326,27 @@
       </div>
 
       <div class="leads-table-footer">
-        <span>Showing 1 to {{ leads|length }} of {{ leads|length }} results</span>
+        <span>Showing {{ page_obj.start_index }} to {{ page_obj.end_index }} of {{ page_obj.paginator.count }} results</span>
         <div class="leads-pagination" aria-label="Pagination">
-          <button class="btn btn-secondary btn-sm icon-only" type="button" aria-label="Previous page"><i class="ph ph-caret-left"></i></button>
-          <span>1</span>
-          <button class="btn btn-secondary btn-sm icon-only" type="button" aria-label="Next page"><i class="ph ph-caret-right"></i></button>
+          {% if page_obj.has_previous %}
+            <button class="btn btn-secondary btn-sm icon-only" type="button" aria-label="Previous page" onclick="goToPage({{ page_obj.previous_page_number }})"><i class="ph ph-caret-left"></i></button>
+          {% else %}
+            <button class="btn btn-secondary btn-sm icon-only" type="button" aria-label="Previous page" disabled><i class="ph ph-caret-left"></i></button>
+          {% endif %}
+          
+          <span>{{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+          
+          {% if page_obj.has_next %}
+            <button class="btn btn-secondary btn-sm icon-only" type="button" aria-label="Next page" onclick="goToPage({{ page_obj.next_page_number }})"><i class="ph ph-caret-right"></i></button>
+          {% else %}
+            <button class="btn btn-secondary btn-sm icon-only" type="button" aria-label="Next page" disabled><i class="ph ph-caret-right"></i></button>
+          {% endif %}
         </div>
         <label class="rows-per-page">Rows per page
-          <select aria-label="Rows per page">
-            <option selected>25</option>
-            <option>50</option>
-            <option>100</option>
+          <select aria-label="Rows per page" id="per-page-select">
+            <option value="25" {% if per_page == 25 %}selected{% endif %}>25</option>
+            <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
+            <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
           </select>
         </label>
       </div>
@@ -353,7 +364,11 @@ document.addEventListener('DOMContentLoaded', () => {
       const shouldHide = !advancedPanel.hidden;
       advancedPanel.hidden = shouldHide;
       toggleBtn.setAttribute('aria-expanded', shouldHide ? 'false' : 'true');
-      toggleBtn.classList.toggle('active', !shouldHide);
+      if (!shouldHide) {
+        toggleBtn.classList.replace('btn-outline-secondary', 'btn-secondary');
+      } else {
+        toggleBtn.classList.replace('btn-secondary', 'btn-outline-secondary');
+      }
     });
   }
 
@@ -416,10 +431,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let isMatch = true;
     
     if (linkParams.toString() === "") {
-      const hasOtherFilters = currentParams.has('tier') || currentParams.has('has_email') || 
-                              currentParams.has('video_status') || currentParams.has('manual_review_status') ||
-                              currentParams.has('pub_year_start');
-      isMatch = !hasOtherFilters && (currentParams.get('valid_only') !== '0');
+      const hasOtherFilters = Array.from(currentParams.keys()).some(key => key !== 'sort_by' && key !== 'valid_only' && key !== 'page' && key !== 'per_page');
+      isMatch = !hasOtherFilters && (!currentParams.has('valid_only') || currentParams.get('valid_only') === '0' || currentParams.get('valid_only') === 'False');
     } else {
       for (const [key, val] of linkParams.entries()) {
         if (currentParams.get(key) !== val) {
@@ -436,5 +449,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
   updateBulkActionsBar();
 });
+
+function goToPage(pageNum) {
+  document.getElementById('id_page').value = pageNum;
+  document.getElementById('filter-form').submit();
+}
+
+const perPageSelect = document.getElementById('per-page-select');
+if (perPageSelect) {
+  perPageSelect.addEventListener('change', (e) => {
+    document.getElementById('id_per_page').value = e.target.value;
+    document.getElementById('id_page').value = 1;
+    document.getElementById('filter-form').submit();
+  });
+}
 </script>
 {% endblock %}

@@ -35,4 +35,5 @@ if (Test-Path "..\.venv\Scripts\python.exe") {
 }
 
 # Run Django bound to all interfaces
+$env:ALLOWED_HOSTS = "*"
 & $pythonExe manage.py runserver 0.0.0.0:3005

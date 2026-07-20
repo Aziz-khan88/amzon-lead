@@ -9,6 +9,7 @@ import threading
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 from django.contrib import messages
+from django.core.paginator import Paginator
 from django.db import close_old_connections
 from django.db.models import Count, Q
 from django.http import JsonResponse
@@ -401,9 +402,7 @@ def lead_list(request):
     leads = Lead.objects.select_related("book", "author_profile")
     
     # Apply standard filters
-    if not request.GET:
-        leads = _contactable_queryset(leads.exclude(lead_tier__in=["cold", "rejected"]).exclude(book__amazon_book_url=""))
-    elif form.is_valid():
+    if form.is_valid():
         cd = form.cleaned_data
         
         # Keyword Search
@@ -458,8 +457,22 @@ def lead_list(request):
     stats_pending = Lead.objects.filter(manual_review_status="needs_review").count()
     stats_email = _contactable_queryset(Lead.objects.all()).count()
     
+    # Pagination
+    try:
+        per_page = int(request.GET.get('per_page', 25))
+    except ValueError:
+        per_page = 25
+    if per_page not in [25, 50, 100]:
+        per_page = 25
+        
+    paginator = Paginator(leads, per_page)
+    page_number = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page_number)
+    
     context = {
         "form": form,
+        "page_obj": page_obj,
+        "per_page": per_page,
         "leads": leads,
         "stats": {
             "total": stats_total,
@@ -908,7 +921,7 @@ def lead_bulk_action(request):
 
 def export_leads_csv(request):
     leads = Lead.objects.all().order_by("-lead_score", "-created_at")
-    valid_only = request.GET.get("valid_only", "1").lower() not in {"0", "false", "all", "no"}
+    valid_only = request.GET.get("valid_only", "0").lower() not in {"0", "false", "all", "no", ""}
     if valid_only:
         leads = _contactable_queryset(leads.exclude(lead_tier__in=["cold", "rejected"]).exclude(book__amazon_book_url=""))
     limit = request.GET.get("limit")
@@ -922,7 +935,7 @@ def export_leads_csv(request):
 
 def export_leads_xlsx_view(request):
     leads = Lead.objects.all().order_by("-lead_score", "-created_at")
-    valid_only = request.GET.get("valid_only", "1").lower() not in {"0", "false", "all", "no"}
+    valid_only = request.GET.get("valid_only", "0").lower() not in {"0", "false", "all", "no", ""}
     if valid_only:
         leads = _contactable_queryset(leads.exclude(lead_tier__in=["cold", "rejected"]).exclude(book__amazon_book_url=""))
     limit = request.GET.get("limit")
