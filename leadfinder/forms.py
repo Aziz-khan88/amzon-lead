@@ -6,6 +6,7 @@ from django import forms
 from django.conf import settings
 
 from leadfinder.services.booklife import BOOKLIFE_AGE_FILTERS, booklife_category_choices
+from leadfinder.services.books.isbn_intelligence import parse_identifier_batch
 
 
 def default_search_provider() -> str:
@@ -208,7 +209,20 @@ class ISBNSearchForm(forms.Form):
             "class": "form-control",
             "rows": 4,
         }),
-        help_text="Paste a single code or a batch list to run multiple deep investigation pipelines concurrently in the background.",
+        help_text="ISBN checksums must agree across three implementations. B0-prefixed ASINs remain unverified until source evidence is found.",
     )
     run_video_search = forms.BooleanField(required=False, initial=True, label="Identify Book Trailers & YouTube Videos")
     run_groq_ai_extraction = forms.BooleanField(required=False, initial=True, label="Use Groq AI for Deep Metadata Parsing")
+
+    def clean_isbn(self):
+        analyses, invalid = parse_identifier_batch(self.cleaned_data["isbn"])
+        if invalid:
+            sample = ", ".join(invalid[:5])
+            remainder = f" and {len(invalid) - 5} more" if len(invalid) > 5 else ""
+            raise forms.ValidationError(f"Invalid identifier(s): {sample}{remainder}.")
+        if not analyses:
+            raise forms.ValidationError("Enter at least one valid ISBN, ASIN, or Amazon book URL.")
+        if len(analyses) > 250:
+            raise forms.ValidationError("Process at most 250 unique identifiers in one run.")
+        self.identifier_analyses = analyses
+        return "\n".join(item.canonical for item in analyses)

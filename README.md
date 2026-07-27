@@ -28,6 +28,7 @@ Instead of guessing, the app provides hard evidence. Every contact signal is sto
 * **Safe Extraction:** Intelligently extracts public emails, professional phone numbers, social URLs, and location signals.
 * **LLM Integration:** Uses Groq for structured data extraction and classification.
 * **Export Ready:** Generates a sales-agent-ready brief and exports verified leads to CSV with source URLs and confidence metrics.
+* **ISBN Intelligence:** Validates ISBN-10/13 checksums with three implementations, converts equivalent forms, reconciles exact Open Library and Google Books matches, and generates downloadable SVG barcodes.
 
 ### 🛡️ Advanced AI Verification & UX
 * **Glassmorphic AI Reports:** Premium UI components featuring dynamic SVG progress rings mapping identity confidence scores.
@@ -87,6 +88,10 @@ Set these in your `.env` file (all are optional):
 * `TAVILY_API_KEY`: Paid search provider for higher volume.
 * `BRAVE_API_KEY`: Paid search provider alternative.
 * `YOUTUBE_API_KEY`: Enables official YouTube Data API video search.
+
+### Free-first provider expectations
+
+Open Library and the no-key Google Books endpoint improve coverage without a paid credential. They are public services, not unlimited infrastructure: fair-use limits, outages, incomplete records, and conflicting edition data remain possible. The app caches successful ISBN reconciliation for 24 hours, retains field-level source evidence, and sends conflicts to human review instead of claiming perfect accuracy.
 
 ---
 

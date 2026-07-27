@@ -20,6 +20,11 @@ tavily-python>=0.7,<1.0
 google-api-python-client>=2.181,<3.0
 scrapy>=2.13,<3.0
 
+# ISBN validation, conversion, and auditable barcode artifacts
+isbnlib>=3.10.14,<4.0
+pyisbn>=1.4.3,<2.0
+python-barcode>=0.16.1,<1.0
+
 # Contact validation and exports
 dnspython>=2.8,<3.0
 email-validator>=2.3,<3.0

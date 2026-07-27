@@ -6,10 +6,15 @@ and filter results client-side by year range.
 from __future__ import annotations
 
 import logging
+import os
 import time
+from hashlib import sha256
 from typing import Generator
 
 import requests
+from django.core.cache import cache
+
+from leadfinder.services.books.isbn_intelligence import analyze_identifier
 
 logger = logging.getLogger(__name__)
 
@@ -17,12 +22,18 @@ _BASE_URL = "https://openlibrary.org/search.json"
 _COVER_URL = "https://covers.openlibrary.org/b/id/{cover_id}-M.jpg"
 
 
+def _user_agent() -> str:
+    contact = (os.getenv("BOOKTRAILER_CONTACT_EMAIL") or "").strip()
+    suffix = f"; mailto:{contact}" if contact else ""
+    return f"BookTrailerLeadFinder/1.0 ({suffix.lstrip('; ') or 'public catalog reconciliation'})"
+
+
 def search_openlibrary(
     keyword: str,
     year_start: int | None = None,
     year_end: int | None = None,
     max_books: int = 50,
-    delay: float = 0.3,
+    delay: float = 1.05,
 ) -> list[dict]:
     """
     Search Open Library for books matching keyword + optional year range.
@@ -35,7 +46,7 @@ def search_openlibrary(
     per_page = 100  # max allowed
 
     # How many raw pages to fetch before giving up
-    max_pages = max(3, (max_books // 20) + 2)
+    max_pages = min(5, max(3, (max_books // 20) + 2))
 
     while len(results) < max_books and page <= max_pages:
         params: dict = {
@@ -45,14 +56,25 @@ def search_openlibrary(
             "fields": "title,author_name,isbn,first_publish_year,publish_year,cover_i,key",
         }
 
-        try:
-            time.sleep(delay)
-            resp = requests.get(_BASE_URL, params=params, timeout=15)
-            resp.raise_for_status()
-            data = resp.json()
-        except Exception as e:
-            logger.warning("Open Library request failed: %s", e)
-            break
+        digest = sha256(f"{keyword.casefold()}:{page}:{per_page}".encode("utf-8")).hexdigest()[:24]
+        cache_key = f"open-library-search:v1:{digest}"
+        data = cache.get(cache_key)
+        if not isinstance(data, dict):
+            try:
+                time.sleep(max(delay, 1.0))
+                resp = requests.get(
+                    _BASE_URL,
+                    params=params,
+                    headers={"User-Agent": _user_agent(), "Accept": "application/json"},
+                    timeout=15,
+                )
+                resp.raise_for_status()
+                payload = resp.json()
+                data = payload if isinstance(payload, dict) else {}
+                cache.set(cache_key, data, timeout=60 * 60 * 24)
+            except Exception as e:
+                logger.warning("Open Library request failed: %s", e)
+                break
 
         docs = data.get("docs", [])
         if not docs:
@@ -66,10 +88,12 @@ def search_openlibrary(
             if not raw_isbns:
                 continue
 
-            # Pick best ISBN (prefer 13-digit, then 10-digit, then any)
-            isbn13 = next((x for x in raw_isbns if len(x) == 13 and x.isdigit()), None)
-            isbn10 = next((x for x in raw_isbns if len(x) == 10), None)
-            best_isbn = isbn13 or isbn10 or raw_isbns[0]
+            # Keep only checksum-valid ISBNs; prefer the canonical ISBN-13 form.
+            identifiers = [analyze_identifier(str(value)) for value in raw_isbns]
+            valid_identifiers = [item for item in identifiers if item.valid and item.identifier_type in {"isbn10", "isbn13"}]
+            if not valid_identifiers:
+                continue
+            best_isbn = next((item.isbn13 for item in valid_identifiers if item.isbn13), "") or valid_identifiers[0].canonical
 
             if best_isbn in seen_isbns:
                 continue

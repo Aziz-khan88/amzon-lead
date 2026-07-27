@@ -53,9 +53,11 @@ Operator input
 1. Operator opens `/isbn-search/`.
 2. Operator enters ASINs, ISBNs, Amazon URLs, or mixed text.
 3. The app normalizes identifiers and checks existing records.
-4. Missing records are looked up through Open Library, Google Books, keyword lookup, or search fallback.
-5. A manual run is created for new batch work.
-6. Book records are enriched into leads.
+4. ISBN checksums must agree across the built-in verifier, `isbnlib`, and `pyisbn`; equivalent ISBN-10/13 forms are deduplicated.
+5. Exact Open Library and Google Books matches are reconciled field by field, cached, and stored with source evidence. B0-prefixed ASINs remain syntax-only until public evidence is found.
+6. Missing or conflicting records use indexed public search fallback and remain flagged for review.
+7. A manual run is created for new batch work.
+8. Book records are enriched into leads.
 
 ## Workflow 5: Lead Review
 

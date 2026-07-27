@@ -183,6 +183,28 @@ def fetch_metadata_from_free_apis(asin: str) -> dict | None:
 
 
 def scrape_amazon_book_page(asin: str, use_ai: bool = True, book_title: str = "") -> dict:
+    """Compatibility wrapper that never requests an Amazon product page.
+
+    Older commands still import this function. Keep them compliant by routing
+    ISBNs through public catalogs and other identifiers through indexed public
+    search evidence. The legacy HTML parser below is intentionally bypassed.
+    """
+    from leadfinder.services.books.isbn_intelligence import (
+        analyze_identifier,
+        public_resolution_to_book_data,
+        resolve_free_metadata,
+    )
+
+    identifier = analyze_identifier(asin)
+    if identifier.valid and identifier.identifier_type in {"isbn10", "isbn13"}:
+        resolved = public_resolution_to_book_data(resolve_free_metadata(identifier.canonical))
+        if resolved and resolved.get("authors"):
+            return {"asin": identifier.canonical, "source": "public_catalogs", **resolved}
+    fallback = fallback_amazon_book_page(asin, use_ai=use_ai, book_title=book_title)
+    fallback["direct_amazon_fetch"] = False
+    return fallback
+
+    # Legacy parser retained temporarily for migration reference; unreachable.
     url = f"https://www.amazon.com/dp/{asin}"
     result = {
         "asin": asin,
@@ -562,9 +584,20 @@ def fallback_amazon_book_page(asin: str, use_ai: bool = True, book_title: str = 
 
 
 def scrape_amazon_author_page(url_or_slug: str, use_ai: bool = True) -> dict:
+    """Return an explicit non-result; direct Amazon author fetches are disabled."""
     if not url_or_slug:
         return {}
 
+    return {
+        "amazon_author_url": url_or_slug if str(url_or_slug).startswith("http") else "",
+        "author_bio": "",
+        "author_image_url": "",
+        "other_books": [],
+        "scraped_successfully": False,
+        "warnings": ["Direct Amazon Author-page fetching is disabled by the public-source policy."],
+    }
+
+    # Legacy parser retained temporarily for migration reference; unreachable.
     url = url_or_slug
     if not url.startswith("http"):
         # Assume it's a slug/name or ID

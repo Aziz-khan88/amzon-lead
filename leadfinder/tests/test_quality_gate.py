@@ -79,3 +79,24 @@ def test_cannot_approve_email_with_only_search_snippet_source(lead):
 
     assert not ok
     assert any("high-confidence" in error for error in errors)
+
+
+def test_required_amazon_url_rejects_spoofed_marketplace(lead):
+    lead.book.amazon_book_url = "https://amazon.com.evil.example/dp/B012345678"
+    lead.book.save(update_fields=["amazon_book_url"])
+
+    ok, errors = can_approve_lead(lead)
+
+    assert not ok
+    assert any("verified Amazon marketplace" in error for error in errors)
+
+
+def test_required_amazon_url_rejects_identifier_mismatch(lead):
+    lead.book.asin = "B098765432"
+    lead.book.amazon_book_url = "https://www.amazon.com/dp/B012345678"
+    lead.book.save(update_fields=["asin", "amazon_book_url"])
+
+    ok, errors = can_approve_lead(lead)
+
+    assert not ok
+    assert any("verified Amazon marketplace" in error for error in errors)

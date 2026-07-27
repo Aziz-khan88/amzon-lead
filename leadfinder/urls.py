@@ -25,5 +25,7 @@ urlpatterns = [
     path("settings-help/", views.settings_help, name="settings_help"),
     path("isbn-search/", views.isbn_search, name="isbn_search"),
     path("isbn-search/status/<uuid:run_id>/", views.isbn_search_status, name="isbn_search_status"),
+    path("isbn-search/analyze/", views.isbn_analyze, name="isbn_analyze"),
+    path("isbn-search/barcode/<str:identifier>.svg", views.isbn_barcode, name="isbn_barcode"),
     path("isbn-search/lookup/", views.isbn_lookup, name="isbn_lookup"),
 ]

@@ -114,6 +114,29 @@
     .book-row-new {
       animation: row-appear 0.5s ease forwards;
     }
+    .identifier-preview {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 1rem;
+      align-items: center;
+      padding: 0.9rem 1rem;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: rgba(8, 15, 30, 0.55);
+    }
+    .identifier-preview.is-valid { border-color: rgba(20, 184, 166, 0.55); }
+    .identifier-preview.is-invalid { border-color: rgba(239, 68, 68, 0.55); }
+    .identifier-preview code { color: var(--teal); font-size: 0.9rem; }
+    .identifier-preview img { width: 150px; max-height: 58px; background: #fff; border-radius: 6px; }
+    .stack-chips { display: flex; flex-wrap: wrap; gap: 0.45rem; }
+    .stack-chip {
+      border: 1px solid rgba(20, 184, 166, 0.25);
+      color: var(--muted);
+      background: rgba(20, 184, 166, 0.06);
+      border-radius: 999px;
+      padding: 0.28rem 0.58rem;
+      font-size: 0.74rem;
+    }
 
     /* ── ISBN Search Page Responsive Fixes ─────────────────────────── */
     /* Contain the results table scroll inside the panel — never page-wide */
@@ -191,6 +214,15 @@
       #lookup-results-wrapper table td:nth-child(2) {
         display: none;
       }
+      .identifier-preview { grid-template-columns: 1fr; }
+      .identifier-preview img { width: 100%; max-width: 210px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .search-progress-bar-fill,
+      .book-row-new,
+      .stat-num,
+      .radar-signal,
+      .ph-circle-notch { animation: none !important; transition: none !important; }
     }
     </style>
 
@@ -218,7 +250,7 @@
           
           <!-- Premium Batch Instructions -->
           <div class="alert alert-info py-2 px-3 mb-3 text-blue border-info bg-opacity-10" style="font-size: 0.85rem; border-radius: 8px;">
-            <i class="ph-fill ph-info me-1.5"></i><strong>Batch Mode Enabled:</strong> You can enter one code per line or separate them with commas. Duplicates will be deduplicated.
+            <i class="ph-fill ph-info me-1.5"></i><strong>Evidence-first batch mode:</strong> ISBN checksums are reconciled before a run starts. Equivalent ISBN-10/13 values and exact duplicates are collapsed.
           </div>
           
           {% if form.non_field_errors %}
@@ -246,6 +278,16 @@
               {% endfor %}
             </div>
           {% endfor %}
+
+          <div id="identifier-preview" class="identifier-preview d-none" role="status" aria-live="polite">
+            <div>
+              <div id="identifier-preview-title" class="fw-bold text-white">Waiting for an identifier</div>
+              <div id="identifier-preview-detail" class="small text-muted mt-1"></div>
+            </div>
+            <a id="identifier-barcode-link" class="d-none" href="#" target="_blank" rel="noopener noreferrer" aria-label="Open standards-based ISBN barcode">
+              <img id="identifier-barcode" alt="Generated ISBN barcode preview">
+            </a>
+          </div>
           
           <div class="form-actions mt-4">
             <button class="btn btn-primary" type="submit">
@@ -286,10 +328,10 @@
               <option value="50" selected>50 books</option>
               <option value="100">100 books</option>
               <option value="200">200 books</option>
-              <option value="500">500 books (deep crawl, takes 10s)</option>
-              <option value="1000">1000 books (deep crawl, takes 15s+)</option>
+              <option value="500">500 books (extended public search)</option>
+              <option value="1000">1000 books (largest public search)</option>
             </select>
-            <div class="form-text text-muted mt-1">Increasing this will crawl more Amazon listings and search result pages to find unique books.</div>
+            <div class="form-text text-muted mt-1">Larger runs query more public indexes and may take longer or encounter provider rate limits.</div>
           </div>
 
           <div class="field-row mb-3">
@@ -322,7 +364,7 @@
           <div id="lookup-loading" class="d-none mt-4">
             <div id="lookup-live-dashboard">
               <!-- Progress bar -->
-              <div class="search-progress-bar-track">
+              <div class="search-progress-bar-track" role="progressbar" aria-label="Public book search progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
                 <div class="search-progress-bar-fill" id="search-progress-fill"></div>
               </div>
 
@@ -345,7 +387,7 @@
               </div>
 
               <!-- Current query ticker -->
-              <div class="live-query-ticker" id="lookup-status-text">Initiating search...</div>
+              <div class="live-query-ticker" id="lookup-status-text" role="status" aria-live="polite">Initiating search...</div>
             </div>
           </div>
 
@@ -361,7 +403,7 @@
                 <thead>
                   <tr>
                     <th style="width: 45px; vertical-align: middle;">
-                      <input type="checkbox" id="select-all-candidates" checked>
+                      <input type="checkbox" id="select-all-candidates" checked aria-label="Select all discovered books">
                     </th>
                     <th style="width: 60px;">Cover</th>
                     <th>Book Detail</th>
@@ -404,11 +446,11 @@
         </div>
         
         <p class="text-muted small mb-3">
-          Deep harvesting pipelines are running asynchronously in the background. You may navigate away; progress updates in real-time.
+          Public-source enrichment is running asynchronously. You may navigate away; progress is saved and updates here.
         </p>
 
         <!-- Progress Tracking Meter -->
-        <div class="progress-track-wrapper">
+        <div class="progress-track-wrapper" id="enrichment-progress" role="progressbar" aria-label="Enrichment progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
           <div class="progress-fill-glow" id="progressbar-fill" style="width: 0%;"></div>
         </div>
 
@@ -443,32 +485,35 @@
       <div class="panel h-100">
         <h3 class="text-white mb-3"><i class="ph-fill ph-info text-blue me-2"></i>How does it work?</h3>
         <p class="text-muted leading-relaxed">
-          This tool executes a deep investigation pipeline on any standard ISBN or Amazon ASIN (Kindle, Paperback, or Audio formats). It leverages our most resilient scraping fallbacks:
+          Validate an ISBN or B-prefixed Amazon ASIN, reconcile available public catalog evidence, then enrich the author and video opportunity with a reviewable audit trail.
         </p>
         
         <ul class="list-unstyled text-muted mt-3">
           <li class="mb-3 d-flex align-items-start">
             <i class="ph-bold ph-shield-check text-teal me-3 mt-1"></i>
             <div>
-              <strong>Anti-Bot Resiliency:</strong> If direct Amazon scraping is blocked by anti-bot/CAPTCHAs, it triggers search snippets, Open Library catalog queries, and Google Books API lookups.
+              <strong>Checksum agreement:</strong> ISBNlib, pyisbn, and the built-in verifier must agree before an ISBN enters the pipeline.
             </div>
           </li>
           <li class="mb-3 d-flex align-items-start">
             <i class="ph-bold ph-user-check text-teal me-3 mt-1"></i>
             <div>
-              <strong>Author Discovery:</strong> The scraper employs smart heuristics to isolate and match exact author names (e.g., <em>Adrian Tchaikovsky</em>) while ensuring book title filtering prevents name mismatch issues.
+              <strong>Public catalog reconciliation:</strong> Exact identifier matches from Google Books, Open Library, and the Library of Congress are compared field by field. Conflicts remain visible for review.
             </div>
           </li>
           <li class="mb-3 d-flex align-items-start">
             <i class="ph-fill ph-magic-wand text-teal me-3 mt-1"></i>
             <div>
-              <strong>Automated Enrichment:</strong> Discovered authors are automatically run through the harvesting pipeline to fetch official website URLs, contact page lists, public emails, phone numbers, social media handles (YouTube, Instagram, Facebook, LinkedIn, TikTok, Goodreads), and book trailer videos.
+              <strong>Audited enrichment:</strong> Public author, contact, social, and video signals retain source links, confidence, warnings, and human-review status.
             </div>
           </li>
         </ul>
         
         <div class="alert alert-info mt-4 bg-opacity-10 border-info text-blue" style="border-radius: 8px;">
-          <i class="ph-bold ph-lightbulb me-2"></i><strong>Tip:</strong> Discovered items are immediately upserted and saved as leads in the main dashboard so you can view, score, and manage them later.
+          <i class="ph-bold ph-lightbulb me-2"></i><strong>Free-first, not unlimited:</strong> no-key providers are still subject to fair-use limits and availability. Cached evidence reduces repeated requests.
+        </div>
+        <div class="stack-chips mt-3" aria-label="ISBN verification stack">
+          {% for item in isbn_stack %}<span class="stack-chip">{{ item }}</span>{% endfor %}
         </div>
       </div>
     {% endif %}
@@ -489,6 +534,9 @@
     const statusIndicator = document.getElementById("status-indicator");
     
     let pollInterval = null;
+    const escapeHtml = (value) => String(value ?? "").replace(/[&<>'"]/g, character => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;"
+    })[character]);
     
     function fetchStatus() {
       fetch(statusUrl)
@@ -504,6 +552,8 @@
           // 2. Update progress bar and percentage text
           progressbarFill.style.width = `${data.percentage}%`;
           percentageText.textContent = `${data.percentage}%`;
+          const enrichmentProgress = document.getElementById("enrichment-progress");
+          if (enrichmentProgress) enrichmentProgress.setAttribute("aria-valuenow", data.percentage);
           
           // 3. Update count metrics
           const finished = data.completed + data.failed;
@@ -541,19 +591,19 @@
                 statusBadgeHtml = `<span class="task-status-text"><i class="fa-regular fa-clock text-muted"></i> Pending</span>`;
               }
               
-              let titleCleaned = task.title;
-              if (titleCleaned.startsWith("Book for ASIN")) {
-                titleCleaned = `ASIN / ISBN Detail Scrape`;
+              let titleCleaned = String(task.title || "");
+              if (titleCleaned.startsWith("Book for ")) {
+                titleCleaned = `Identifier evidence lookup`;
               }
               
               htmlContent += `
                 <div class="queue-task-card ${statusClass}">
                   <div class="task-meta-row">
-                    <span class="task-asin-badge">${task.asin}</span>
+                    <span class="task-asin-badge">${escapeHtml(task.asin)}</span>
                     ${statusBadgeHtml}
                   </div>
-                  <h5 class="task-title-text" title="${task.title}">${titleCleaned}</h5>
-                  <p class="task-author-text">${task.author}</p>
+                  <h5 class="task-title-text" title="${escapeHtml(task.title)}">${escapeHtml(titleCleaned)}</h5>
+                  <p class="task-author-text">${escapeHtml(task.author)}</p>
               `;
               
               if (task.status === "completed" && task.lead_id) {
@@ -567,8 +617,8 @@
               } else if (task.status === "failed" && task.errors && task.errors.length > 0) {
                 const latestError = task.errors[task.errors.length - 1];
                 htmlContent += `
-                  <div class="task-error-alert" title="${latestError}">
-                    <i class="fa-solid fa-triangle-exclamation me-1"></i> ${latestError}
+                  <div class="task-error-alert" title="${escapeHtml(latestError)}">
+                    <i class="fa-solid fa-triangle-exclamation me-1"></i> ${escapeHtml(latestError)}
                   </div>
                 `;
               }
@@ -614,9 +664,68 @@
     const selectAllCandidates = document.getElementById("select-all-candidates");
     const btnCopyToInput = document.getElementById("btn-copy-to-input");
     const btnRunEnrichSelected = document.getElementById("btn-run-enrich-selected");
+    let activeLookupController = null;
 
     const idIsbnTextarea = document.getElementById("id_isbn");
     const enrichmentForm = document.getElementById("enrichment-form");
+    const identifierPreview = document.getElementById("identifier-preview");
+    const identifierPreviewTitle = document.getElementById("identifier-preview-title");
+    const identifierPreviewDetail = document.getElementById("identifier-preview-detail");
+    const identifierBarcodeLink = document.getElementById("identifier-barcode-link");
+    const identifierBarcode = document.getElementById("identifier-barcode");
+    let identifierPreviewTimer;
+
+    function renderIdentifierPreview(state, title, detail, barcodeUrl = "") {
+      identifierPreview.classList.remove("d-none", "is-valid", "is-invalid");
+      if (state) identifierPreview.classList.add(state);
+      identifierPreviewTitle.textContent = title;
+      identifierPreviewDetail.textContent = detail;
+      if (barcodeUrl) {
+        identifierBarcode.src = barcodeUrl;
+        identifierBarcodeLink.href = barcodeUrl;
+        identifierBarcodeLink.classList.remove("d-none");
+      } else {
+        identifierBarcode.removeAttribute("src");
+        identifierBarcodeLink.classList.add("d-none");
+      }
+    }
+
+    async function analyzeDirectInput() {
+      const value = idIsbnTextarea.value.trim();
+      if (!value) {
+        identifierPreview.classList.add("d-none");
+        return;
+      }
+      const entries = value.split(/[\n,;]+/).map(item => item.trim()).filter(Boolean);
+      if (entries.length !== 1) {
+        renderIdentifierPreview("", `${entries.length} batch rows ready`, "Every row is checksum/syntax checked atomically when submitted; invalid rows will be identified.");
+        return;
+      }
+      renderIdentifierPreview("", "Checking identifier…", "Comparing checksum implementations.");
+      try {
+        const params = new URLSearchParams({identifier: entries[0]});
+        const response = await fetch(`{% url 'leadfinder:isbn_analyze' %}?${params.toString()}`, {headers: {"Accept": "application/json"}});
+        const data = await response.json();
+        const checks = Object.entries(data.checks || {}).filter(([, passed]) => passed).length;
+        if (data.valid) {
+          const type = String(data.identifier_type || "identifier").toUpperCase();
+          const detail = data.identifier_type === "asin"
+            ? "ASIN syntax accepted; assignment requires catalog evidence."
+            : `${checks}/3 checksum implementations agree · confidence ${Math.round((data.confidence || 0) * 100)}%`;
+          renderIdentifierPreview("is-valid", `${type} · ${data.display}`, detail, data.barcode_url || "");
+        } else {
+          renderIdentifierPreview("is-invalid", "Identifier needs correction", (data.warnings || ["Invalid identifier."]).join(" "));
+        }
+      } catch (_) {
+        renderIdentifierPreview("is-invalid", "Validation preview unavailable", "Server-side validation will still run before submission.");
+      }
+    }
+
+    idIsbnTextarea.addEventListener("input", function() {
+      clearTimeout(identifierPreviewTimer);
+      identifierPreviewTimer = setTimeout(analyzeDirectInput, 320);
+    });
+    if (idIsbnTextarea.value.trim()) analyzeDirectInput();
 
     if (btnSearchBooks) {
       const progressFill = document.getElementById("search-progress-fill");
@@ -638,29 +747,63 @@
 
         const checkboxTd = document.createElement("td");
         checkboxTd.style.verticalAlign = "middle";
-        checkboxTd.innerHTML = `<input type="checkbox" class="candidate-check" value="${book.asin}" checked>`;
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.className = "candidate-check";
+        checkbox.value = String(book.asin || "");
+        checkbox.checked = true;
+        checkbox.setAttribute("aria-label", `Select ${book.title || book.asin || "book"}`);
+        checkboxTd.appendChild(checkbox);
 
         const coverTd = document.createElement("td");
         coverTd.style.verticalAlign = "middle";
         if (book.cover_image_url) {
-          coverTd.innerHTML = `<img src="${book.cover_image_url}" alt="Cover" style="width: 50px; height: auto; border-radius: 4px; border: 1px solid var(--line);">`;
+          try {
+            const coverUrl = new URL(String(book.cover_image_url), window.location.origin);
+            if (["http:", "https:"].includes(coverUrl.protocol)) {
+              const image = document.createElement("img");
+              image.src = coverUrl.href;
+              image.alt = `Cover for ${book.title || "book"}`;
+              image.style.cssText = "width:50px;height:auto;border-radius:4px;border:1px solid var(--line)";
+              coverTd.appendChild(image);
+            }
+          } catch (_) {
+            coverTd.textContent = "—";
+          }
         } else {
-          coverTd.innerHTML = `<div class="candidate-img-placeholder" title="No Cover Available"><i class="fa-regular fa-image text-muted"></i></div>`;
+          const placeholder = document.createElement("div");
+          placeholder.className = "candidate-img-placeholder";
+          placeholder.textContent = "—";
+          placeholder.title = "No cover available";
+          coverTd.appendChild(placeholder);
         }
 
         const detailsTd = document.createElement("td");
         detailsTd.style.verticalAlign = "middle";
-        const sourceLabel = book.source ? `<span class="badge bg-secondary" style="margin-left: 0.5rem;">${book.source}</span>` : "";
-        const scoreText = book.validation_score ? `Score ${book.validation_score}` : "";
-        detailsTd.innerHTML = `
-          <div class="fw-bold text-white">${book.title || "Unknown Title"} ${sourceLabel}</div>
-          <div class="text-muted small">by ${book.author_name || 'Unknown Author'}</div>
-          <div class="text-muted small">${scoreText}</div>
-        `;
+        const title = document.createElement("div");
+        title.className = "fw-bold text-white";
+        title.textContent = book.title || "Unknown title";
+        if (book.source) {
+          const badge = document.createElement("span");
+          badge.className = "badge bg-secondary ms-2";
+          badge.textContent = String(book.source);
+          title.appendChild(badge);
+        }
+        const author = document.createElement("div");
+        author.className = "text-muted small";
+        author.textContent = `by ${book.author_name || "Unknown author"}`;
+        const score = document.createElement("div");
+        score.className = "text-muted small";
+        score.textContent = book.validation_score ? `Automated score ${book.validation_score}` : "";
+        detailsTd.append(title, author, score);
 
         const asinTd = document.createElement("td");
         asinTd.style.verticalAlign = "middle";
-        asinTd.innerHTML = `<code class="text-teal" style="font-size: 0.95rem;">${book.asin}</code>`;
+        const code = document.createElement("code");
+        code.className = "text-teal";
+        code.style.fontSize = "0.95rem";
+        code.textContent = book.asin || "";
+        asinTd.appendChild(code);
 
         const pubTd = document.createElement("td");
         pubTd.style.verticalAlign = "middle";
@@ -676,6 +819,7 @@
 
       // Search Books handler
       btnSearchBooks.addEventListener("click", function() {
+        if (activeLookupController) return;
         const keyword = lookupKeyword.value.trim();
         const startYear = lookupYearStart.value.trim();
         const endYear = lookupYearEnd.value.trim();
@@ -694,6 +838,8 @@
         if (queriesDone) queriesDone.textContent = "0";
         if (queriesTotal) queriesTotal.textContent = "?";
         if (progressFill) progressFill.style.width = "0%";
+        const searchProgress = progressFill ? progressFill.parentElement : null;
+        if (searchProgress) searchProgress.setAttribute("aria-valuenow", "0");
         lookupError.classList.add("d-none");
         lookupResultsWrapper.classList.add("d-none");
         candidatesBody.innerHTML = "";
@@ -709,6 +855,10 @@
         let booksFoundCount = 0;
         let queryNumber = 0;
         let totalQueries = null;
+        const controller = new AbortController();
+        activeLookupController = controller;
+        btnSearchBooks.disabled = true;
+        btnSearchBooks.setAttribute("aria-busy", "true");
 
         // Parse "[3/20] Scanning: ..." from message
         function parseQueryProgress(msg) {
@@ -721,7 +871,7 @@
           return msg;
         }
 
-        fetch(`{% url 'leadfinder:isbn_lookup' %}?${queryParams.toString()}`)
+        fetch(`{% url 'leadfinder:isbn_lookup' %}?${queryParams.toString()}`, { signal: controller.signal })
           .then(response => {
             if (!response.ok) {
               throw new Error("Failed to search books.");
@@ -737,6 +887,7 @@
                   // Search complete
                   lookupLoading.classList.add("d-none");
                   if (progressFill) progressFill.style.width = "100%";
+                  if (progressFill) progressFill.parentElement.setAttribute("aria-valuenow", "100");
                   if (booksFoundCount === 0) {
                     lookupError.textContent = "No books with ISBN/ASIN found. Try a simpler keyword or broader year range.";
                     lookupError.classList.remove("d-none");
@@ -767,6 +918,7 @@
                       if (progressFill && totalQueries) {
                         const pct = Math.min(95, Math.round((queryNumber / totalQueries) * 100));
                         progressFill.style.width = pct + "%";
+                        progressFill.parentElement.setAttribute("aria-valuenow", String(pct));
                       } else if (progressFill) {
                         // Indeterminate animation — keep pulsing at 30%
                         progressFill.style.width = "30%";
@@ -792,12 +944,14 @@
                         const bookPct = Math.min(95, Math.round((booksFoundCount / maxResults) * 100));
                         if (bookPct > parseInt(progressFill.style.width || "0")) {
                           progressFill.style.width = bookPct + "%";
+                          progressFill.parentElement.setAttribute("aria-valuenow", String(bookPct));
                         }
                       }
                     }
 
                     if (data.status === "done") {
                       if (progressFill) progressFill.style.width = "100%";
+                      if (progressFill) progressFill.parentElement.setAttribute("aria-valuenow", "100");
                       if (queriesDone && totalQueries) queriesDone.textContent = totalQueries;
                       if (data.cache_path) {
                         lookupStatusText.textContent = `Saved keyword results: ${data.cache_path}`;
@@ -816,9 +970,16 @@
             return readStream();
           })
           .catch(err => {
+            if (err.name === "AbortError") return;
             lookupLoading.classList.add("d-none");
             lookupError.textContent = err.message || "An unexpected error occurred.";
             lookupError.classList.remove("d-none");
+          })
+          .finally(() => {
+            if (activeLookupController !== controller) return;
+            activeLookupController = null;
+            btnSearchBooks.disabled = false;
+            btnSearchBooks.removeAttribute("aria-busy");
           });
       });
 

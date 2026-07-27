@@ -1,9 +1,20 @@
 from __future__ import annotations
 
+from leadfinder.services.amazon.amazon_url_parser import extract_asin, is_amazon_url
 from leadfinder.services.pipeline.source_audit import evidence_source_is_trusted_for_contact
 
 
 VERIFIED_CONTACT_EVIDENCE_TYPES = {"contact_page", "official_author_site", "publisher_site", "groq_extraction", "manual"}
+
+
+def has_verified_amazon_book_url(book) -> bool:
+    """Require an Amazon marketplace host and a product-path identifier."""
+    url = (book.amazon_book_url or "").strip()
+    url_asin = extract_asin(url) if is_amazon_url(url) else None
+    if not url_asin:
+        return False
+    stored_asin = (book.asin or "").strip().upper()
+    return not stored_asin or stored_asin == url_asin
 
 
 def contact_field_sources(lead) -> dict[str, bool]:
@@ -64,8 +75,8 @@ def lead_verification_errors(
     book = lead.book
     author = lead.author_profile
 
-    if require_amazon_url and not book.amazon_book_url:
-        errors.append("Missing Amazon book URL.")
+    if require_amazon_url and not has_verified_amazon_book_url(book):
+        errors.append("Missing a verified Amazon marketplace book URL.")
     if not book.title or not book.author_name:
         errors.append("Missing title or author.")
     if book.is_childrens_book is False:
@@ -105,7 +116,7 @@ def can_approve_lead(lead, allow_incomplete_video: bool = False, manual_identity
     errors: list[str] = []
     book = lead.book
     author = lead.author_profile
-    if not book.amazon_book_url and not book.evidence.exists():
+    if not has_verified_amazon_book_url(book) and not book.evidence.exists():
         errors.append("Lead needs an Amazon URL or strong book source.")
     if not book.author_name:
         errors.append("Lead needs an author name.")

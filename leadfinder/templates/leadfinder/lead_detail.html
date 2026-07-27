@@ -960,7 +960,7 @@ Warm regards,
 
       <hr class="border-secondary mb-4">
 
-      <form method="post" action="{% url 'leadfinder:lead_action' lead.id 'reject' %}">
+      <form method="post" action="{% url 'leadfinder:lead_action' lead.id 'add-note' %}">
         {% csrf_token %}
         <label for="review-note"><i class="ph-bold ph-pencil-simple"></i> Activity Log / Review Notes</label>
         <textarea id="review-note" class="form-control" name="note" placeholder="Type internal notes or reasons here..." required></textarea>

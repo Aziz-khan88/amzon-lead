@@ -36,6 +36,11 @@ from leadfinder.services.crawl.extract_links import extract_links, extract_socia
 from leadfinder.services.crawl.extract_text import extract_page_title, extract_visible_text
 from leadfinder.services.crawl.contact_regex import extract_emails, extract_phones
 from leadfinder.services.crawl.safe_fetch import candidate_author_pages, safe_fetch
+from leadfinder.services.books.isbn_intelligence import (
+    analyze_identifier,
+    public_resolution_to_book_data,
+    resolve_free_metadata,
+)
 from leadfinder.services.pipeline.cancellation import raise_if_run_canceled
 from leadfinder.services.pipeline.lead_validator import is_highly_valid_contact_email, validate_phone_number
 from leadfinder.services.pipeline.quality_gate import has_verified_contact_source, lead_verification_errors
@@ -624,8 +629,14 @@ def process_book(book, run_video_search: bool = True, run_ai_extraction: bool = 
             # Check if we already have successfully scraped details for this ASIN in the database from a previous book/run
             from leadfinder.models import Book as DBBook
             cached_book = None
+            current_identifier = analyze_identifier(book.asin)
             for b in DBBook.objects.filter(asin=book.asin).exclude(author_name="").order_by("-book_data_confidence"):
                 if is_valid_author_name(b.author_name):
+                    if (
+                        current_identifier.identifier_type in {"isbn10", "isbn13"}
+                        and not (b.source_raw_json or {}).get("metadata_resolution")
+                    ):
+                        continue
                     cached_book = b
                     break
 
@@ -649,9 +660,40 @@ def process_book(book, run_video_search: bool = True, run_ai_extraction: bool = 
                     am_res["authors"][0]["url"] = ap.amazon_author_url
 
             if not am_res:
-                log_agent_thought(book.research_run, "Harvester", f"Scraping Amazon page for ASIN {book.asin} to extract details.")
-                from leadfinder.services.amazon.amazon_scraper import scrape_amazon_book_page
-                am_res = scrape_amazon_book_page(book.asin, use_ai=run_ai_extraction, book_title=book.title)
+                identifier = analyze_identifier(book.asin)
+                if identifier.identifier_type in {"isbn10", "isbn13"} and identifier.valid:
+                    log_agent_thought(
+                        book.research_run,
+                        "Harvester",
+                        f"Reconciling {identifier.display} across public Open Library and Google Books records.",
+                    )
+                    resolution = resolve_free_metadata(identifier.canonical)
+                    am_res = public_resolution_to_book_data(resolution)
+                    raw = dict(book.source_raw_json or {})
+                    raw["identifier_intelligence"] = resolution.get("identifier", {})
+                    raw["metadata_resolution"] = {
+                        "confidence": resolution.get("confidence", 0),
+                        "warnings": resolution.get("warnings", []),
+                        "sources": resolution.get("sources", []),
+                        "field_evidence": resolution.get("field_evidence", {}),
+                    }
+                    book.source_raw_json = raw
+
+                if not am_res or not am_res.get("authors"):
+                    log_agent_thought(
+                        book.research_run,
+                        "Harvester",
+                        f"Public catalogs were incomplete for {book.asin}; checking indexed public search evidence.",
+                    )
+                    from leadfinder.services.amazon.amazon_scraper import fallback_amazon_book_page
+
+                    fallback = fallback_amazon_book_page(book.asin, use_ai=run_ai_extraction, book_title=book.title)
+                    if am_res:
+                        for key, value in fallback.items():
+                            if value and not am_res.get(key):
+                                am_res[key] = value
+                    else:
+                        am_res = fallback
 
             if am_res and (am_res.get("scraped_successfully") or am_res.get("title")):
                 if am_res.get("title"):
@@ -678,18 +720,20 @@ def process_book(book, run_video_search: bool = True, run_ai_extraction: bool = 
                         if first_author.get("url"):
                             amazon_author_url = first_author["url"]
                 
-                # Add Amazon details evidence
-                from leadfinder.models import Evidence
-                Evidence.objects.create(
-                    book=book,
-                    evidence_type="amazon_search_result",
-                    field_name="amazon_details",
-                    field_value=f"Reviews: {book.review_count or 0}, Rating: {book.rating or 0}, Publisher: {book.publisher or 'Unknown'}",
-                    source_url=book.amazon_book_url or f"https://www.amazon.com/dp/{book.asin}",
-                    source_title=book.title,
-                    source_snippet=am_res.get("description", "")[:500],
-                    confidence=0.9,
-                )
+                metadata_sources = am_res.get("metadata_sources") or []
+                if metadata_sources:
+                    for source in metadata_sources:
+                        Evidence.objects.create(
+                            book=book,
+                            evidence_type="web_search_result",
+                            field_name="book_metadata",
+                            field_value=f"Title: {source.get('title') or book.title}; Authors: {', '.join(source.get('authors') or [])}",
+                            source_url=source.get("source_url"),
+                            source_title=f"{source.get('provider', 'Public catalog').replace('_', ' ').title()} metadata",
+                            source_snippet=(source.get("description") or "")[:500],
+                            confidence=float(am_res.get("metadata_confidence") or 0.65),
+                            is_primary=True,
+                        )
                 
                 # Use description in classification snippets
                 if am_res.get("description"):
@@ -964,23 +1008,6 @@ def process_book(book, run_video_search: bool = True, run_ai_extraction: bool = 
     author_image_url = ""
     other_books = []
     
-    # If no Amazon URL was found on the book page, guess/search from the author's name
-    if not amazon_author_url and book.author_name and is_valid_author_name(book.author_name):
-        amazon_author_url = f"https://www.amazon.com/author/{book.author_name.replace(' ', '-')}"
-
-    if amazon_author_url:
-        try:
-            log_agent_thought(book.research_run, "Harvester", f"Scraping Amazon Author page: {amazon_author_url}")
-            from leadfinder.services.amazon.amazon_scraper import scrape_amazon_author_page
-            am_auth_res = scrape_amazon_author_page(amazon_author_url, use_ai=run_ai_extraction)
-            if am_auth_res.get("scraped_successfully") or am_auth_res.get("author_bio"):
-                amazon_author_url = am_auth_res.get("amazon_author_url") or amazon_author_url
-                author_bio = am_auth_res.get("author_bio", "")
-                author_image_url = am_auth_res.get("author_image_url", "")
-                other_books = am_auth_res.get("other_books", [])
-        except Exception as exc:
-            logger.error(f"Error scraping Amazon author page: {exc}")
-
     author_profile = AuthorProfile.objects.create(
         author_name=book.author_name or "Unknown author",
         normalized_author_key=normalized_author_key(book.author_name),
@@ -1002,7 +1029,7 @@ def process_book(book, run_video_search: bool = True, run_ai_extraction: bool = 
         representation_email=extraction.representation_email or "",
         publicist_email=extraction.publicist_email or "",
         identity_confidence=0.85 if author_bio else (0.75 if canonical_url and book.author_name else (0.35 if book.author_name else 0.1)),
-        identity_reason="Matched through public search/Amazon Author Central; manual review required by default.",
+        identity_reason="Matched through public catalog and web-search evidence; manual review required by default.",
     )
 
     lead = Lead.objects.create(

@@ -8,6 +8,7 @@ import re
 import tempfile
 import time
 from dataclasses import asdict
+from hashlib import sha256
 from pathlib import Path
 from typing import Iterable
 
@@ -19,6 +20,8 @@ from leadfinder.services.ai.groq_client import GroqJSONClient
 from leadfinder.services.amazon.amazon_scraper import fetch_metadata_from_free_apis
 from leadfinder.services.amazon.amazon_url_parser import extract_asin, is_amazon_url
 from leadfinder.services.books.google_books_provider import GoogleBooksProvider
+from leadfinder.services.books.isbn_intelligence import analyze_identifier
+from leadfinder.services.books.library_of_congress_provider import search_library_of_congress
 from leadfinder.services.books.open_library_provider import search_openlibrary
 from leadfinder.services.pipeline.run_research import guess_title_author
 from leadfinder.services.search.base import SearchResultDTO
@@ -49,6 +52,7 @@ CHILDREN_HINTS = {
 TRUSTED_SOURCE_SCORE = {
     "open_library": 0.24,
     "google_books": 0.24,
+    "library_of_congress": 0.22,
     "amazon": 0.22,
     "ddgs": 0.14,
     "ddgs_html": 0.12,
@@ -65,8 +69,12 @@ def parse_year(value: str | None) -> int | None:
 
 
 def keyword_cache_dir(keyword: str) -> Path:
-    slug = re.sub(r"[^a-z0-9]+", "-", keyword.lower()).strip("-")
-    slug = slug[:80] or "keyword"
+    normalized_keyword = " ".join((keyword or "").casefold().split())
+    slug = re.sub(r"[^a-z0-9]+", "-", normalized_keyword).strip("-")
+    if len(slug) > 80:
+        digest = sha256(normalized_keyword.encode("utf-8")).hexdigest()[:10]
+        slug = f"{slug[:69]}-{digest}"
+    slug = slug or "keyword"
     return Path(settings.BASE_DIR) / "data" / "isbn_keyword_database" / slug
 
 
@@ -101,34 +109,47 @@ def year_ok(year_value: str | int | None, year_start: int | None, year_end: int 
 
 
 def normalize_book_code(value: str | None) -> str:
-    if not value:
+    analysis = analyze_identifier(value)
+    return analysis.canonical if analysis.valid else ""
+
+
+def canonical_book_key(value: str | None) -> str:
+    """Deduplicate equivalent ISBN-10/ISBN-13 values as one Amazon book."""
+    analysis = analyze_identifier(value)
+    if not analysis.valid:
         return ""
-    code = re.sub(r"[^0-9A-Za-z]", "", value).upper()
-    if re.fullmatch(r"B0[A-Z0-9]{8}", code):
-        return code
-    if len(code) == 10 and re.fullmatch(r"\d{9}[\dX]", code) and isbn10_is_valid(code):
-        return code
-    if len(code) == 13 and code.isdigit() and code.startswith(("978", "979")) and isbn13_is_valid(code):
-        return code
-    return ""
+    return analysis.isbn13 or analysis.canonical
+
+
+def amazon_identity(value: str | None) -> dict[str, str | bool]:
+    """Return an Amazon-addressable identity without inventing 979 mappings.
+
+    Amazon print-book ASINs normally use ISBN-10. A 978 ISBN-13 can be converted
+    losslessly; 979 ISBNs cannot and therefore need direct Amazon evidence before
+    they can enter this Amazon-only result set.
+    """
+    analysis = analyze_identifier(value)
+    if not analysis.valid:
+        return {"qualified": False, "amazon_asin": "", "evidence": "invalid_identifier"}
+    if analysis.identifier_type == "asin":
+        return {"qualified": True, "amazon_asin": analysis.canonical, "evidence": "amazon_asin"}
+    if analysis.isbn10:
+        return {
+            "qualified": True,
+            "amazon_asin": analysis.isbn10,
+            "evidence": "isbn10_catalog_mapping",
+        }
+    return {"qualified": False, "amazon_asin": "", "evidence": "no_amazon_asin_mapping"}
 
 
 def isbn10_is_valid(code: str) -> bool:
-    if not re.fullmatch(r"\d{9}[\dX]", code):
-        return False
-    total = 0
-    for index, char in enumerate(code, start=1):
-        value = 10 if char == "X" else int(char)
-        total += index * value
-    return total % 11 == 0
+    analysis = analyze_identifier(code)
+    return analysis.valid and analysis.identifier_type == "isbn10"
 
 
 def isbn13_is_valid(code: str) -> bool:
-    if not re.fullmatch(r"\d{13}", code):
-        return False
-    total = sum((1 if index % 2 == 0 else 3) * int(char) for index, char in enumerate(code[:12]))
-    check = (10 - (total % 10)) % 10
-    return check == int(code[-1])
+    analysis = analyze_identifier(code)
+    return analysis.valid and analysis.identifier_type == "isbn13"
 
 
 def identifier_type(code: str) -> str:
@@ -182,9 +203,18 @@ def refine_metadata_with_ai(book: dict) -> dict:
         "source_title": book.get("source_title"),
         "source_snippet": book.get("source_snippet"),
     }
-    ai = GroqJSONClient().complete_json(prompt, payload)
+    client = GroqJSONClient()
+    book["ai_metadata_attempted"] = bool(getattr(client, "available", False))
+    ai = client.complete_json(prompt, payload)
     if not ai:
+        book["ai_metadata_completed"] = False
         return book
+    book["ai_metadata_completed"] = True
+    layers = list(book.get("analysis_layers") or [])
+    if "groq_ai_metadata_refinement" not in layers:
+        layers.append("groq_ai_metadata_refinement")
+    book["analysis_layers"] = layers
+    book["ai_layer"] = "groq_metadata_refinement"
     if ai.get("is_valid_book") is False:
         book["ai_metadata_rejected"] = True
         book["ai_metadata_reason"] = ai.get("reason") or "AI rejected noisy listing."
@@ -262,6 +292,8 @@ def cached_book_is_valid(book: dict, year_start: int | None, year_end: int | Non
         return False
     if not has_author(book.get("author_name")):
         return False
+    if not amazon_identity(code)["qualified"]:
+        return False
     return True
 
 
@@ -273,6 +305,11 @@ def load_cached_books(keyword: str, year_start: int | None, year_end: int | None
         payload = json.loads(json_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         logger.warning("Could not read ISBN keyword cache: %s", json_path)
+        return []
+    stored_keyword = " ".join(str(payload.get("keyword") or "").casefold().split())
+    requested_keyword = " ".join((keyword or "").casefold().split())
+    if stored_keyword and stored_keyword != requested_keyword:
+        logger.warning("Ignored mismatched ISBN keyword cache at %s", json_path)
         return []
     books = payload.get("books", [])
     if not isinstance(books, list):
@@ -314,9 +351,10 @@ def dedupe_books(books: Iterable[dict]) -> list[dict]:
     deduped: list[dict] = []
     for book in books:
         code = normalize_book_code(str(book.get("asin") or book.get("isbn") or "").strip().upper())
-        if not code or code in seen:
+        dedupe_key = canonical_book_key(code)
+        if not code or not dedupe_key or dedupe_key in seen:
             continue
-        seen.add(code)
+        seen.add(dedupe_key)
         copy = dict(book)
         copy["asin"] = code
         if "isbn" in copy:
@@ -405,6 +443,9 @@ def build_book_record(
     normalized_code = normalize_book_code(code)
     if not normalized_code or not title:
         return None
+    amazon = amazon_identity(normalized_code)
+    if not amazon["qualified"]:
+        return None
 
     try:
         api_data = fetch_metadata_from_free_apis(normalized_code)
@@ -430,7 +471,10 @@ def build_book_record(
         "author_name": (author_name or "").strip()[:255],
         "asin": normalized_code,
         "isbn": normalized_code,
-        "amazon_book_url": f"https://www.amazon.com/dp/{normalized_code}",
+        "amazon_asin": amazon["amazon_asin"],
+        "amazon_book_url": f"https://www.amazon.com/dp/{amazon['amazon_asin']}",
+        "amazon_qualified": True,
+        "amazon_qualification_evidence": amazon["evidence"],
         "publication_date": publication_date[:100],
         "cover_image_url": cover_image_url,
         "publisher": publisher[:255],
@@ -562,25 +606,14 @@ def append_new_books(
         if not candidate:
             continue
         code = str(candidate.get("asin") or candidate.get("isbn") or "").upper()
-        if not code or code in seen_ids:
+        dedupe_key = canonical_book_key(code)
+        if not code or not dedupe_key or dedupe_key in seen_ids:
             continue
-        seen_ids.add(code)
+        seen_ids.add(dedupe_key)
         all_books.append(candidate)
         batch.append(candidate)
         books_yielded += 1
     return batch
-
-
-def mark_groq_layer_complete(books: list[dict]) -> None:
-    for book in books:
-        layers = list(book.get("analysis_layers") or [])
-        if "groq_ai_metadata_refinement" not in layers:
-            layers.append("groq_ai_metadata_refinement")
-        if "groq_ai_book_fit_scoring" not in layers:
-            layers.append("groq_ai_book_fit_scoring")
-        book["analysis_layers"] = layers
-        book["analysis_summary"] = "; ".join(layers)
-        book["ai_layer"] = "groq_metadata_refinement_and_book_fit"
 
 
 def stream_keyword_lookup(keyword: str, pub_year_start: str, pub_year_end: str, max_results: int, only_new: bool = False):
@@ -588,7 +621,11 @@ def stream_keyword_lookup(keyword: str, pub_year_start: str, pub_year_end: str, 
     year_end = parse_year(pub_year_end)
     cached_books = load_cached_books(keyword, year_start, year_end)
     all_books = dedupe_books(cached_books)
-    seen_ids = {str(book.get("asin") or book.get("isbn") or "").upper() for book in all_books}
+    seen_ids = {
+        canonical_book_key(str(book.get("asin") or book.get("isbn") or ""))
+        for book in all_books
+    }
+    seen_ids.discard("")
     books_yielded = 0
     queries_run: list[str] = []
 
@@ -627,11 +664,15 @@ def stream_keyword_lookup(keyword: str, pub_year_start: str, pub_year_end: str, 
     ]
     total_steps = len(queries) * len(providers)
     step = 0
+    # Web snippets are useful for Amazon URL discovery, but they must not crowd
+    # authoritative catalogs out of the result budget on normal-sized runs.
+    catalog_reserve = max(1, round(max_results * 0.4)) if max_results >= 5 else 0
+    web_result_cap = max_results - catalog_reserve
 
     for provider_name, provider, result_limit in providers:
-        layer_label = "Layer 2/5" if provider_name == "ddgs" else "Layer 3/5"
+        layer_label = "Layer 2/7" if provider_name == "ddgs" else "Layer 3/7"
         for query in queries:
-            if books_yielded >= max_results:
+            if books_yielded >= web_result_cap:
                 break
             step += 1
             queries_run.append(f"{provider_name}: {query}")
@@ -654,7 +695,7 @@ def stream_keyword_lookup(keyword: str, pub_year_start: str, pub_year_end: str, 
                 ),
                 all_books=all_books,
                 seen_ids=seen_ids,
-                max_results=max_results,
+                max_results=web_result_cap,
                 books_yielded=books_yielded,
                 only_new=only_new,
             )
@@ -680,7 +721,7 @@ def stream_keyword_lookup(keyword: str, pub_year_start: str, pub_year_end: str, 
     if books_yielded < max_results:
         yield {
             "status": "searching",
-            "message": f"Layer 4/5: Google Books API lookup for: {keyword}",
+            "message": f"Layer 4/7: Google Books API lookup for: {keyword}",
             "count": books_yielded,
             "cache_hit": bool(cached_books),
         }
@@ -720,7 +761,7 @@ def stream_keyword_lookup(keyword: str, pub_year_start: str, pub_year_end: str, 
     if books_yielded < max_results:
         yield {
             "status": "searching",
-            "message": f"Layer 4.5/5: Open Library API lookup for: {keyword}",
+            "message": f"Layer 5/7: Open Library API lookup for: {keyword}",
             "count": books_yielded,
             "cache_hit": bool(cached_books),
         }
@@ -760,14 +801,63 @@ def stream_keyword_lookup(keyword: str, pub_year_start: str, pub_year_end: str, 
         except Exception as exc:
             logger.warning("Open Library fallback lookup failed: %s", exc)
 
-    if all_books:
+    # Library of Congress is the final no-key catalog fallback. It is deliberately
+    # bounded and internally cached to respect the public service.
+    if books_yielded < max_results:
         yield {
             "status": "searching",
-            "message": "Layer 5/5: Groq AI validating metadata, author, year, and book fit...",
+            "message": f"Layer 6/7: Library of Congress lookup for: {keyword}",
             "count": books_yielded,
             "cache_hit": bool(cached_books),
         }
-        mark_groq_layer_complete(all_books)
+        try:
+            loc_results = search_library_of_congress(
+                keyword,
+                year_start=year_start,
+                year_end=year_end,
+                max_books=max_results - books_yielded,
+            )
+            batch = append_new_books(
+                candidates=(
+                    candidate_from_catalog_result(raw, "library_of_congress", year_start, year_end)
+                    for raw in loc_results
+                ),
+                all_books=all_books,
+                seen_ids=seen_ids,
+                max_results=max_results,
+                books_yielded=books_yielded,
+                only_new=only_new,
+            )
+            if only_new:
+                books_yielded += len(batch)
+            else:
+                books_yielded = min(len(all_books), max_results)
+            if batch:
+                cache_path = save_cached_books(keyword, year_start, year_end, all_books, queries_run)
+                yield {
+                    "status": "progress",
+                    "message": f"Saved {len(batch)} new books from the Library of Congress.",
+                    "books": batch,
+                    "count": books_yielded,
+                    "cache_updated": True,
+                    "cache_path": str(cache_path),
+                }
+        except Exception as exc:
+            logger.warning("Library of Congress fallback lookup failed: %s", exc)
+
+    if all_books:
+        ai_completed = sum(1 for book in all_books if book.get("ai_metadata_completed"))
+        ai_attempted = any(book.get("ai_metadata_attempted") for book in all_books)
+        yield {
+            "status": "searching",
+            "message": (
+                f"Layer 7/7: Groq metadata refinement completed for {ai_completed} books."
+                if ai_attempted
+                else "Layer 7/7: Optional Groq refinement unavailable; deterministic validation retained."
+            ),
+            "count": books_yielded,
+            "cache_hit": bool(cached_books),
+        }
 
     cache_path = save_cached_books(keyword, year_start, year_end, all_books, queries_run)
     yield {
@@ -798,6 +888,9 @@ def _write_isbn_csv(path: Path, books: list[dict]) -> None:
                 "author_name",
                 "publication_date",
                 "amazon_book_url",
+                "amazon_asin",
+                "amazon_qualified",
+                "amazon_qualification_evidence",
                 "source",
                 "identifier_type",
                 "validation_score",

@@ -1,5 +1,4 @@
 import pytest
-from unittest.mock import MagicMock
 from leadfinder.services.amazon.amazon_scraper import (
     scrape_amazon_book_page,
     scrape_amazon_author_page,
@@ -20,73 +19,51 @@ def test_extract_review_count():
     assert extract_review_count("45 reviews") == 45
     assert extract_review_count("no reviews") is None
 
-class MockResponse:
-    def __init__(self, content, status_code=200):
-        self.content = content
-        self.status_code = status_code
-
 def test_scrape_amazon_book_page_success(monkeypatch):
-    html_content = b"""
-    <html>
-        <head><title>Test Book</title></head>
-        <body>
-            <span id="productTitle">The Magic Cloud</span>
-            <div id="bylineInfo">
-                <a href="/author/Trudy-Ludwig">Trudy Ludwig</a>
-            </div>
-            <span class="a-icon-alt">4.8 out of 5 stars</span>
-            <span id="acrCustomerReviewText">120 reviews</span>
-            <div id="bookDescription_feature_div">
-                <div class="a-expander-content">A wonderful picture book.</div>
-            </div>
-            <img id="imgBlkFront" src="https://images.amazon.com/cover.jpg" />
-            <div id="detailBullets_feature_div">
-                <ul>
-                    <li>Publisher : Knopf Books (September 2020)</li>
-                </ul>
-            </div>
-        </body>
-    </html>
-    """
-    monkeypatch.setattr("requests.get", lambda url, headers, timeout: MockResponse(html_content))
+    def fail_direct_request(*args, **kwargs):
+        raise AssertionError("Amazon product pages must not be requested directly")
+
+    monkeypatch.setattr("requests.get", fail_direct_request)
+    monkeypatch.setattr(
+        "leadfinder.services.amazon.amazon_scraper.fallback_amazon_book_page",
+        lambda *args, **kwargs: {
+            "title": "The Magic Cloud",
+            "authors": [{"name": "Trudy Ludwig", "url": ""}],
+            "rating": 4.8,
+            "review_count": 120,
+            "cover_image_url": "https://images.example/cover.jpg",
+            "publisher": "Knopf Books",
+            "publication_date": "September 2020",
+            "description": "A wonderful picture book.",
+            "scraped_successfully": True,
+        },
+    )
 
     data = scrape_amazon_book_page("B012345678", use_ai=False)
     assert data["scraped_successfully"] is True
     assert data["title"] == "The Magic Cloud"
     assert len(data["authors"]) == 1
     assert data["authors"][0]["name"] == "Trudy Ludwig"
-    assert data["authors"][0]["url"] == "https://www.amazon.com/author/Trudy-Ludwig"
+    assert data["direct_amazon_fetch"] is False
     assert data["rating"] == 4.8
     assert data["review_count"] == 120
-    assert data["cover_image_url"] == "https://images.amazon.com/cover.jpg"
+    assert data["cover_image_url"] == "https://images.example/cover.jpg"
     assert "Knopf Books" in data["publisher"]
     assert "September 2020" in data["publication_date"]
     assert "wonderful picture book" in data["description"]
 
 def test_scrape_amazon_author_page_success(monkeypatch):
-    html_content = b"""
-    <html>
-        <head><title>Trudy Ludwig Amazon Author Profile</title></head>
-        <body>
-            <span id="authorBio">Trudy Ludwig is an award-winning children's author.</span>
-            <img id="ap-author-image" src="https://images.amazon.com/trudy.jpg" />
-            <div class="ap-book-card">The Invisible Boy</div>
-            <div class="ap-book-card">My Secret Bully</div>
-        </body>
-    </html>
-    """
-    monkeypatch.setattr("requests.get", lambda url, headers, timeout: MockResponse(html_content))
+    monkeypatch.setattr("requests.get", lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("No direct fetch")))
 
     data = scrape_amazon_author_page("Trudy-Ludwig", use_ai=False)
-    assert data["scraped_successfully"] is True
-    assert "award-winning children's author" in data["author_bio"]
-    assert data["author_image_url"] == "https://images.amazon.com/trudy.jpg"
-    assert "The Invisible Boy" in data["other_books"]
-    assert "My Secret Bully" in data["other_books"]
+    assert data["scraped_successfully"] is False
+    assert data["author_bio"] == ""
+    assert "disabled" in data["warnings"][0].lower()
 
 @pytest.mark.django_db
-def test_pipeline_integration_with_scraped_data(monkeypatch):
-    # Mock book page
+def test_pipeline_integration_with_public_search_data(monkeypatch):
+    # Mock source-backed public search enrichment. The pipeline intentionally
+    # does not request Amazon product or author pages directly.
     def mock_scrape_book(asin, use_ai=True, book_title=""):
         return {
             "asin": asin,
@@ -102,18 +79,7 @@ def test_pipeline_integration_with_scraped_data(monkeypatch):
             "source": f"https://www.amazon.com/dp/{asin}",
         }
     
-    # Mock author page
-    def mock_scrape_author(url, use_ai=True):
-        return {
-            "amazon_author_url": url,
-            "author_bio": "Mock Biography of the kids book author.",
-            "author_image_url": "https://mock.author.jpg",
-            "other_books": ["Mock Other Book 1", "Mock Other Book 2"],
-            "scraped_successfully": True,
-        }
-
-    monkeypatch.setattr("leadfinder.services.amazon.amazon_scraper.scrape_amazon_book_page", mock_scrape_book)
-    monkeypatch.setattr("leadfinder.services.amazon.amazon_scraper.scrape_amazon_author_page", mock_scrape_author)
+    monkeypatch.setattr("leadfinder.services.amazon.amazon_scraper.fallback_amazon_book_page", mock_scrape_book)
     
     # Disable video search and groq ai to keep it fast
     monkeypatch.setattr("leadfinder.services.pipeline.process_book.search_youtube_api", lambda *args, **kwargs: [])
@@ -184,15 +150,14 @@ def test_pipeline_integration_with_scraped_data(monkeypatch):
     author = lead.author_profile
     assert author.author_name == "Mock Author"
     assert author.amazon_author_url == "https://www.amazon.com/author/mock-author"
-    assert author.author_bio == "Mock Biography of the kids book author."
-    assert author.author_image_url == "https://mock.author.jpg"
-    assert len(author.other_books) == 2
-    assert "Mock Other Book 1" in author.other_books
+    assert author.author_bio == ""
+    assert author.author_image_url == ""
+    assert author.other_books == []
     
     # Assert evidence was stored
     evidences = Evidence.objects.filter(lead=lead)
-    assert evidences.filter(evidence_type="amazon_search_result").exists()
     assert evidences.filter(field_name="amazon_author_url").exists()
+    assert evidences.filter(field_name="canonical_website", source_url="https://mockauthor.com").exists()
 
 
 def test_fallback_amazon_book_page_asin_catalog(monkeypatch):

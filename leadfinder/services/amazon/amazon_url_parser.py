@@ -4,16 +4,50 @@ import re
 from urllib.parse import urlencode, urlparse, urlunparse
 
 
-AMAZON_HOST_RE = re.compile(r"(^|\.)amazon\.[a-z.]+$", re.I)
+# Amazon's supported retail marketplaces. Keeping this explicit prevents hosts
+# such as ``amazon.com.example.org`` from being treated as Amazon evidence.
+AMAZON_MARKETPLACE_HOSTS = frozenset(
+    {
+        "amazon.com",
+        "amazon.ca",
+        "amazon.com.mx",
+        "amazon.com.br",
+        "amazon.co.uk",
+        "amazon.de",
+        "amazon.fr",
+        "amazon.it",
+        "amazon.es",
+        "amazon.nl",
+        "amazon.se",
+        "amazon.pl",
+        "amazon.com.be",
+        "amazon.in",
+        "amazon.co.jp",
+        "amazon.com.au",
+        "amazon.sg",
+        "amazon.ae",
+        "amazon.sa",
+        "amazon.com.tr",
+        "amazon.eg",
+    }
+)
 ASIN_RE = re.compile(r"/(?:dp|gp/product|product)/([A-Z0-9]{10})(?:[/?#]|$)", re.I)
 
 
-def is_amazon_url(url: str) -> bool:
+def amazon_marketplace_host(url: str) -> str | None:
+    """Return the canonical marketplace host for a genuine Amazon URL."""
     try:
-        host = urlparse(url).hostname or ""
-    except Exception:
-        return False
-    return bool(AMAZON_HOST_RE.search(host))
+        host = (urlparse(url).hostname or "").lower().rstrip(".")
+    except (TypeError, ValueError):
+        return None
+    for marketplace in AMAZON_MARKETPLACE_HOSTS:
+        if host == marketplace or host.endswith(f".{marketplace}"):
+            return marketplace
+    return None
+
+
+def is_amazon_url(url: str) -> bool:
+    return amazon_marketplace_host(url) is not None
 
 
 def extract_asin(url: str) -> str | None:
@@ -24,11 +58,14 @@ def extract_asin(url: str) -> str | None:
 
 
 def normalize_amazon_book_url(url: str, associate_tag: str | None = None) -> str:
+    marketplace = amazon_marketplace_host(url)
+    if not marketplace:
+        return url
     asin = extract_asin(url)
     if not asin:
         return url
     query = urlencode({"tag": associate_tag}) if associate_tag else ""
-    return urlunparse(("https", "www.amazon.com", f"/dp/{asin}", "", query, ""))
+    return urlunparse(("https", f"www.{marketplace}", f"/dp/{asin}", "", query, ""))
 
 
 def classify_amazon_search_result(title: str, url: str, snippet: str | None = None) -> float:

@@ -282,6 +282,20 @@ def test_lead_action_delete(client, sample_lead):
     assert not Lead.objects.filter(id=sample_lead.id).exists()
 
 
+def test_lead_activity_note_does_not_change_review_status(client, sample_lead):
+    original_status = sample_lead.manual_review_status
+
+    response = client.post(
+        reverse("leadfinder:lead_action", args=[sample_lead.id, "add-note"]),
+        {"note": "Checked the public catalog evidence."},
+    )
+
+    assert response.status_code == 302
+    sample_lead.refresh_from_db()
+    assert sample_lead.manual_review_status == original_status
+    assert "Checked the public catalog evidence." in sample_lead.notes
+
+
 def test_lead_bulk_action_reject(client, sample_lead):
     # Create another lead to bulk reject
     book2 = Book.objects.create(
@@ -416,6 +430,16 @@ def test_isbn_search_page_loads(client, db):
     response = client.get(reverse("leadfinder:isbn_search"))
     assert response.status_code == 200
     assert b"ASIN / ISBN List" in response.content
+    assert b'aria-label="Select all discovered books"' in response.content
+    assert b"AbortController" in response.content
+
+
+def test_base_loads_shared_motion_and_navigation_script(client, db):
+    response = client.get(reverse("leadfinder:dashboard"))
+
+    assert response.status_code == 200
+    assert b'/static/leadfinder/app.js' in response.content
+    assert b"Ctrl K" in response.content
 
 
 def test_isbn_search_post_redirects_to_existing_lead(client, db, sample_lead):

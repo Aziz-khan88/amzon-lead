@@ -60,6 +60,11 @@ class EmptyGoogleBooksProvider:
         return []
 
 
+class FailingGoogleBooksProvider:
+    def discover_books(self, keyword, max_books=25):
+        raise RuntimeError("provider unavailable")
+
+
 class EmptyGroqClient:
     def complete_json(self, *args, **kwargs):
         return None
@@ -101,8 +106,30 @@ def test_keyword_lookup_saves_and_reuses_keyword_folder(tmp_path, monkeypatch):
         assert cached_books[0]["ai_analysis"]["reason"] == "Test AI analysis"
         assert cached_books[0]["identifier_type"] == "isbn10"
         assert cached_books[0]["validation_score"] > 0.5
-        assert cached_books[0]["ai_layer"] == "groq_metadata_refinement_and_book_fit"
-        assert "groq_ai_book_fit_scoring" in cached_books[0]["analysis_layers"]
+        assert cached_books[0]["ai_metadata_completed"] is False
+        assert "groq_ai_metadata_refinement" not in cached_books[0]["analysis_layers"]
+
+
+def test_long_keywords_use_distinct_cache_folders(tmp_path):
+    from leadfinder.services.books import isbn_keyword_lookup as lookup
+
+    shared_prefix = "children picture book " + ("adventure " * 12)
+    first = shared_prefix + "dragons"
+    second = shared_prefix + "dinosaurs"
+
+    with override_settings(BASE_DIR=tmp_path):
+        assert lookup.keyword_cache_dir(first) != lookup.keyword_cache_dir(second)
+
+
+def test_mismatched_cache_payload_is_ignored(tmp_path):
+    from leadfinder.services.books import isbn_keyword_lookup as lookup
+
+    with override_settings(BASE_DIR=tmp_path):
+        paths = lookup.cache_paths("correct keyword", None, None)
+        paths["folder"].mkdir(parents=True)
+        paths["json"].write_text('{"keyword":"different keyword","books":[]}', encoding="utf-8")
+
+        assert lookup.load_cached_books("correct keyword", None, None) == []
 
 
 def test_candidate_from_search_result_extracts_catalog_isbn(monkeypatch):
@@ -158,6 +185,58 @@ def test_invalid_isbn_checksum_is_rejected():
     assert lookup.normalize_book_code("9781234567890") == ""
     assert lookup.normalize_book_code("BOOKSTORES") == ""
     assert lookup.normalize_book_code("BUMBLEBEAR") == ""
+
+
+def test_equivalent_isbn_editions_are_deduplicated():
+    from leadfinder.services.books import isbn_keyword_lookup as lookup
+
+    books = lookup.dedupe_books(
+        [
+            {"asin": "0306406152", "title": "First", "author_name": "Alice Author"},
+            {"asin": "9780306406157", "title": "Duplicate", "author_name": "Alice Author"},
+        ]
+    )
+
+    assert len(books) == 1
+    assert lookup.canonical_book_key("0306406152") == "9780306406157"
+
+
+def test_amazon_identity_uses_isbn10_and_rejects_unmappable_979():
+    from leadfinder.services.books import isbn_keyword_lookup as lookup
+
+    mapped = lookup.amazon_identity("9780306406157")
+    unmapped = lookup.amazon_identity("9791090636071")
+
+    assert mapped == {
+        "qualified": True,
+        "amazon_asin": "0306406152",
+        "evidence": "isbn10_catalog_mapping",
+    }
+    assert unmapped["qualified"] is False
+    assert unmapped["evidence"] == "no_amazon_asin_mapping"
+
+
+def test_catalog_candidate_has_canonical_amazon_identity(monkeypatch):
+    from leadfinder.services.books import isbn_keyword_lookup as lookup
+
+    monkeypatch.setattr(lookup, "classify_book", lambda *args, **kwargs: FakeClassification())
+    monkeypatch.setattr(lookup, "fetch_metadata_from_free_apis", lambda asin: None)
+    monkeypatch.setattr(lookup, "GroqJSONClient", EmptyGroqClient)
+
+    candidate = lookup.candidate_from_catalog_result(
+        {
+            "title": "A Small Moon",
+            "author_name": "Alice Author",
+            "isbn": "9780306406157",
+            "publication_date": "2024",
+        },
+        "open_library",
+    )
+
+    assert candidate is not None
+    assert candidate["amazon_qualified"] is True
+    assert candidate["amazon_asin"] == "0306406152"
+    assert candidate["amazon_book_url"] == "https://www.amazon.com/dp/0306406152"
 
 
 def test_extracts_text_asin(monkeypatch):
@@ -261,3 +340,38 @@ def test_keyword_lookup_only_new_excludes_cache(tmp_path, monkeypatch):
         
         # Verify done count is 1 (for 1 new book)
         assert events[-1]["count"] == 1
+
+
+@pytest.mark.django_db
+def test_keyword_lookup_falls_through_to_library_of_congress(tmp_path, monkeypatch):
+    from leadfinder.services.books import isbn_keyword_lookup as lookup
+
+    monkeypatch.setattr(lookup, "DDGSSearchProvider", lambda: EmptyHTMLProvider())
+    monkeypatch.setattr(lookup, "DDGHTMLSearchProvider", EmptyHTMLProvider)
+    monkeypatch.setattr(lookup, "GoogleBooksProvider", FailingGoogleBooksProvider)
+    monkeypatch.setattr(lookup, "search_openlibrary", lambda *args, **kwargs: [])
+    monkeypatch.setattr(
+        lookup,
+        "search_library_of_congress",
+        lambda *args, **kwargs: [
+            {
+                "title": "LOC Moon Book",
+                "author_name": "Alice Author",
+                "isbn": "9780306406157",
+                "publication_date": "2024",
+                "source_url": "https://www.loc.gov/item/one/",
+            }
+        ],
+    )
+    monkeypatch.setattr(lookup, "classify_book", lambda *args, **kwargs: FakeClassification())
+    monkeypatch.setattr(lookup, "fetch_metadata_from_free_apis", lambda asin: None)
+    monkeypatch.setattr(lookup, "GroqJSONClient", EmptyGroqClient)
+    monkeypatch.setattr(lookup.time, "sleep", lambda *args: None)
+
+    with override_settings(BASE_DIR=tmp_path, APP_ISBN_LOOKUP_DEEP_QUERY_LIMIT=1):
+        events = list(lookup.stream_keyword_lookup("moon children", "", "", 1))
+
+    batches = [event["books"] for event in events if event["status"] == "progress"]
+    assert batches[0][0]["source"] == "library_of_congress"
+    assert batches[0][0]["amazon_asin"] == "0306406152"
+    assert events[-1]["count"] == 1

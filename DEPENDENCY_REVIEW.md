@@ -9,6 +9,8 @@ This app should optimize for evidence quality, compliance, and maintainability r
 - `beautifulsoup4`, `lxml`, `tldextract`: public page parsing, link extraction, and domain checks.
 - `ddgs`, `tavily-python`, `google-api-python-client`: configured search and YouTube providers.
 - `scrapy`: used by the batch author-site scraping command.
+- `isbnlib`, `pyisbn`: primary and diagnostic ISBN normalization, conversion, and checksum agreement.
+- `python-barcode`: standards-based ISBN-13 SVG barcode artifacts in the ISBN review UI.
 - `email-validator`, `dnspython`, `phonenumbers`: contact syntax, DNS, and phone validation.
 - `openpyxl`: Excel workbook export.
 - `groq`: optional structured AI extraction/classification with deterministic fallback.
@@ -33,3 +35,5 @@ This app should optimize for evidence quality, compliance, and maintainability r
 ## Data Quality Rule
 
 No package can make lead data 100% correct. The professional target is source-backed data with confidence scores, source URLs, deterministic validation, clear warnings, and manual review before outreach.
+
+ISBN validity and book identity are separate claims. A valid checksum proves structure, not assignment. Public catalog agreement raises metadata confidence; a single source, missing record, or field conflict remains reviewable and is never auto-approved.

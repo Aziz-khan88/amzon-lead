@@ -12,15 +12,16 @@ from django.contrib import messages
 from django.core.paginator import Paginator
 from django.db import close_old_connections
 from django.db.models import Count, Q
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
 
 from .forms import BookLifeRunForm, CSVImportForm, LeadFilterForm, ResearchRunForm, ISBNSearchForm
 from .models import Book, Evidence, Lead, ResearchRun
-from .services.amazon.amazon_url_parser import extract_asin, normalize_amazon_book_url
+from .services.amazon.amazon_url_parser import extract_asin, is_amazon_url, normalize_amazon_book_url
 from .services.booklife import BOOKLIFE_CATEGORIES, grouped_booklife_categories
+from .services.books.isbn_intelligence import analyze_identifier, generate_barcode_svg
 from .services.export.csv_export import export_leads_response, export_leads_xlsx
 from .services.pipeline.quality_gate import can_approve_lead, has_verified_contact_source
 from .services.pipeline.source_audit import is_catalog_or_platform_source
@@ -400,11 +401,21 @@ def import_csv(request):
 def lead_list(request):
     form = LeadFilterForm(request.GET or None)
     leads = Lead.objects.select_related("book", "author_profile")
+
+    explicitly_showing_excluded = (
+        request.GET.get("tier") == "rejected"
+        or request.GET.get("manual_review_status") in {"rejected", "do_not_contact"}
+        or request.GET.get("do_not_contact", "").lower() in {"1", "true", "on", "yes"}
+    )
+    if not explicitly_showing_excluded:
+        leads = leads.exclude(lead_tier="rejected").exclude(
+            Q(manual_review_status__in=["rejected", "do_not_contact"]) | Q(do_not_contact=True)
+        )
     
     # Apply standard filters
     if form.is_valid():
         cd = form.cleaned_data
-        
+
         # Keyword Search
         if cd.get("q"):
             q_term = cd["q"].strip()
@@ -890,6 +901,14 @@ def lead_action(request, pk, action):
         lead.manual_review_status = "do_not_contact"
         lead.do_not_contact = True
         messages.success(request, "Lead marked do-not-contact.")
+    elif action == "add-note":
+        if not request.POST.get("note", "").strip():
+            messages.warning(request, "Enter a note before saving the activity log.")
+            return redirect("leadfinder:lead_detail", pk=lead.id)
+        messages.success(request, "Activity note saved without changing review status.")
+    else:
+        messages.error(request, "Unknown lead action.")
+        return redirect("leadfinder:lead_detail", pk=lead.id)
     note = request.POST.get("note", "").strip()
     if note:
         lead.notes = f"{lead.notes}\n{note}".strip()
@@ -920,7 +939,9 @@ def lead_bulk_action(request):
 
 
 def export_leads_csv(request):
-    leads = Lead.objects.all().order_by("-lead_score", "-created_at")
+    leads = Lead.objects.exclude(lead_tier="rejected").exclude(
+        Q(manual_review_status__in=["rejected", "do_not_contact"]) | Q(do_not_contact=True)
+    ).order_by("-lead_score", "-created_at")
     valid_only = request.GET.get("valid_only", "0").lower() not in {"0", "false", "all", "no", ""}
     if valid_only:
         leads = _contactable_queryset(leads.exclude(lead_tier__in=["cold", "rejected"]).exclude(book__amazon_book_url=""))
@@ -934,7 +955,9 @@ def export_leads_csv(request):
 
 
 def export_leads_xlsx_view(request):
-    leads = Lead.objects.all().order_by("-lead_score", "-created_at")
+    leads = Lead.objects.exclude(lead_tier="rejected").exclude(
+        Q(manual_review_status__in=["rejected", "do_not_contact"]) | Q(do_not_contact=True)
+    ).order_by("-lead_score", "-created_at")
     valid_only = request.GET.get("valid_only", "0").lower() not in {"0", "false", "all", "no", ""}
     if valid_only:
         leads = _contactable_queryset(leads.exclude(lead_tier__in=["cold", "rejected"]).exclude(book__amazon_book_url=""))
@@ -993,7 +1016,12 @@ def settings_help(request):
             {
                 "name": "Google Books",
                 "purpose": "Structured book metadata provider for cleaner title, author, ISBN, publisher, category, rating, and cover data.",
-                "status": "Configured" if configured("GOOGLE_BOOKS_API_KEY") else "Missing API key",
+                "status": "API key configured" if configured("GOOGLE_BOOKS_API_KEY") else "No-key public mode",
+            },
+            {
+                "name": "ISBN intelligence",
+                "purpose": "Checksum agreement, ISBN-10/13 conversion, exact-source reconciliation, and SVG barcode output.",
+                "status": "Available" if all(installed(name) for name in ("isbnlib", "pyisbn", "barcode")) else "Missing package",
             },
             {
                 "name": "BookLife",
@@ -1041,12 +1069,8 @@ def isbn_search(request):
     if request.method == "POST":
         form = ISBNSearchForm(request.POST)
         if form.is_valid():
-            raw_isbns = re.split(r"[\s,;\n\r]+", form.cleaned_data["isbn"])
-            isbn_list = []
-            for x in raw_isbns:
-                cleaned = x.strip().upper()
-                if cleaned and cleaned not in isbn_list:
-                    isbn_list.append(cleaned)
+            identifier_analyses = form.identifier_analyses
+            isbn_list = [item.canonical for item in identifier_analyses]
 
             if not isbn_list:
                 messages.error(request, "Please enter at least one valid ASIN or ISBN.")
@@ -1057,12 +1081,19 @@ def isbn_search(request):
 
             # Try to see if this book already exists in DB with valid author
             if len(isbn_list) == 1:
-                isbn = isbn_list[0]
-                book = Book.objects.filter(asin=isbn).exclude(author_name="").order_by("-book_data_confidence").first()
+                analysis = identifier_analyses[0]
+                aliases = [value for value in {analysis.canonical, analysis.isbn10, analysis.isbn13} if value]
+                book = Book.objects.filter(asin__in=aliases).exclude(author_name="").order_by("-book_data_confidence").first()
+                if (
+                    book
+                    and analysis.identifier_type in {"isbn10", "isbn13"}
+                    and not (book.source_raw_json or {}).get("metadata_resolution")
+                ):
+                    book = None
                 if book:
                     lead = Lead.objects.filter(book=book).select_related("book", "author_profile").first()
                     if lead:
-                        messages.info(request, f"Book details and lead for ASIN/ISBN {isbn} retrieved from database.")
+                        messages.info(request, f"Book details and lead for {analysis.display} retrieved from the evidence cache.")
                         return redirect("leadfinder:lead_detail", pk=lead.id)
 
             # Keyword description:
@@ -1077,7 +1108,7 @@ def isbn_search(request):
                 source_provider="manual",
                 max_books=len(isbn_list),
                 settings_json={
-                    "require_amazon_url": True,
+                    "require_amazon_url": False,
                     "require_public_email": False,
                     "include_social_only_leads": True,
                     "run_video_search": run_video,
@@ -1086,16 +1117,23 @@ def isbn_search(request):
             )
 
             # Create initial Book records
-            for code in isbn_list:
+            for analysis in identifier_analyses:
+                code = analysis.canonical
+                is_asin = analysis.identifier_type == "asin"
+                supplied_amazon_url = normalize_amazon_book_url(analysis.raw) if is_asin and is_amazon_url(analysis.raw) else ""
                 Book.objects.create(
                     research_run=run,
-                    title=f"Book for ASIN {code}",
+                    title=f"Book for {analysis.identifier_type.upper()} {code}",
                     asin=code,
-                    amazon_book_url=f"https://www.amazon.com/dp/{code}",
-                    amazon_source_url=f"https://www.amazon.com/dp/{code}",
-                    normalized_key=normalized_book_key(f"Book for ASIN {code}", "", code),
+                    amazon_book_url=supplied_amazon_url,
+                    amazon_source_url=supplied_amazon_url,
+                    normalized_key=normalized_book_key(f"Book for {analysis.identifier_type.upper()} {code}", "", code),
+                    book_data_confidence=analysis.confidence,
                     source_provider="manual",
-                    source_raw_json={"processing_status": "pending"},
+                    source_raw_json={
+                        "processing_status": "pending",
+                        "identifier_intelligence": analysis.as_dict(),
+                    },
                 )
 
             # Start background pipeline
@@ -1108,7 +1146,30 @@ def isbn_search(request):
     return render(request, "leadfinder/isbn_search.html", {
         "form": form,
         "active_run": active_run,
+        "isbn_stack": ["isbnlib", "pyisbn", "Google Books", "Open Library", "Library of Congress", "python-barcode"],
     })
+
+
+@require_GET
+def isbn_analyze(request):
+    analysis = analyze_identifier(request.GET.get("identifier", ""))
+    payload = analysis.as_dict()
+    if analysis.barcode_available:
+        payload["barcode_url"] = reverse("leadfinder:isbn_barcode", kwargs={"identifier": analysis.canonical})
+    return JsonResponse(payload, status=200 if analysis.valid else 422)
+
+
+@require_GET
+def isbn_barcode(request, identifier):
+    try:
+        svg = generate_barcode_svg(identifier)
+    except ValueError as exc:
+        return JsonResponse({"error": str(exc)}, status=422)
+    response = HttpResponse(svg, content_type="image/svg+xml")
+    response["Content-Disposition"] = f'inline; filename="isbn-{analyze_identifier(identifier).isbn13}.svg"'
+    response["Cache-Control"] = "public, max-age=86400"
+    response["X-Content-Type-Options"] = "nosniff"
+    return response
 
 
 def isbn_search_status(request, run_id):
@@ -1157,6 +1218,7 @@ def isbn_search_status(request, run_id):
             "status": status,
             "lead_id": lead_id,
             "errors": errors,
+            "identifier": raw.get("identifier_intelligence", {}),
         })
 
     # Calculate percentage
