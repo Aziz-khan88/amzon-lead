@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}{{ page_title }} - Book Trailer Lead Finder{% endblock %}
+{% block content %}
+<div class="scheduled-form-page">
+  <a class="new-run-back" href="{% url 'leadfinder:scheduled_task_list' %}"><i class="ph-bold ph-arrow-left"></i> Scheduled Hunts</a>
+  <div class="page-header scheduled-form-header">
+    <div>
+      <p class="eyebrow"><i class="ph-bold ph-calendar-plus"></i> Automated discovery</p>
+      <h1>{{ page_title }}</h1>
+      <p class="page-subtitle">Define when to search, what counts as a qualified lead, and when the run should stop.</p>
+    </div>
+  </div>
+
+  <form method="post" class="scheduled-form" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+
+    <section class="panel scheduled-form-section">
+      <div class="scheduled-form-section-head">
+        <span><i class="ph-bold ph-magnifying-glass"></i></span>
+        <div><p class="eyebrow">Discovery</p><h2>What should this hunt find?</h2><small>Use a focused phrase that consistently returns the kind of books you want.</small></div>
+      </div>
+      <div class="scheduled-field-grid two-columns">
+        <div class="scheduled-field">{{ form.name.label_tag }}{{ form.name }}{{ form.name.errors }}</div>
+        <div class="scheduled-field">{{ form.source_provider.label_tag }}{{ form.source_provider }}{{ form.source_provider.errors }}</div>
+        <div class="scheduled-field full-width">{{ form.keyword.label_tag }}{{ form.keyword }}{{ form.keyword.errors }}<small>Example: “self published children's picture book author”</small></div>
+      </div>
+    </section>
+
+    <section class="panel scheduled-form-section">
+      <div class="scheduled-form-section-head">
+        <span><i class="ph-bold ph-clock-countdown"></i></span>
+        <div><p class="eyebrow">Timing</p><h2>When should it run?</h2><small>Calendar schedules use the application timezone.</small></div>
+      </div>
+      <div class="scheduled-field-grid three-columns">
+        <div class="scheduled-field">{{ form.frequency.label_tag }}{{ form.frequency }}{{ form.frequency.errors }}</div>
+        <div class="scheduled-field schedule-time-field">{{ form.run_time.label_tag }}{{ form.run_time }}{{ form.run_time.errors }}</div>
+        <div class="scheduled-field schedule-interval-field">{{ form.interval_hours.label_tag }}<div class="input-with-suffix">{{ form.interval_hours }}<span>hours</span></div>{{ form.interval_hours.errors }}</div>
+        <div class="scheduled-field full-width schedule-days-field">{{ form.days_of_week.label_tag }}{{ form.days_of_week }}{{ form.days_of_week.errors }}</div>
+      </div>
+    </section>
+
+    <section class="panel scheduled-form-section">
+      <div class="scheduled-form-section-head">
+        <span><i class="ph-bold ph-shield-check"></i></span>
+        <div><p class="eyebrow">Qualification</p><h2>What counts as complete?</h2><small>The run stops after reaching the target or exhausting the bounded candidate pool.</small></div>
+      </div>
+      <div class="scheduled-field-grid two-columns">
+        <div class="scheduled-field">{{ form.target_verified_leads.label_tag }}{{ form.target_verified_leads }}{{ form.target_verified_leads.errors }}</div>
+        <div class="scheduled-field">{{ form.require_contact.label_tag }}{{ form.require_contact }}{{ form.require_contact.errors }}</div>
+      </div>
+      <div class="scheduled-toggle-grid">
+        <label class="scheduled-toggle-card" for="{{ form.only_new_books.id_for_label }}">
+          {{ form.only_new_books }}
+          <span class="scheduled-toggle-control" aria-hidden="true"></span>
+          <span><strong>{{ form.only_new_books.label }}</strong><small>Exclude every book already stored from earlier runs.</small></span>
+        </label>
+        <label class="scheduled-toggle-card" for="{{ form.verify_email_mx.id_for_label }}">
+          {{ form.verify_email_mx }}
+          <span class="scheduled-toggle-control" aria-hidden="true"></span>
+          <span><strong>{{ form.verify_email_mx.label }}</strong><small>Confirm that extracted email domains can receive mail.</small></span>
+        </label>
+      </div>
+    </section>
+
+    <div class="scheduled-form-actions">
+      <a class="btn btn-outline-secondary" href="{% url 'leadfinder:scheduled_task_list' %}">Cancel</a>
+      <button class="btn btn-primary" type="submit"><i class="ph-bold ph-check"></i> {{ submit_label }}</button>
+    </div>
+  </form>
+</div>
+
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const frequency = document.getElementById("{{ form.frequency.id_for_label }}");
+    const intervalField = document.querySelector(".schedule-interval-field");
+    const timeField = document.querySelector(".schedule-time-field");
+    const daysField = document.querySelector(".schedule-days-field");
+    const updateScheduleFields = () => {
+      const value = frequency.value;
+      intervalField.hidden = value !== "interval_hours";
+      timeField.hidden = value === "interval_hours";
+      daysField.hidden = !["weekly", "specific_days"].includes(value);
+    };
+    frequency.addEventListener("change", updateScheduleFields);
+    updateScheduleFields();
+  });
+</script>
+{% endblock %}

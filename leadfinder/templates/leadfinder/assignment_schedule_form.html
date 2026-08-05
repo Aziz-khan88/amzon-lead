@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}{{ page_title }} · Lead Finder{% endblock %}
+{% block content %}
+<div class="assignment-form-page">
+  <a class="new-run-back" href="{% url 'leadfinder:assignment_schedule_list' %}"><i class="ph ph-arrow-left"></i> Lead assignment</a>
+  <header class="role-page-header"><div><p class="eyebrow">Automatic allocation</p><h1>{{ page_title }}</h1><p>If the eligible pool is empty, the run records zero assignments and waits for the next scheduled time.</p></div></header>
+  <form method="post" class="role-form-panel" novalidate>{% csrf_token %}
+    {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+    <section><div class="role-form-heading"><i class="ph ph-user-focus"></i><div><h2>Owner and quota</h2><p>Choose one salesperson and a safe daily workload.</p></div></div><div class="role-field-grid"><label>{{ form.name.label }}{{ form.name }}{{ form.name.errors }}</label><label>{{ form.salesperson.label }}{{ form.salesperson }}{{ form.salesperson.errors }}</label><label>{{ form.daily_lead_count.label }}{{ form.daily_lead_count }}{{ form.daily_lead_count.errors }}</label><label>{{ form.run_time.label }}{{ form.run_time }}{{ form.run_time.errors }}</label></div></section>
+    <section><div class="role-form-heading"><i class="ph ph-calendar-dots"></i><div><h2>Days and qualification</h2><p>Only unassigned leads matching these rules enter the salesperson’s queue.</p></div></div><div class="role-weekdays">{{ form.days_of_week }}</div><div class="role-field-grid"><label>{{ form.contact_requirement.label }}{{ form.contact_requirement }}{{ form.contact_requirement.errors }}</label><label>{{ form.minimum_lead_score.label }}{{ form.minimum_lead_score }}{{ form.minimum_lead_score.errors }}</label></div><div class="role-toggle-row"><label>{{ form.verified_only }} <span><strong>Verified leads only</strong><small>Require the lead verification status to be verified.</small></span></label><label>{{ form.is_active }} <span><strong>Schedule active</strong><small>Automatically run this allocation on time.</small></span></label></div></section>
+    <div class="role-form-actions"><a class="btn btn-outline-secondary" href="{% url 'leadfinder:assignment_schedule_list' %}">Cancel</a><button class="btn btn-primary" type="submit"><i class="ph ph-check"></i> Save schedule</button></div>
+  </form>
+</div>
+{% endblock %}

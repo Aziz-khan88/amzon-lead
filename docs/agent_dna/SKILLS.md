@@ -53,6 +53,7 @@ This catalog maps product capabilities to the agent roles and code surfaces that
 | Safe fetching | Service | `services/crawl/safe_fetch.py` | Applies public URL and timeout protections. |
 | Robots checks | Service | `services/crawl/robots.py` | Checks fetch permission. |
 | Contact extraction | Service | `services/crawl/contact_regex.py`, `services/ai/extract_contact.py` | Extracts public emails, phones, and contact signals. |
+| Deep bio-link crawling | Service | `services/crawl/social_contact_crawler.py` | Makes one bounded, robots-aware pass through supported Linktree, Carrd, Substack, and author-site links; decodes only public contact markup. |
 | Link extraction | Service | `services/crawl/extract_links.py` | Identifies author, contact, social, publisher, and evidence URLs. |
 | Text extraction | Service | `services/crawl/extract_text.py` | Produces crawlable text for audit and AI extraction. |
 | Existing lead enrichment | CLI `enrich_existing_leads` | management command | Backfills or enriches existing records. |
@@ -65,6 +66,7 @@ This catalog maps product capabilities to the agent roles and code surfaces that
 | Quality gate | `services/pipeline/quality_gate.py` | Blocks or warns on low-quality candidates. |
 | Lead validator | `services/pipeline/lead_validator.py` | Validates contactability and completeness. |
 | MX validator | `services/pipeline/mx_validator.py` | Checks domain/mail viability where appropriate. |
+| Contact verification engine | `services/verification/contact_verifier.py` | Scores syntax, source trust, identity, role, delivery evidence, and corroboration; records field-level checks. |
 | Dedupe | `services/pipeline/dedupe.py` | Prevents duplicate books/leads. |
 | Contact reconciliation | `services/ai/reconcile_lead.py` | Reconciles conflicting extracted contact data. |
 | Video classification | `services/ai/classify_video.py` | Distinguishes trailer, animated video, read-aloud, unclear, and not found. |

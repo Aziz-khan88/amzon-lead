@@ -54,6 +54,8 @@ from leadfinder.services.pipeline.source_audit import (
 from leadfinder.services.scoring.lead_score import score_from_lead
 from leadfinder.services.search import get_search_provider
 from leadfinder.services.search.video_provider import search_youtube_api
+from leadfinder.services.social import harvest_social_profiles
+from leadfinder.services.verification import verify_lead_contacts
 from leadfinder.utils.normalize import normalized_author_key, is_valid_author_name, normalize_text
 from leadfinder.utils.source_confidence import clamp_confidence
 from leadfinder.utils.url_safety import is_safe_public_url
@@ -300,6 +302,173 @@ def deep_contact_discovery_queries(book) -> list[str]:
         f'"{author}" ("publicist" OR "publicity" OR "press" OR "media") email',
         f'"{author}" contact page',
     ]
+
+
+def _placeholder_book_title(title: str | None, asin: str | None = None) -> bool:
+    normalized = normalize_text(title)
+    code = normalize_text(asin)
+    return (
+        not normalized
+        or normalized in {"missing", "unknown"}
+        or normalized.startswith("book for asin")
+        or normalized.startswith("book for isbn")
+        or bool(code and normalized == code)
+    )
+
+
+def _metadata_recovery_queries(book) -> list[str]:
+    title = (book.title or "").strip()
+    asin = (book.asin or "").strip()
+    queries: list[str] = []
+    if title and not _placeholder_book_title(title, asin):
+        queries.extend(
+            [
+                f'"{title}" author',
+                f'"{title}" "by"',
+            ]
+        )
+        if asin:
+            queries.append(f'"{asin}" "{title}"')
+    if asin:
+        queries.append(f'"{asin}" author')
+    return list(dict.fromkeys(queries))
+
+
+def _metadata_result_matches_book(dto, book) -> bool:
+    text = f"{getattr(dto, 'title', '')} {getattr(dto, 'snippet', '')} {getattr(dto, 'url', '')}"
+    normalized_text = normalize_text(text)
+    asin = (book.asin or "").strip().lower()
+    if asin and asin in text.lower():
+        return True
+    if _placeholder_book_title(book.title, book.asin):
+        return False
+    tokens = _title_tokens(book.title)
+    if not tokens:
+        return False
+    matches = sum(1 for token in tokens if token in normalized_text)
+    required = min(3, max(1, len(tokens)))
+    return matches >= required
+
+
+def _candidate_author_looks_like_title_fragment(candidate: str | None, title: str | None) -> bool:
+    candidate_tokens = [
+        token
+        for token in normalize_text(candidate).split()
+        if len(token) >= 3 and token not in NAME_STOPWORDS
+    ]
+    if not candidate_tokens:
+        return True
+    title_terms = set(normalize_text(title).split())
+    return all(token in title_terms for token in candidate_tokens)
+
+
+def _recover_missing_author_from_search(book, provider, max_results: int) -> bool:
+    """Recover a blank author from source-backed title/identifier search results.
+
+    Contact discovery intentionally requires an author name. Manual ASIN/ISBN
+    runs can start with only an identifier and title, so this bridge records a
+    bounded metadata search before the main author/contact workflow.
+    """
+    if book.author_name and is_valid_author_name(book.author_name):
+        return False
+
+    queries = _metadata_recovery_queries(book)
+    if not queries:
+        log_agent_thought(
+            book.research_run,
+            "Harvester",
+            f"Author metadata recovery skipped for '{book.title}' because no title or identifier evidence was available.",
+        )
+        return False
+
+    from leadfinder.services.amazon.amazon_scraper import extract_metadata_from_results
+
+    log_agent_thought(
+        book.research_run,
+        "Harvester",
+        f"Author missing for '{book.title}'. Running title/identifier metadata recovery before contact search.",
+    )
+    for query in queries[:4]:
+        raise_if_run_canceled(book.research_run_id)
+        log = SearchQueryLog.objects.create(
+            research_run=book.research_run,
+            book=book,
+            query=query,
+            provider=provider.provider_name,
+        )
+        try:
+            results = provider.search(query, max_results=max_results)
+            log.result_count = len(results)
+            log.status = "success"
+        except Exception as exc:
+            results = []
+            log.status = "failed"
+            log.error_message = str(exc)
+        log.save()
+
+        matching_results = []
+        for dto in results:
+            result_class, confidence = classify_result_url(dto.url)
+            SearchResult.objects.create(
+                search_query_log=log,
+                title=dto.title[:500],
+                url=dto.url,
+                snippet=dto.snippet or "",
+                rank=dto.rank,
+                provider=dto.provider,
+                classification=result_class,
+                classification_confidence=confidence,
+            )
+            if _metadata_result_matches_book(dto, book):
+                matching_results.append(dto)
+
+        extracted = extract_metadata_from_results(matching_results, book.asin, book.title)
+        authors = extracted.get("authors") or []
+        first_author = authors[0] if authors else {}
+        recovered_author = first_author.get("name") if isinstance(first_author, dict) else ""
+        if _candidate_author_looks_like_title_fragment(recovered_author, book.title):
+            continue
+        if recovered_author and is_valid_author_name(recovered_author):
+            previous_raw = dict(book.source_raw_json or {})
+            previous_raw.setdefault("metadata_recovery", {})
+            previous_raw["metadata_recovery"].update(
+                {
+                    "method": "title_identifier_search",
+                    "query": query,
+                    "source_url": matching_results[0].url if matching_results else "",
+                    "source_title": matching_results[0].title if matching_results else "",
+                }
+            )
+            if extracted.get("title") and _placeholder_book_title(book.title, book.asin):
+                book.title = extracted["title"][:500]
+            book.author_name = recovered_author[:255]
+            book.book_data_confidence = max(float(book.book_data_confidence or 0), 0.72)
+            book.source_raw_json = previous_raw
+            book.save(update_fields=["title", "author_name", "book_data_confidence", "source_raw_json", "updated_at"])
+            Evidence.objects.create(
+                book=book,
+                evidence_type="web_search_result",
+                field_name="author_name",
+                field_value=book.author_name,
+                source_url=matching_results[0].url if matching_results else book.amazon_source_url or book.amazon_book_url,
+                source_title=(matching_results[0].title if matching_results else "Metadata recovery")[:500],
+                source_snippet=(matching_results[0].snippet if matching_results else "")[:500],
+                confidence=0.72,
+                is_primary=True,
+            )
+            log_agent_thought(
+                book.research_run,
+                "Harvester",
+                f"Recovered author '{book.author_name}' for '{book.title}' from title/identifier metadata evidence.",
+            )
+            return True
+
+    log_agent_thought(
+        book.research_run,
+        "Harvester",
+        f"Author metadata recovery found no source-backed author for '{book.title}'. Contact search will remain limited.",
+    )
+    return False
 
 
 def video_queries(book) -> list[str]:
@@ -620,7 +789,12 @@ def _clear_unverified_lead_contacts(lead, author_profile) -> None:
                 author_profile.save(update_fields=[*profile_fields, "updated_at"])
 
 
-def process_book(book, run_video_search: bool = True, run_ai_extraction: bool = True) -> Lead:
+def process_book(
+    book,
+    run_video_search: bool = True,
+    run_ai_extraction: bool = True,
+    verify_email_mx: bool = True,
+) -> Lead:
     raise_if_run_canceled(book.research_run_id)
     log_agent_thought(book.research_run, "Harvester", f"Harvester details retrieval started for book: '{book.title}'")
     amazon_author_url = ""
@@ -679,11 +853,11 @@ def process_book(book, run_video_search: bool = True, run_ai_extraction: bool = 
                     }
                     book.source_raw_json = raw
 
-                if not am_res or not am_res.get("authors"):
+                if not am_res or not am_res.get("authors") or not am_res.get("description") or am_res.get("rating") is None:
                     log_agent_thought(
                         book.research_run,
                         "Harvester",
-                        f"Public catalogs were incomplete for {book.asin}; checking indexed public search evidence.",
+                        f"Public catalogs were incomplete or missing fields for {book.asin}; checking search engine evidence.",
                     )
                     from leadfinder.services.amazon.amazon_scraper import fallback_amazon_book_page
 
@@ -745,6 +919,12 @@ def process_book(book, run_video_search: bool = True, run_ai_extraction: bool = 
         except Exception as exc:
             logger.error(f"Error enriching book with Amazon scraper: {exc}")
 
+    enrichment_provider = (book.research_run.settings_json or {}).get("enrichment_provider")
+    provider = get_search_provider(enrichment_provider or book.research_run.source_provider)
+    max_results = min(max(int(getattr(settings, "APP_MAX_SEARCH_RESULTS_PER_QUERY", 5)), 1), 10)
+    if not book.author_name:
+        _recover_missing_author_from_search(book, provider, max_results)
+
     classification = classify_book(
         {
             "title": book.title,
@@ -763,9 +943,6 @@ def process_book(book, run_video_search: bool = True, run_ai_extraction: bool = 
     book.book_classification_reason = classification.reason
     book.save()
 
-    enrichment_provider = (book.research_run.settings_json or {}).get("enrichment_provider")
-    provider = get_search_provider(enrichment_provider or book.research_run.source_provider)
-    max_results = min(max(int(getattr(settings, "APP_MAX_SEARCH_RESULTS_PER_QUERY", 5)), 1), 10)
     max_author_queries = min(
         max(int(getattr(settings, "APP_MAX_AUTHOR_DISCOVERY_QUERIES", 5)), 1),
         len(author_discovery_queries(book)),
@@ -1008,6 +1185,12 @@ def process_book(book, run_video_search: bool = True, run_ai_extraction: bool = 
     author_image_url = ""
     other_books = []
     
+    metadata_recovered_author = bool((book.source_raw_json or {}).get("metadata_recovery") and book.author_name)
+    initial_identity_confidence = (
+        0.85
+        if author_bio
+        else (0.75 if canonical_url and book.author_name else (0.55 if metadata_recovered_author else (0.35 if book.author_name else 0.1)))
+    )
     author_profile = AuthorProfile.objects.create(
         author_name=book.author_name or "Unknown author",
         normalized_author_key=normalized_author_key(book.author_name),
@@ -1028,8 +1211,12 @@ def process_book(book, run_video_search: bool = True, run_ai_extraction: bool = 
         agent_name=extraction.agent_name or "",
         representation_email=extraction.representation_email or "",
         publicist_email=extraction.publicist_email or "",
-        identity_confidence=0.85 if author_bio else (0.75 if canonical_url and book.author_name else (0.35 if book.author_name else 0.1)),
-        identity_reason="Matched through public catalog and web-search evidence; manual review required by default.",
+        identity_confidence=initial_identity_confidence,
+        identity_reason=(
+            "Author recovered from title/identifier search evidence; official contact path still requires manual review."
+            if metadata_recovered_author
+            else "Matched through public catalog and web-search evidence; manual review required by default."
+        ),
     )
 
     lead = Lead.objects.create(
@@ -1192,9 +1379,26 @@ def process_book(book, run_video_search: bool = True, run_ai_extraction: bool = 
                 is_primary=True,
             )
 
+    social_audits = harvest_social_profiles(lead)
+    if social_audits:
+        fetched_socials = sum(1 for audit in social_audits if audit.fetch_status == "fetched")
+        log_agent_thought(
+            book.research_run,
+            "Harvester",
+            f"Inspected {len(social_audits)} public social profiles; {fetched_socials} were accessible.",
+        )
+
     _clear_unverified_lead_contacts(lead, author_profile)
     lead.refresh_from_db()
     author_profile.refresh_from_db()
+
+    verify_lead_contacts(lead, check_network=verify_email_mx)
+    lead.refresh_from_db()
+    log_agent_thought(
+        book.research_run,
+        "Auditor",
+        f"Contact verification: {lead.verification_status} ({lead.verification_score}/100).",
+    )
 
     video_classifications = []
     video_reason = ""

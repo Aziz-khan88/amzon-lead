@@ -9,9 +9,13 @@ from leadfinder.services.pipeline.quality_gate import has_verified_contact_sourc
 
 EXPORT_COLUMNS = [
     "lead_id",
-    "lead_score",
-    "lead_tier",
-    "manual_review_status",
+    "verification_score",
+    "verification_status",
+    "verification_reason",
+    "primary_contact",
+    "primary_contact_channel",
+    "primary_contact_role",
+    "verified_at",
     "do_not_contact",
     "book_title",
     "author_name",
@@ -98,9 +102,13 @@ def lead_to_row(lead) -> dict:
     brief = getattr(lead, "brief", None)
     return {
         "lead_id": lead.id,
-        "lead_score": lead.lead_score,
-        "lead_tier": lead.lead_tier,
-        "manual_review_status": lead.manual_review_status,
+        "verification_score": lead.verification_score,
+        "verification_status": lead.verification_status,
+        "verification_reason": lead.verification_reason,
+        "primary_contact": lead.primary_contact.normalized_value if lead.primary_contact else "",
+        "primary_contact_channel": lead.primary_contact.channel if lead.primary_contact else "",
+        "primary_contact_role": lead.primary_contact.role if lead.primary_contact else "",
+        "verified_at": lead.verified_at,
         "do_not_contact": lead.do_not_contact,
         "book_title": book.title,
         "author_name": book.author_name,
@@ -160,7 +168,7 @@ def export_leads_response(queryset) -> HttpResponse:
     response["Content-Disposition"] = 'attachment; filename="book_trailer_leads.csv"'
     writer = csv.DictWriter(response, fieldnames=EXPORT_COLUMNS)
     writer.writeheader()
-    for lead in queryset.select_related("book", "author_profile").prefetch_related("evidence", "videos"):
+    for lead in queryset.select_related("book", "author_profile", "primary_contact").prefetch_related("evidence", "videos"):
         writer.writerow(lead_to_row(lead))
     return response
 
@@ -170,7 +178,7 @@ def export_leads_to_file(queryset, output_path: str) -> int:
     with open(output_path, "w", newline="", encoding="utf-8-sig") as handle:
         writer = csv.DictWriter(handle, fieldnames=EXPORT_COLUMNS)
         writer.writeheader()
-        for lead in queryset.select_related("book", "author_profile").prefetch_related("evidence", "videos"):
+        for lead in queryset.select_related("book", "author_profile", "primary_contact").prefetch_related("evidence", "videos"):
             writer.writerow(lead_to_row(lead))
             count += 1
     return count
@@ -193,11 +201,9 @@ def build_leads_workbook(queryset) -> openpyxl.Workbook:
     # Premium Header Theme (Steel/Navy Teal)
     header_fill = PatternFill(start_color="1E3D59", end_color="1E3D59", fill_type="solid")
     
-    # soft priority colors
-    hot_fill = PatternFill(start_color="D4EDDA", end_color="D4EDDA", fill_type="solid")       # Light green
-    warm_fill = PatternFill(start_color="FFF3CD", end_color="FFF3CD", fill_type="solid")      # Light yellow
-    cold_fill = PatternFill(start_color="D1ECF1", end_color="D1ECF1", fill_type="solid")      # Light blue
-    rejected_fill = PatternFill(start_color="F8D7DA", end_color="F8D7DA", fill_type="solid")  # Light red
+    verified_fill = PatternFill(start_color="D4EDDA", end_color="D4EDDA", fill_type="solid")
+    other_fill = PatternFill(start_color="FFF3CD", end_color="FFF3CD", fill_type="solid")
+    not_verified_fill = PatternFill(start_color="F8D7DA", end_color="F8D7DA", fill_type="solid")
     
     thin_border = Border(
         left=Side(style='thin', color='D3D3D3'),
@@ -217,7 +223,7 @@ def build_leads_workbook(queryset) -> openpyxl.Workbook:
         "Lead ID", "Date Added", "Author Name", "Pen Name", "Country", "City/State",
         "Author Type", "Primary Niche", "Official Website", "Public Email", "Contact Form",
         "Amazon Author Page", "Goodreads", "BookBub", "Instagram", "Facebook", "TikTok",
-        "YouTube", "LinkedIn", "Verification Status", "Lead Score", "Priority", "Outreach Status"
+        "YouTube", "LinkedIn", "Verification Status", "Verification Score", "Primary Contact", "Contact Role"
     ]
     ws1.append(headers1)
     
@@ -263,7 +269,7 @@ def build_leads_workbook(queryset) -> openpyxl.Workbook:
             cell.border = thin_border
 
     # Fetch data
-    leads = queryset.select_related("book", "author_profile").prefetch_related("evidence", "videos", "brief")
+    leads = queryset.select_related("book", "author_profile", "primary_contact").prefetch_related("evidence", "videos", "brief")
     
     for lead in leads:
         book = lead.book
@@ -280,18 +286,8 @@ def build_leads_workbook(queryset) -> openpyxl.Workbook:
         amazon_author = author.amazon_author_url if author else ""
         goodreads = author.goodreads_url if author else ""
         
-        # Verify status
-        v_conf = author.identity_confidence if author else 0
-        v_status = "Verified" if v_conf >= 0.8 else "Partially verified" if v_conf >= 0.5 else "Unverified"
-        
-        # Priority mapping
-        priority_label = "Low Priority"
-        if lead.lead_tier == "hot":
-            priority_label = "A Lead"
-        elif lead.lead_tier == "warm":
-            priority_label = "B Lead"
-        elif lead.lead_tier == "cold":
-            priority_label = "C Lead"
+        primary = lead.primary_contact
+        v_status = lead.get_verification_status_display()
             
         row1 = [
             str(lead.id),
@@ -314,9 +310,9 @@ def build_leads_workbook(queryset) -> openpyxl.Workbook:
             author.youtube_url if author else "",
             author.linkedin_url if author else "",
             v_status,
-            lead.lead_score,
-            priority_label,
-            lead.manual_review_status
+            lead.verification_score,
+            primary.normalized_value if primary else "",
+            primary.get_role_display() if primary else "",
         ]
         ws1.append(row1)
         
@@ -384,17 +380,15 @@ def build_leads_workbook(queryset) -> openpyxl.Workbook:
     # Style data rows in Authors sheet
     for r_idx in range(2, ws1.max_row + 1):
         ws1.row_dimensions[r_idx].height = 20
-        tier_val = ws1.cell(row=r_idx, column=22).value  # Priority is at column 22
+        status_val = ws1.cell(row=r_idx, column=20).value
         
         row_fill = None
-        if tier_val == "A Lead":
-            row_fill = hot_fill
-        elif tier_val == "B Lead":
-            row_fill = warm_fill
-        elif tier_val == "C Lead":
-            row_fill = cold_fill
-        elif tier_val == "Low Priority":
-            row_fill = rejected_fill
+        if status_val == "Verified":
+            row_fill = verified_fill
+        elif status_val == "Not verified":
+            row_fill = not_verified_fill
+        elif status_val == "Other":
+            row_fill = other_fill
             
         for c_idx in range(1, ws1.max_column + 1):
             cell = ws1.cell(row=r_idx, column=c_idx)
@@ -416,15 +410,13 @@ def build_leads_workbook(queryset) -> openpyxl.Workbook:
         lead_id_val = ws2.cell(row=r_idx, column=1).value
         for a_idx in range(2, ws1.max_row + 1):
             if ws1.cell(row=a_idx, column=1).value == lead_id_val:
-                tier_val = ws1.cell(row=a_idx, column=22).value
-                if tier_val == "A Lead":
-                    row_fill = hot_fill
-                elif tier_val == "B Lead":
-                    row_fill = warm_fill
-                elif tier_val == "C Lead":
-                    row_fill = cold_fill
-                elif tier_val == "Low Priority":
-                    row_fill = rejected_fill
+                status_val = ws1.cell(row=a_idx, column=20).value
+                if status_val == "Verified":
+                    row_fill = verified_fill
+                elif status_val == "Not verified":
+                    row_fill = not_verified_fill
+                elif status_val == "Other":
+                    row_fill = other_fill
                 break
                 
         for c_idx in range(1, ws2.max_column + 1):
@@ -445,15 +437,13 @@ def build_leads_workbook(queryset) -> openpyxl.Workbook:
         lead_id_val = ws3.cell(row=r_idx, column=1).value
         for a_idx in range(2, ws1.max_row + 1):
             if ws1.cell(row=a_idx, column=1).value == lead_id_val:
-                tier_val = ws1.cell(row=a_idx, column=22).value
-                if tier_val == "A Lead":
-                    row_fill = hot_fill
-                elif tier_val == "B Lead":
-                    row_fill = warm_fill
-                elif tier_val == "C Lead":
-                    row_fill = cold_fill
-                elif tier_val == "Low Priority":
-                    row_fill = rejected_fill
+                status_val = ws1.cell(row=a_idx, column=20).value
+                if status_val == "Verified":
+                    row_fill = verified_fill
+                elif status_val == "Not verified":
+                    row_fill = not_verified_fill
+                elif status_val == "Other":
+                    row_fill = other_fill
                 break
                 
         for c_idx in range(1, ws3.max_column + 1):
@@ -474,15 +464,13 @@ def build_leads_workbook(queryset) -> openpyxl.Workbook:
         lead_id_val = ws4.cell(row=r_idx, column=1).value
         for a_idx in range(2, ws1.max_row + 1):
             if ws1.cell(row=a_idx, column=1).value == lead_id_val:
-                tier_val = ws1.cell(row=a_idx, column=22).value
-                if tier_val == "A Lead":
-                    row_fill = hot_fill
-                elif tier_val == "B Lead":
-                    row_fill = warm_fill
-                elif tier_val == "C Lead":
-                    row_fill = cold_fill
-                elif tier_val == "Low Priority":
-                    row_fill = rejected_fill
+                status_val = ws1.cell(row=a_idx, column=20).value
+                if status_val == "Verified":
+                    row_fill = verified_fill
+                elif status_val == "Not verified":
+                    row_fill = not_verified_fill
+                elif status_val == "Other":
+                    row_fill = other_fill
                 break
                 
         for c_idx in range(1, ws4.max_column + 1):

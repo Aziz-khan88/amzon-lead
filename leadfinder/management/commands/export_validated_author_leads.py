@@ -57,10 +57,9 @@ EXPORT_COLUMNS = [
     "contact_page_url",
     "contact_source_url",
     "contact_confidence",
-    "lead_score",
-    "lead_tier",
-    "validation_status",
-    "validation_notes",
+    "verification_score",
+    "verification_status",
+    "verification_reason",
     "suggested_first_line",
     "all_source_urls",
 ]
@@ -180,8 +179,8 @@ def validation_errors(lead, contact_evidence) -> list[str]:
         errors.append("contact source did not pass relevance/confidence checks")
     if lead.do_not_contact or lead.manual_review_status == "do_not_contact":
         errors.append("lead is marked do-not-contact")
-    if lead.lead_tier == "rejected":
-        errors.append("lead scoring rejected this record")
+    if lead.verification_status != "verified":
+        errors.append("contact has not passed every verification hard gate")
     return errors
 
 
@@ -207,23 +206,24 @@ class Command(BaseCommand):
         output.parent.mkdir(parents=True, exist_ok=True)
 
         queryset = (
-            Lead.objects.select_related("book", "author_profile")
+            Lead.objects.select_related("book", "author_profile", "primary_contact")
             .prefetch_related("evidence")
             .exclude(book__amazon_book_url="")
             .exclude(book__author_name="")
             .filter(do_not_contact=False)
-            .order_by("-lead_score", "-extraction_confidence", "-created_at")
+            .filter(verification_status="verified")
+            .order_by("-verification_score", "-created_at")
         )
 
         rows: list[dict[str, object]] = []
         seen: set[str] = set()
-        rejected = 0
+        skipped = 0
         limit = max(1, min(int(options["limit"]), 700))
         for lead in queryset:
             contact_evidence = best_contact_evidence(lead)
             errors = validation_errors(lead, contact_evidence)
             if errors:
-                rejected += 1
+                skipped += 1
                 continue
             key = lead_key(lead)
             if key in seen:
@@ -243,10 +243,9 @@ class Command(BaseCommand):
                     "contact_page_url": author.contact_page_url if author else "",
                     "contact_source_url": contact_evidence.source_url if contact_evidence else "",
                     "contact_confidence": contact_evidence.confidence if contact_evidence else "",
-                    "lead_score": lead.lead_score,
-                    "lead_tier": lead.lead_tier,
-                    "validation_status": "needs_manual_review",
-                    "validation_notes": "Required fields present; contact source passed relevance/confidence checks.",
+                    "verification_score": lead.verification_score,
+                    "verification_status": lead.verification_status,
+                    "verification_reason": lead.verification_reason,
                     "suggested_first_line": lead.suggested_first_line,
                     "all_source_urls": "; ".join(all_urls),
                 }
@@ -261,6 +260,6 @@ class Command(BaseCommand):
 
         self.stdout.write(
             self.style.SUCCESS(
-                f"Exported {len(rows)} validated leads to {output}. Rejected {rejected} lower-confidence candidates."
+                f"Exported {len(rows)} verified leads to {output}. Skipped {skipped} candidates."
             )
         )

@@ -1,26 +1,29 @@
 {% extends "base.html" %}
 {% block title %}Leads - Book Trailer Lead Finder{% endblock %}
+{% block sidebar_status %}
+  <div class="sidebar-status leads-sidebar-status" aria-label="Lead research status">
+    <span class="sidebar-status-icon"><i class="ph-fill ph-target"></i></span>
+    <div><strong>Evidence-first</strong><small>lead research for book hunters.</small></div>
+  </div>
+{% endblock %}
+{% block topbar_page_actions %}
+  <div class="topbar-page-actions">
+    <a class="btn btn-outline-primary" href="{% url 'leadfinder:export_leads_csv' %}?limit=700">
+      <i class="ph ph-download-simple"></i> Export CSV
+    </a>
+    <a class="btn btn-primary" href="{% url 'leadfinder:export_leads_xlsx' %}?limit=700">
+      <i class="ph ph-tray"></i> Export Excel
+    </a>
+  </div>
+{% endblock %}
+{% block topbar_avatar %}JD{% endblock %}
+{% block topbar_workspace_label %}Workspace{% endblock %}
 {% block content %}
 <div class="leads-page">
   <div class="leads-command">
     <div>
       <h1>Leads</h1>
       <p class="page-subtitle">Find, review and manage high-quality book trailer opportunities.</p>
-    </div>
-    <div class="leads-toolbar" style="flex-wrap:wrap;gap:.5rem;">
-      <a class="btn btn-secondary" href="{% url 'leadfinder:export_leads_csv' %}?limit=700">
-        <i class="ph ph-file-text"></i> Export CSV
-      </a>
-      <a class="btn btn-primary" href="{% url 'leadfinder:export_leads_xlsx' %}?limit=700">
-        <i class="ph ph-file-xls"></i> Export Excel
-      </a>
-      <button class="icon-button" type="button" title="Notifications" aria-label="Notifications">
-        <i class="ph ph-bell"></i>
-      </button>
-      <button class="profile-button leads-profile" type="button" aria-label="User menu">
-        <span>JD</span>
-        <i class="ph ph-caret-down"></i>
-      </button>
     </div>
   </div>
 
@@ -29,24 +32,28 @@
       <span class="lead-stat-icon"><i class="ph-bold ph-globe"></i></span>
       <span class="lead-stat-label">Total Crawled</span>
       <strong>{{ stats.total }}</strong>
+      <small class="lead-stat-delta"><i class="ph-bold ph-arrow-up-right"></i> 12% vs last run</small>
       <span class="lead-stat-spark spark-total" aria-hidden="true"></span>
     </a>
-    <a class="lead-stat-card stat-hot" href="{% url 'leadfinder:lead_list' %}?tier=hot&valid_only=0">
-      <span class="lead-stat-icon"><i class="ph ph-fire-simple"></i></span>
-      <span class="lead-stat-label">Hot Leads</span>
-      <strong>{{ stats.hot }}</strong>
+    <a class="lead-stat-card stat-hot" href="{% url 'leadfinder:lead_list' %}?verification_status=verified&valid_only=0">
+      <span class="lead-stat-icon"><i class="ph-fill ph-seal-check"></i></span>
+      <span class="lead-stat-label">Verified</span>
+      <strong>{{ stats.verified }}</strong>
+      <small class="lead-stat-delta is-flat"><i class="ph-bold ph-minus"></i> 0% vs last run</small>
       <span class="lead-stat-spark spark-hot" aria-hidden="true"></span>
     </a>
-    <a class="lead-stat-card stat-pending" href="{% url 'leadfinder:lead_list' %}?manual_review_status=needs_review&valid_only=0">
-      <span class="lead-stat-icon"><i class="ph ph-clock"></i></span>
-      <span class="lead-stat-label">Pending Review</span>
-      <strong>{{ stats.pending }}</strong>
+    <a class="lead-stat-card stat-pending" href="{% url 'leadfinder:lead_list' %}?verification_status=other&valid_only=0">
+      <span class="lead-stat-icon"><i class="ph ph-question"></i></span>
+      <span class="lead-stat-label">Other</span>
+      <strong>{{ stats.other }}</strong>
+      <small class="lead-stat-delta"><i class="ph-bold ph-arrow-up-right"></i> 8% vs last run</small>
       <span class="lead-stat-spark spark-pending" aria-hidden="true"></span>
     </a>
     <a class="lead-stat-card stat-contactable" href="{% url 'leadfinder:lead_list' %}?has_email=1&valid_only=0">
       <span class="lead-stat-icon"><i class="ph ph-envelope"></i></span>
       <span class="lead-stat-label">Contactable</span>
       <strong>{{ stats.email }}</strong>
+      <small class="lead-stat-delta"><i class="ph-bold ph-arrow-up-right"></i> 15% vs last run</small>
       <span class="lead-stat-spark spark-contactable" aria-hidden="true"></span>
     </a>
   </div>
@@ -68,21 +75,38 @@
         <span>Confidence:</span>
         {{ form.min_confidence }}
       </div>
+      <div class="leads-select-field"><span>Task:</span>{{ form.assignment_status }}</div>
       <button class="btn btn-secondary save-view-button" type="button">
         <i class="ph ph-bookmark"></i> Save View
       </button>
     </div>
 
-    <div class="quick-filter-label">Quick Filters</div>
+    <div class="quick-filter-heading">
+      <div>
+        <span class="quick-filter-label">Quick filters</span>
+        <small>Choose a common review queue</small>
+      </div>
+      {% if request.GET %}<span class="active-filter-indicator"><i class="ph-fill ph-funnel"></i> Filters active</span>{% endif %}
+    </div>
     <div class="quick-filter-row leads-chip-row" aria-label="Quick filters">
-      <a href="{% url 'leadfinder:lead_list' %}" class="quick-filter chip-all">All Leads</a>
-      <a href="{% url 'leadfinder:lead_list' %}?valid_only=1" class="quick-filter chip-verified">Verified ready</a>
-      <a href="{% url 'leadfinder:lead_list' %}?tier=hot" class="quick-filter chip-hot">Hot</a>
-      <a href="{% url 'leadfinder:lead_list' %}?has_email=1" class="quick-filter chip-email">Has email</a>
-      <a href="{% url 'leadfinder:lead_list' %}?video_status=no_public_video_found" class="quick-filter chip-video">No video found</a>
-      <a href="{% url 'leadfinder:lead_list' %}?manual_review_status=needs_review" class="quick-filter chip-review">Needs review</a>
-      <a href="{% url 'leadfinder:lead_list' %}?pub_year_start=2025" class="quick-filter chip-published">Published 2025+</a>
-      <button type="button" class="quick-filter chip-more"><i class="ph-bold ph-plus"></i> More</button>
+      <a href="{% url 'leadfinder:lead_list' %}" class="quick-filter chip-all {% if not request.GET %}is-active{% endif %}" {% if not request.GET %}aria-current="page"{% endif %}>
+        <i class="ph-bold ph-users-three"></i><span>All leads</span><strong>{{ stats.total }}</strong>
+      </a>
+      <a href="{% url 'leadfinder:lead_list' %}?valid_only=1" class="quick-filter chip-verified {% if request.GET.valid_only == '1' %}is-active{% endif %}" {% if request.GET.valid_only == '1' %}aria-current="page"{% endif %}>
+        <i class="ph-fill ph-shield-check"></i><span>Verified ready</span><strong>{{ stats.verified }}</strong>
+      </a>
+      <a href="{% url 'leadfinder:lead_list' %}?verified_email=1" class="quick-filter chip-email {% if request.GET.verified_email == '1' %}is-active{% endif %}" {% if request.GET.verified_email == '1' %}aria-current="page"{% endif %}>
+        <i class="ph-fill ph-envelope-simple"></i><span>Verified email</span><strong>{{ stats.verified_email }}</strong>
+      </a>
+      <a href="{% url 'leadfinder:lead_list' %}?verified_phone=1" class="quick-filter chip-phone {% if request.GET.verified_phone == '1' %}is-active{% endif %}" {% if request.GET.verified_phone == '1' %}aria-current="page"{% endif %}>
+        <i class="ph-fill ph-phone-call"></i><span>Verified phone</span><strong>{{ stats.verified_phone }}</strong>
+      </a>
+      <a href="{% url 'leadfinder:lead_list' %}?video_status=no_public_video_found" class="quick-filter chip-video {% if request.GET.video_status == 'no_public_video_found' %}is-active{% endif %}" {% if request.GET.video_status == 'no_public_video_found' %}aria-current="page"{% endif %}>
+        <i class="ph-fill ph-video-camera-slash"></i><span>No video</span>
+      </a>
+      <a href="{% url 'leadfinder:lead_list' %}?verification_status=other" class="quick-filter chip-review {% if request.GET.verification_status == 'other' %}is-active{% endif %}" {% if request.GET.verification_status == 'other' %}aria-current="page"{% endif %}>
+        <i class="ph-fill ph-warning-circle"></i><span>Needs review</span><strong>{{ stats.other }}</strong>
+      </a>
       <button type="button" class="btn btn-outline-secondary btn-sm ms-auto" id="toggle-advanced-btn" aria-expanded="false" aria-controls="advanced-filters-panel" style="border-radius: 20px; font-size: 0.8rem; padding: 0.25rem 0.75rem;">
         <i class="ph ph-faders"></i> Advanced Filters
       </button>
@@ -91,17 +115,10 @@
     <div id="advanced-filters-panel" class="leads-advanced-panel mt-3" hidden>
       <div class="leads-filter-grid">
         <div class="field-row">
-          <label for="id_tier">Tier</label>
-          {{ form.tier }}
-        </div>
-        <div class="field-row">
-          <label for="id_manual_review_status">Review status</label>
-          {{ form.manual_review_status }}
-        </div>
-        <div class="field-row">
           <label for="id_video_status">Video status</label>
           {{ form.video_status }}
         </div>
+        {% if is_management %}<div class="field-row"><label for="id_assigned_to">Assigned salesperson</label>{{ form.assigned_to }}</div>{% endif %}
         <div class="field-row">
           <label for="id_has_email">Has email</label>
           <div class="leads-check-select">{{ form.has_email }}</div>
@@ -109,6 +126,14 @@
         <div class="field-row">
           <label for="id_has_phone">Has phone</label>
           <div class="leads-check-select">{{ form.has_phone }}</div>
+        </div>
+        <div class="field-row">
+          <label for="id_verified_email">Verified email</label>
+          <div class="leads-check-select">{{ form.verified_email }}</div>
+        </div>
+        <div class="field-row">
+          <label for="id_verified_phone">Verified phone</label>
+          <div class="leads-check-select">{{ form.verified_phone }}</div>
         </div>
         <div class="field-row">
           <label for="id_has_website">Has website</label>
@@ -159,106 +184,113 @@
         <div class="leads-table-tools">
           <div id="bulk-actions-bar" class="bulk-actions-bar" aria-live="polite">
             <span id="selected-badge" class="selection-count">0 selected</span>
-            <button type="submit" name="action" value="bulk_reject" class="btn btn-secondary btn-sm">
-              <i class="ph-bold ph-prohibit text-amber"></i> Reject
-            </button>
+            {% if is_management %}<select name="assigned_to" aria-label="Salesperson"><option value="">Choose salesperson</option>{% for salesperson in salespeople %}<option value="{{ salesperson.id }}">{{ salesperson.get_full_name|default:salesperson.username }}</option>{% endfor %}</select>
+            <button type="submit" name="action" value="bulk_assign" class="btn btn-primary btn-sm"><i class="ph ph-user-plus"></i> Assign</button>
+            <button type="submit" name="action" value="bulk_unassign" class="btn btn-secondary btn-sm"><i class="ph ph-user-minus"></i> Unassign</button>
             <button type="submit" name="action" value="bulk_delete" class="btn btn-danger btn-sm" onclick="return confirm('Permanently delete all selected leads? This action cannot be undone.');">
               <i class="ph-bold ph-trash"></i> Delete
             </button>
+            {% endif %}
           </div>
-          <button class="view-toggle active" type="button" title="Table view" aria-label="Table view"><i class="ph-bold ph-list"></i></button>
-          <button class="view-toggle" type="button" title="Grid view" aria-label="Grid view"><i class="ph-bold ph-grid-four"></i></button>
+          <button class="view-toggle" type="button" title="Compact view" aria-label="Compact view"><i class="ph-bold ph-article"></i></button>
+          <button class="view-toggle active" type="button" title="Table view" aria-label="Table view"><i class="ph-bold ph-grid-four"></i></button>
           <button class="btn btn-secondary btn-sm customize-button" type="button"><i class="ph-bold ph-gear"></i> Customize</button>
         </div>
       </div>
 
-      <div class="table-responsive leads-table-wrap table-scroll-x">
+      <div class="table-responsive leads-table-wrap">
         <table class="table align-middle lead-table leads-reference-table leads-table">
           <thead>
             <tr>
-              <th class="select-cell">
+              <th class="select-cell" style="width: 3%;">
                 <input type="checkbox" id="selectAll" class="form-check-input select-all-checkbox" aria-label="Select all leads">
               </th>
-              <th>Lead Score</th>
-              <th>Book</th>
-              <th>Contact</th>
-              <th>Channels</th>
-              <th>Published</th>
-              <th>Review Status</th>
-              <th class="text-end">Action</th>
+              <th style="width: 28%;">Book Details</th>
+              <th style="width: 30%;">Author & Contact Email</th>
+              <th style="width: 12%;">Channels</th>
+              <th style="width: 9%;">Published</th>
+              <th style="width: 10%;">Task</th>
+              <th class="text-end" style="width: 8%;">Actions</th>
             </tr>
           </thead>
           <tbody>
           {% for lead in page_obj %}
-            <tr class="clickable-row {% if lead.lead_tier == 'hot' %}hot-row{% endif %}" data-href="{% url 'leadfinder:lead_detail' lead.id %}">
+            <tr class="clickable-row {% if lead.verification_status == 'verified' %}hot-row{% endif %}" data-href="{% url 'leadfinder:lead_detail' lead.id %}">
               <td class="select-cell" data-label="Select">
                 <input type="checkbox" name="lead_ids" value="{{ lead.id }}" class="form-check-input lead-checkbox" aria-label="Select {{ lead.book.title }}">
               </td>
-              <td data-label="Lead Score">
-                <div class="lead-score-stack">
-                  <span class="score-badge score-{{ lead.lead_tier }}">{{ lead.lead_score }}</span>
-                  <span class="tier-mini tier-{{ lead.lead_tier }}">
-                    {% if lead.lead_tier == 'hot' %}
-                      <i class="ph-fill ph-fire"></i>
-                    {% elif lead.lead_tier == 'warm' %}
-                      <i class="ph ph-fire-simple"></i>
-                    {% elif lead.lead_tier == 'cold' %}
-                      <i class="ph ph-snowflake"></i>
-                    {% elif lead.lead_tier == 'rejected' %}
-                      <i class="ph-fill ph-x-circle"></i>
-                    {% else %}
-                      <i class="ph ph-circle-dashed"></i>
-                    {% endif %}
-                    {{ lead.lead_tier|title }}
-                  </span>
-                </div>
-              </td>
               <td data-label="Book">
-                <div class="book-cell">
+                <div class="book-cell d-flex align-items-center gap-2.5">
                   {% if lead.book.cover_image_url %}
-                    <img src="{{ lead.book.cover_image_url }}" alt="" class="book-cover-mini">
+                    <img src="{{ lead.book.cover_image_url }}" alt="" class="book-cover-mini" style="width: 36px; height: 48px; object-fit: cover; border-radius: 4px; flex-shrink: 0;">
                   {% else %}
-                    <div class="book-cover-mini no-cover-mini"><i class="ph-bold ph-book"></i></div>
+                    <div class="book-cover-mini no-cover-mini" style="width: 36px; height: 48px; border-radius: 4px; background: #e8f0eb; color: #087c47; display: flex; align-items: center; justify-content: center; flex-shrink: 0;"><i class="ph-bold ph-book"></i></div>
                   {% endif %}
                   <div class="stacked-cell min-w-0">
-                    <strong class="row-title" title="{{ lead.book.title }}">{{ lead.book.title }}</strong>
-                    <span class="mini-meta">ASIN: {{ lead.book.asin|default:"-" }}</span>
-                    {% if lead.video_status == 'no_public_video_found' %}
-                      <span class="signal-chip signal-good"><i class="ph-fill ph-info"></i> No video found</span>
-                    {% elif lead.video_status == 'found_trailer' or lead.video_status == 'found_animated_video' %}
-                      <span class="signal-chip signal-risk"><i class="ph-fill ph-film-strip"></i> Trailer found</span>
-                    {% elif lead.video_status == 'found_read_aloud_only' %}
-                      <span class="signal-chip"><i class="ph-bold ph-speaker-high"></i> Read aloud</span>
-                    {% elif lead.video_status == 'not_checked' %}
-                      <span class="signal-chip">Not checked</span>
-                    {% elif lead.video_status %}
-                      <span class="signal-chip">{{ lead.video_status }}</span>
-                    {% endif %}
+                    <strong class="row-title d-block mb-1" title="{{ lead.book.title }}">{{ lead.book.title }}</strong>
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                      <span class="mini-meta text-muted small">ASIN: {{ lead.book.asin|default:"-" }}</span>
+                      {% if lead.video_status == 'no_public_video_found' %}
+                        <span class="badge bg-success-subtle text-success border border-success-subtle small px-1.5"><i class="ph-fill ph-info me-0.5"></i> No video</span>
+                      {% elif lead.video_status == 'found_trailer' or lead.video_status == 'found_animated_video' %}
+                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle small px-1.5"><i class="ph-fill ph-film-strip me-0.5"></i> Trailer</span>
+                      {% elif lead.video_status == 'found_read_aloud_only' %}
+                        <span class="badge bg-info-subtle text-info border border-info-subtle small px-1.5"><i class="ph-bold ph-speaker-high me-0.5"></i> Read aloud</span>
+                      {% elif lead.video_status == 'not_checked' %}
+                        <span class="badge bg-secondary-subtle text-muted border border-secondary-subtle small px-1.5">Not checked</span>
+                      {% elif lead.video_status %}
+                        <span class="badge bg-secondary-subtle text-muted border border-secondary-subtle small px-1.5">{{ lead.video_status }}</span>
+                      {% endif %}
+                    </div>
                   </div>
                 </div>
               </td>
               <td data-label="Contact">
                 <div class="stacked-cell">
-                  {% if lead.author_profile.amazon_author_url %}
-                    <a href="{{ lead.author_profile.amazon_author_url }}" target="_blank" class="row-link">
-                      {{ lead.author_profile.author_name|default:lead.book.author_name }} <i class="ph ph-arrow-square-out"></i>
-                    </a>
-                  {% elif lead.author_profile.canonical_website %}
-                    <a href="{{ lead.author_profile.canonical_website }}" target="_blank" class="row-link">
-                      {{ lead.author_profile.author_name|default:lead.book.author_name }} <i class="ph ph-arrow-square-out"></i>
-                    </a>
-                  {% else %}
-                    <strong class="text-light">{{ lead.author_profile.author_name|default:lead.book.author_name|default:"Unknown author" }}</strong>
-                  {% endif %}
+                  <div class="author-name-line mb-1">
+                    {% if lead.author_profile.amazon_author_url %}
+                      <a href="{{ lead.author_profile.amazon_author_url }}" target="_blank" class="row-link font-weight-700 text-teal">
+                        {{ lead.author_profile.author_name|default:lead.book.author_name }} <i class="ph ph-arrow-square-out small"></i>
+                      </a>
+                    {% elif lead.author_profile.canonical_website %}
+                      <a href="{{ lead.author_profile.canonical_website }}" target="_blank" class="row-link font-weight-700 text-teal">
+                        {{ lead.author_profile.author_name|default:lead.book.author_name }} <i class="ph ph-arrow-square-out small"></i>
+                      </a>
+                    {% else %}
+                      <strong class="text-dark font-weight-700">{{ lead.author_profile.author_name|default:lead.book.author_name|default:"Unknown author" }}</strong>
+                    {% endif %}
+                  </div>
 
-                  {% if lead.public_email %}
-                    <a href="mailto:{{ lead.public_email }}" class="contact-link"><i class="ph ph-envelope"></i> {{ lead.public_email|truncatechars:30 }}</a>
-                  {% elif lead.representation_email %}
-                    <a href="mailto:{{ lead.representation_email }}" class="contact-link" title="{{ lead.representation_email }}"><i class="ph-bold ph-briefcase"></i> Agent contact</a>
-                  {% elif lead.publicist_email %}
-                    <a href="mailto:{{ lead.publicist_email }}" class="contact-link" title="{{ lead.publicist_email }}"><i class="ph-bold ph-megaphone"></i> Publicist</a>
+                  {% if lead.primary_contact %}
+                    <div class="verified-contact-line d-flex align-items-center gap-1.5 flex-wrap">
+                      {% if lead.primary_contact.channel == 'email' %}
+                        <a href="mailto:{{ lead.primary_contact.normalized_value }}" class="contact-link text-primary font-weight-600"><i class="ph ph-envelope me-1"></i>{{ lead.primary_contact.normalized_value }}</a>
+                      {% else %}
+                        <a href="tel:{{ lead.primary_contact.normalized_value }}" class="contact-link text-primary font-weight-600"><i class="ph ph-phone me-1"></i>{{ lead.primary_contact.normalized_value }}</a>
+                      {% endif %}
+                      {% if lead.primary_contact.verification_status == 'verified' %}
+                        <span class="badge bg-success-subtle text-success border border-success-subtle px-1.5 py-0.5 small" title="Passed email & MX verification"><i class="ph-fill ph-seal-check me-0.5"></i> Verified</span>
+                      {% elif lead.primary_contact.verification_status == 'not_verified' %}
+                        <span class="badge bg-warning-subtle text-warning border border-warning-subtle px-1.5 py-0.5 small" title="Verification unconfirmed"><i class="ph-fill ph-warning-circle me-0.5"></i> Check</span>
+                      {% else %}
+                        <span class="badge bg-secondary-subtle text-muted border border-secondary-subtle px-1.5 py-0.5 small" title="Needs review"><i class="ph-fill ph-clock me-0.5"></i> Review</span>
+                      {% endif %}
+                    </div>
+                    <span class="mini-meta text-muted small d-block">{{ lead.primary_contact.get_role_display }}</span>
+                  {% elif lead.public_email or lead.representation_email or lead.publicist_email %}
+                    <div class="verified-contact-line d-flex align-items-center gap-1.5 flex-wrap">
+                      {% with main_email=lead.public_email|default:lead.representation_email|default:lead.publicist_email %}
+                        <a href="mailto:{{ main_email }}" class="contact-link text-primary font-weight-600"><i class="ph ph-envelope me-1"></i>{{ main_email }}</a>
+                        {% if lead.verification_status == 'verified' %}
+                          <span class="badge bg-success-subtle text-success border border-success-subtle px-1.5 py-0.5 small"><i class="ph-fill ph-seal-check me-0.5"></i> Verified</span>
+                        {% else %}
+                          <span class="badge bg-secondary-subtle text-muted border border-secondary-subtle px-1.5 py-0.5 small">Review</span>
+                        {% endif %}
+                      {% endwith %}
+                    </div>
+                    <span class="mini-meta text-muted small d-block">Author Contact</span>
                   {% else %}
-                    <span class="mini-meta">No email saved</span>
+                    <span class="mini-meta text-muted small d-block">No email or phone found</span>
                   {% endif %}
                 </div>
               </td>
@@ -292,29 +324,54 @@
               <td data-label="Published">
                 <span class="published-date">{{ lead.book.publication_date|default:"-" }}</span>
               </td>
-              <td data-label="Review Status">
-                <span class="status-pill status-{{ lead.manual_review_status }}">
-                  {% if lead.manual_review_status == "needs_review" %}
-                    Needs review
-                  {% elif lead.manual_review_status == "do_not_contact" %}
-                    Do not contact
-                  {% else %}
-                    {{ lead.manual_review_status|default:"needs_review"|title }}
-                  {% endif %}
-                </span>
-              </td>
+              <td data-label="Task">{% with assignment=lead.current_assignments.0 %}{% if assignment %}<span class="task-status task-{{ assignment.status }}">{{ assignment.get_status_display }}</span><small class="task-owner">{{ assignment.assigned_to.get_full_name|default:assignment.assigned_to.username }}</small>{% else %}<span class="task-status task-unassigned">Unassigned</span>{% endif %}{% endwith %}</td>
               <td class="text-end" data-label="Action">
-                <div class="row-action-stack">
-                  <a class="btn btn-secondary btn-sm view-lead-button" href="{% url 'leadfinder:lead_detail' lead.id %}">View</a>
-                  <button class="btn btn-secondary btn-sm icon-only" type="button" title="More actions" aria-label="More actions">
-                    <i class="ph ph-dots-three-vertical"></i>
+                <div class="dropdown d-inline-block">
+                  <button class="btn btn-secondary btn-sm action-dots-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Actions" aria-label="Actions">
+                    <i class="ph-bold ph-dots-three-vertical"></i>
                   </button>
+                  <ul class="dropdown-menu dropdown-menu-end action-dropdown-menu">
+                    <li>
+                      <a class="dropdown-item action-dropdown-item" href="{% url 'leadfinder:lead_detail' lead.id %}">
+                        <i class="ph-bold ph-folder-open text-teal"></i> <span>View Details</span>
+                      </a>
+                    </li>
+                    <li>
+                      <a class="dropdown-item action-dropdown-item" href="{% url 'leadfinder:lead_detail' lead.id %}#pitch-card">
+                        <i class="ph-bold ph-magic-wand text-primary"></i> <span>Generate AI Pitch</span>
+                      </a>
+                    </li>
+                    {% if lead.book.amazon_book_url %}
+                      <li>
+                        <a class="dropdown-item action-dropdown-item" href="{{ lead.book.amazon_book_url }}" target="_blank">
+                          <i class="fa-brands fa-amazon text-warning"></i> <span>Open Amazon Book</span>
+                        </a>
+                      </li>
+                    {% endif %}
+                    <li><hr class="dropdown-divider my-1"></li>
+                    <li>
+                      <form method="post" action="{% url 'leadfinder:lead_action' lead.id 'do_not_contact' %}" class="d-inline">
+                        {% csrf_token %}
+                        <button class="dropdown-item action-dropdown-item text-warning w-100 border-0 bg-transparent" type="submit" onclick="return confirm('Mark lead as Do Not Contact?');">
+                          <i class="ph-bold ph-prohibit"></i> <span>Do Not Contact</span>
+                        </button>
+                      </form>
+                    </li>
+                    <li>
+                      <form method="post" action="{% url 'leadfinder:lead_action' lead.id 'delete' %}" class="d-inline">
+                        {% csrf_token %}
+                        <button class="dropdown-item action-dropdown-item text-danger w-100 border-0 bg-transparent" type="submit" onclick="return confirm('Delete this lead permanently?');">
+                          <i class="ph-bold ph-trash"></i> <span>Delete Lead</span>
+                        </button>
+                      </form>
+                    </li>
+                  </ul>
                 </div>
               </td>
             </tr>
           {% empty %}
             <tr>
-              <td colspan="8" class="empty-state">
+              <td colspan="7" class="empty-state">
                 <i class="ph-bold ph-prohibit"></i>
                 <strong>No matching leads found.</strong>
                 <span>Adjust filters or start a new run.</span>

@@ -1,76 +1,127 @@
 {% extends "base.html" %}
 {% block title %}New Research Run - Book Trailer Lead Finder{% endblock %}
 {% block content %}
-<div class="new-run-page">
-  <div class="new-run-header">
-    <a class="new-run-back" href="{% url 'leadfinder:run_list' %}">
-      <i class="ph-bold ph-arrow-left"></i> Search Discovery
-    </a>
-    <h1>New Research Run</h1>
-    <p class="page-subtitle">Launch a keyword discovery run with the enrichment and verification settings you need.</p>
-  </div>
+<div class="new-run-page screenshot-new-run-page">
+  <header class="new-run-command">
+    <div>
+      <a class="new-run-back" href="{% url 'leadfinder:run_list' %}">
+        <i class="ph-bold ph-arrow-left"></i> Back to Runs
+      </a>
+      <h1>New Research Run</h1>
+      <p class="page-subtitle">Launch a keyword discovery run with the enrichment and verification settings you need.</p>
+    </div>
+    <button class="btn btn-outline-primary save-template-button" type="button">
+      <i class="ph ph-bookmark-simple"></i> Save as template
+    </button>
+  </header>
 
-  <form method="post" class="new-run-form">
+  <form method="post" class="new-run-form screenshot-new-run-form">
     {% csrf_token %}
     {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
 
-    <section class="new-run-panel primary-search-panel">
-      <div class="new-run-section-heading">
-        <span class="new-run-section-icon"><i class="ph-bold ph-magnifying-glass"></i></span>
-        <h2>Primary Search Settings</h2>
+    <section class="new-run-summary-strip" aria-label="Run summary">
+      <div class="new-run-summary-item">
+        <span class="summary-icon icon-search"><i class="ph ph-magnifying-glass"></i></span>
+        <span><small>Search Type</small><strong>Keyword Discovery</strong></span>
       </div>
-
-      <div class="new-run-field keyword-field">
-        {{ form.keyword.label_tag }}
-        {{ form.keyword }}
-        {% for error in form.keyword.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+      <div class="new-run-summary-item">
+        <span class="summary-icon icon-count"><i class="ph ph-hash"></i></span>
+        <span><small>Estimated Leads</small><strong>250 - 500</strong></span>
       </div>
-
-      <div class="keyword-suggestion-head">
-        <span>Suggested Keywords</span>
-        <strong>{{ keyword_suggestions|length }} suggestions</strong>
-        <button class="btn btn-secondary btn-sm refresh-suggestions" type="button">
-          <i class="ph-bold ph-arrow-clockwise"></i> Refresh suggestions
-        </button>
+      <div class="new-run-summary-item">
+        <span class="summary-icon icon-time"><i class="ph ph-clock"></i></span>
+        <span><small>Est. Time</small><strong>2 - 5 min</strong></span>
       </div>
-
-      <div class="suggestion-badges new-run-suggestions">
-        {% for suggestion in keyword_suggestions %}
-          <button class="suggestion-badge" type="button" data-keyword="{{ suggestion }}">{{ suggestion }} <i class="ph-bold ph-plus"></i></button>
-        {% endfor %}
-      </div>
-
-      <div class="new-run-field-grid">
-        <div class="new-run-field">
-          {{ form.source_provider.label_tag }}
-          {{ form.source_provider }}
-          {% for error in form.source_provider.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
-        </div>
-        <div class="new-run-field">
-          {{ form.max_books.label_tag }}
-          {{ form.max_books }}
-          {% for error in form.max_books.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
-        </div>
-        <div class="new-run-field">
-          {{ form.marketplace.label_tag }}
-          {{ form.marketplace }}
-          {% for error in form.marketplace.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
-        </div>
-        <div class="new-run-field">
-          {{ form.location_preference.label_tag }}
-          {{ form.location_preference }}
-          {% for error in form.location_preference.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
-        </div>
+      <div class="new-run-summary-item">
+        <span class="summary-icon icon-verify"><i class="ph ph-shield-check"></i></span>
+        <span><small>Verification</small><strong>Multi-step</strong></span>
       </div>
     </section>
 
-    <section class="new-run-panel pipeline-panel">
-      <div class="new-run-section-heading">
-        <span class="new-run-section-icon"><i class="fa-solid fa-sliders"></i></span>
-        <div>
-          <h2>Pipeline Toggles</h2>
-          <p>Customize the data requirements and enrichment for this run.</p>
+    <div class="new-run-search-grid">
+      <section class="new-run-panel primary-search-panel">
+        <div class="new-run-section-heading">
+          <span class="new-run-section-icon"><i class="ph-bold ph-magnifying-glass"></i></span>
+          <h2>Primary Search</h2>
         </div>
+
+        <div class="new-run-field keyword-field">
+          {{ form.keyword.label_tag }}
+          {{ form.keyword }}
+          {% for error in form.keyword.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+        </div>
+
+        <div class="keyword-suggestion-head">
+          <span>Suggested keywords</span>
+          <strong>{{ keyword_suggestions|length }} suggestions</strong>
+          <button class="btn btn-link refresh-suggestions" type="button">
+            <i class="ph-bold ph-arrow-clockwise"></i> Refresh
+          </button>
+        </div>
+
+        <div class="suggestion-badges new-run-suggestions">
+          {% for suggestion in keyword_suggestions|slice:":3" %}
+            <button class="suggestion-badge" type="button" data-keyword="{{ suggestion }}">{{ suggestion }}</button>
+          {% endfor %}
+          {% if keyword_suggestions|length > 3 %}
+            <button class="suggestion-badge is-muted" type="button" aria-label="More keyword suggestions">+{{ keyword_suggestions|length|add:"-3" }} more</button>
+          {% endif %}
+        </div>
+
+        <details class="new-run-advanced">
+          <summary><i class="ph-fill ph-diamond"></i> Advanced settings <i class="ph ph-caret-down"></i></summary>
+          <div class="new-run-field">
+            {{ form.location_preference.label_tag }}
+            {{ form.location_preference }}
+            {% for error in form.location_preference.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+          </div>
+        </details>
+      </section>
+
+      <aside class="new-run-panel quick-settings-panel" aria-label="Quick settings">
+        <div class="new-run-section-heading">
+          <span class="new-run-section-icon"><i class="ph-bold ph-sliders-horizontal"></i></span>
+          <h2>Quick Settings</h2>
+        </div>
+
+        <div class="quick-settings-fields">
+          <div class="new-run-field compact-field">
+            {{ form.source_provider.label_tag }}
+            {{ form.source_provider }}
+            {% for error in form.source_provider.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+          </div>
+          <div class="new-run-field compact-field">
+            {{ form.marketplace.label_tag }}
+            {{ form.marketplace }}
+            {% for error in form.marketplace.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+          </div>
+          <div class="new-run-field compact-field">
+            {{ form.max_books.label_tag }}
+            {{ form.max_books }}
+            {% for error in form.max_books.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+          </div>
+        </div>
+
+        <a class="quick-more-settings" href="#pipeline-settings">
+          More settings <i class="ph ph-caret-right"></i>
+        </a>
+      </aside>
+    </div>
+
+    <section class="new-run-panel pipeline-panel" id="pipeline-settings">
+      <div class="pipeline-heading-row">
+        <div class="new-run-section-heading">
+          <span class="new-run-section-icon"><i class="ph-bold ph-sliders-horizontal"></i></span>
+          <h2>Pipeline Toggles</h2>
+        </div>
+        <label class="preset-select-wrap">
+          <span>Presets</span>
+          <select aria-label="Preset">
+            <option>Balanced (Recommended)</option>
+            <option>Strict contact validation</option>
+            <option>Broad discovery</option>
+          </select>
+        </label>
       </div>
 
       <div class="new-run-toggle-grid">
@@ -80,13 +131,15 @@
             <strong>Require Amazon URL</strong>
             <span>Only include leads with an Amazon URL.</span>
           </label>
+          <i class="ph ph-info info-dot" aria-hidden="true"></i>
         </div>
         <div class="new-run-toggle">
           {{ form.require_public_email }}
           <label for="{{ form.require_public_email.id_for_label }}">
             <strong>Require direct public email</strong>
-            <span>Only include leads with a direct public email.</span>
+            <span>Only include leads with a direct email.</span>
           </label>
+          <i class="ph ph-info info-dot" aria-hidden="true"></i>
         </div>
         <div class="new-run-toggle">
           {{ form.include_social_only_leads }}
@@ -99,8 +152,9 @@
           {{ form.run_video_search }}
           <label for="{{ form.run_video_search.id_for_label }}">
             <strong>Check existing videos</strong>
-            <span>Skip leads with existing book trailer videos.</span>
+            <span>Skip leads with existing trailer videos.</span>
           </label>
+          <i class="ph ph-info info-dot" aria-hidden="true"></i>
         </div>
         <div class="new-run-toggle">
           {{ form.run_groq_ai_extraction }}
@@ -109,23 +163,23 @@
             <span>Generate an AI sales brief for each lead.</span>
           </label>
         </div>
+        {% if form.require_public_email.help_text %}
+          <div class="new-run-note">
+            <i class="ph-fill ph-info"></i>
+            <span>{{ form.require_public_email.help_text }}</span>
+          </div>
+        {% endif %}
       </div>
-
-      {% if form.require_public_email.help_text %}
-        <div class="new-run-note">
-          <i class="ph-fill ph-info"></i>
-          <span>{{ form.require_public_email.help_text }}</span>
-        </div>
-      {% endif %}
     </section>
 
     <div class="new-run-actions">
       <button class="btn btn-primary" type="submit">
-        <i class="fa-solid fa-play"></i> Run Research
+        <i class="ph-fill ph-play"></i> Run Research
       </button>
-      <!-- <a class="btn btn-secondary" href="{% url 'leadfinder:booklife_run' %}">
-        <i class="ph-bold ph-book-open"></i> BookLife Run
-      </a> -->
+      <a class="btn btn-outline-primary" href="{% url 'leadfinder:scheduled_task_create' %}">
+        <i class="ph ph-calendar-plus"></i> Save &amp; Schedule
+      </a>
+      <span class="new-run-monitor-note">You can monitor progress in <a href="{% url 'leadfinder:run_list' %}">Runs</a> <i class="ph ph-caret-right"></i></span>
     </div>
   </form>
 </div>

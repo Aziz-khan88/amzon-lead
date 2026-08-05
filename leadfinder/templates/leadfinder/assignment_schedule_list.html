@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Lead assignment · Lead Finder{% endblock %}
+{% block content %}
+<div class="assignment-page">
+  <header class="role-page-header">
+    <div><p class="eyebrow">Sales operations</p><h1>Lead assignment</h1><p>Allocate unique leads automatically by salesperson, weekday, time, and contact quality.</p></div>
+    <a class="btn btn-primary" href="{% url 'leadfinder:assignment_schedule_create' %}"><i class="ph-bold ph-plus"></i> New schedule</a>
+  </header>
+  <section class="role-kpi-grid">
+    <article><span>Active schedules</span><strong>{{ stats.active }}</strong><small>running automatically</small></article>
+    <article><span>Daily capacity</span><strong>{{ stats.daily_capacity }}</strong><small>leads across active schedules</small></article>
+    <article><span>Assigned</span><strong>{{ stats.assigned }}</strong><small>owned lead tasks</small></article>
+    <article><span>Available pool</span><strong>{{ stats.unassigned }}</strong><small>eligible unassigned leads</small></article>
+  </section>
+  <section class="role-panel">
+    <div class="role-panel-head"><div><p class="eyebrow">Automation</p><h2>Assignment schedules</h2></div></div>
+    <div class="assignment-card-list">
+      {% for schedule in schedules %}
+      <article class="assignment-schedule-card {% if not schedule.is_active %}is-paused{% endif %}">
+        <div class="assignment-schedule-main">
+          <span class="person-avatar">{{ schedule.salesperson.first_name|first|default:schedule.salesperson.username|first|upper }}</span>
+          <div><h3>{{ schedule.name }}</h3><p>{{ schedule.salesperson.get_full_name|default:schedule.salesperson.username }} · {{ schedule.daily_lead_count }} leads · {{ schedule.get_contact_requirement_display }}</p><small>{{ schedule.days_of_week|join:", "|title }} at {{ schedule.run_time|time:"g:i A" }} · Next {{ schedule.next_run_at|date:"M d, g:i A"|default:"not scheduled" }}</small></div>
+        </div>
+        <div class="assignment-schedule-result"><strong>{{ schedule.total_assigned }}</strong><span>assigned total</span></div>
+        <div class="assignment-card-actions">
+          <a class="btn btn-secondary btn-sm" href="{% url 'leadfinder:assignment_schedule_edit' schedule.id %}">Edit</a>
+          <form method="post" action="{% url 'leadfinder:assignment_schedule_run' schedule.id %}">{% csrf_token %}<button class="btn btn-primary btn-sm">Run now</button></form>
+          <form method="post" action="{% url 'leadfinder:assignment_schedule_toggle' schedule.id %}">{% csrf_token %}<button class="btn btn-outline-secondary btn-sm">{% if schedule.is_active %}Pause{% else %}Resume{% endif %}</button></form>
+          <form method="post" action="{% url 'leadfinder:assignment_schedule_delete' schedule.id %}" onsubmit="return confirm('Delete this schedule? Existing lead assignments stay intact.');">{% csrf_token %}<button class="icon-button danger" aria-label="Delete"><i class="ph ph-trash"></i></button></form>
+        </div>
+      </article>
+      {% empty %}<div class="role-empty"><i class="ph ph-calendar-plus"></i><strong>No assignment schedules</strong><span>Create one to distribute leads automatically.</span></div>{% endfor %}
+    </div>
+  </section>
+  <section class="role-panel">
+    <div class="role-panel-head"><div><p class="eyebrow">Audit history</p><h2>Recent allocation runs</h2></div></div>
+    <div class="simple-audit-list">
+      {% for run in recent_runs %}<div><span class="status-dot status-{{ run.status }}"></span><p><strong>{{ run.schedule.name }}</strong><small>{{ run.message }}</small></p><span>{{ run.assigned_count }}/{{ run.requested_count }}</span><time>{{ run.created_at|date:"M d, g:i A" }}</time></div>{% empty %}<p class="text-muted">No schedules have run yet.</p>{% endfor %}
+    </div>
+  </section>
+</div>
+{% endblock %}

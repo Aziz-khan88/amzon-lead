@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-bs-theme="dark">
+<html lang="en" data-bs-theme="light">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -17,14 +17,14 @@
   </style>
   <link href="/static/leadfinder/app.css" rel="stylesheet">
 </head>
-<body>
+<body class="modern-app">
   <a class="skip-link" href="#content">Skip to content</a>
-  <nav class="app-shell">
+  <nav class="app-shell" aria-label="Application navigation">
     <div class="container-fluid">
       <div class="brand-row">
         <a class="brand" href="{% url 'leadfinder:dashboard' %}">
-          <span class="brand-mark" aria-hidden="true"><i class="ph-fill ph-film-strip"></i></span>
-          <span>Book Trailer Lead Finder</span>
+          <span class="brand-mark" aria-hidden="true"><i class="ph-fill ph-target"></i></span>
+          <span>Lead Finder</span>
         </a>
         <button class="nav-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false" aria-controls="primary-nav">
           <i class="ph-bold ph-list"></i>
@@ -32,50 +32,90 @@
       </div>
       {% with url_name=request.resolver_match.url_name %}
       <div class="nav-links" id="primary-nav" aria-label="Primary navigation">
+        <span class="nav-section-label">Workspace</span>
         <a href="{% url 'leadfinder:dashboard' %}" {% if url_name == 'dashboard' %}class="active" aria-current="page"{% endif %}>
           <i class="ph-fill ph-house"></i> Dashboard
         </a>
         <a href="{% url 'leadfinder:lead_list' %}" {% if url_name == 'lead_list' or url_name == 'lead_detail' %}class="active" aria-current="page"{% endif %}>
           <i class="ph-bold ph-users-three"></i> Leads
         </a>
+        {% if is_management %}
         <a href="{% url 'leadfinder:run_list' %}" {% if url_name == 'run_list' or url_name == 'run_detail' %}class="active" aria-current="page"{% endif %}>
           <i class="ph-bold ph-checks"></i> Runs
         </a>
-        <a href="{% url 'leadfinder:run_new' %}" {% if url_name == 'run_new' %}class="active" aria-current="page"{% endif %}>
-          <i class="ph-fill ph-magic-wand"></i> New Run
+        <a href="{% url 'leadfinder:scheduled_task_list' %}" {% if 'scheduled_task' in url_name %}class="active" aria-current="page"{% endif %}>
+          <i class="ph-bold ph-calendar-plus"></i> Scheduled Hunts
         </a>
-        <!-- <a href="{% url 'leadfinder:booklife_run' %}" {% if url_name == 'booklife_run' %}class="active" aria-current="page"{% endif %}>
-          <i class="ph-bold ph-book-open"></i> BookLife
-        </a> -->
+        <a href="{% url 'leadfinder:assignment_schedule_list' %}" {% if 'assignment_schedule' in url_name %}class="active" aria-current="page"{% endif %}>
+          <i class="ph-bold ph-user-list"></i> Lead assignment
+        </a>
+        <a href="{% url 'leadfinder:team_list' %}" {% if 'team' in url_name %}class="active" aria-current="page"{% endif %}>
+          <i class="ph-bold ph-identification-card"></i> Team
+        </a>
+        <span class="nav-section-label nav-tools-label">Tools</span>
+        <a href="{% url 'leadfinder:run_new' %}" {% if url_name == 'run_new' %}class="active" aria-current="page"{% endif %}>
+          <i class="ph-bold ph-plus-circle"></i> New Research
+        </a>
         <a href="{% url 'leadfinder:import_csv' %}" {% if url_name == 'import_csv' %}class="active" aria-current="page"{% endif %}>
           <i class="ph-bold ph-file-arrow-up"></i> Import CSV
         </a>
         <a href="{% url 'leadfinder:isbn_search' %}" {% if url_name == 'isbn_search' %}class="active" aria-current="page"{% endif %}>
           <i class="ph-bold ph-barcode"></i> ISBN Search
         </a>
+        <a href="{% url 'leadfinder:settings_help' %}" {% if url_name == 'settings_help' %}class="active" aria-current="page"{% endif %}>
+          <i class="ph ph-gear"></i> Settings &amp; help
+        </a>
+        {% endif %}
       </div>
-      <a class="side-help" href="{% url 'leadfinder:settings_help' %}">
+      {% block sidebar_status %}
+        <div class="sidebar-status" aria-label="Verification system status">
+          <span class="sidebar-status-icon"><i class="ph-fill ph-shield-check"></i></span>
+          <div><strong>Evidence first</strong><small>Strict contact verification</small></div>
+        </div>
+      {% endblock %}
+      {% if is_management %}<a class="side-help" href="{% url 'leadfinder:settings_help' %}">
         <span class="side-help-icon"><i class="ph-bold ph-question"></i></span>
-        <span><strong>Need help?</strong><small>View docs &amp; guides</small></span>
+        <span><strong>Need help?</strong><small>Open setup guide</small></span>
         <i class="ph ph-caret-right"></i>
-      </a>
+      </a>{% endif %}
       {% endwith %}
 
     </div>
   </nav>
   <main id="content" class="container-fluid page-wrap">
-    {% for message in messages %}
-      {% if message.tags == 'error' %}
-        <div class="alert alert-danger d-flex align-items-center gap-2"><i class="ph-fill ph-warning-circle"></i><div>{{ message }}</div></div>
-      {% elif message.tags == 'success' %}
-        <div class="alert alert-success d-flex align-items-center gap-2"><i class="ph-fill ph-check-circle"></i><div>{{ message }}</div></div>
-      {% elif message.tags == 'warning' %}
-        <div class="alert alert-warning d-flex align-items-center gap-2"><i class="ph-fill ph-warning"></i><div>{{ message }}</div></div>
-      {% else %}
-        <div class="alert alert-info d-flex align-items-center gap-2"><i class="ph-fill ph-info"></i><div>{{ message }}</div></div>
-      {% endif %}
-    {% endfor %}
-    {% block content %}{% endblock %}
+    <header class="app-topbar">
+      <form class="topbar-search" action="{% url 'leadfinder:lead_list' %}" method="get">
+        <i class="ph-bold ph-magnifying-glass" aria-hidden="true"></i>
+        <label class="visually-hidden" for="global-search">Search leads</label>
+        <input id="global-search" name="q" type="search" placeholder="Search leads, authors or books..." autocomplete="off">
+        <kbd>Ctrl K</kbd>
+      </form>
+      {% block topbar_page_actions %}{% endblock %}
+      <div class="topbar-actions">
+        <a class="topbar-icon" href="{% url 'leadfinder:lead_list' %}?assignment_status=pending" aria-label="Pending lead tasks" title="Pending lead tasks">
+          <i class="ph ph-bell"></i>
+        </a>
+        <div class="topbar-profile account-profile">
+          <span class="topbar-avatar">{{ request.user.first_name|first|default:request.user.username|first|upper }}</span>
+          <span class="topbar-profile-copy"><strong>{{ request.user.get_full_name|default:request.user.username }}</strong><small>{{ current_role|cut:"_"|title }}</small></span>
+          <form method="post" action="{% url 'leadfinder:logout' %}">{% csrf_token %}<button type="submit" class="profile-logout" title="Sign out" aria-label="Sign out"><i class="ph ph-sign-out"></i></button></form>
+        </div>
+      </div>
+    </header>
+    <div class="app-content">
+      {% for message in messages %}
+        {% if message.tags == 'error' %}
+          <div class="alert alert-danger d-flex align-items-center gap-2"><i class="ph-fill ph-warning-circle"></i><div>{{ message }}</div></div>
+        {% elif message.tags == 'success' %}
+          <div class="alert alert-success d-flex align-items-center gap-2"><i class="ph-fill ph-check-circle"></i><div>{{ message }}</div></div>
+        {% elif message.tags == 'warning' %}
+          <div class="alert alert-warning d-flex align-items-center gap-2"><i class="ph-fill ph-warning"></i><div>{{ message }}</div></div>
+        {% else %}
+          <div class="alert alert-info d-flex align-items-center gap-2"><i class="ph-fill ph-info"></i><div>{{ message }}</div></div>
+        {% endif %}
+      {% endfor %}
+      {% block content %}{% endblock %}
+    </div>
   </main>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="/static/leadfinder/app.js"></script>

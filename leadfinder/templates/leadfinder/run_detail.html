@@ -1,13 +1,15 @@
 {% extends "base.html" %}
+{% block title %}{{ run.keyword|default:"Run detail" }} - Run Detail{% endblock %}
 {% block content %}
-<div class="page-header">
+<div class="run-detail-page">
+<div class="page-header detail-page-header">
   <div>
     <p class="eyebrow">Run detail</p>
     <h1>{{ run.keyword|default:"Untitled run" }}</h1>
   </div>
   <div class="action-row">
-    <span class="status-pill status-{{ run.status }}">{{ run.status }}</span>
-    <a class="btn btn-sm btn-outline-secondary" href="{% url 'leadfinder:run_detail' run.id %}">Refresh logs</a>
+    <span class="status-pill status-{{ run.status }}"><i class="ph ph-check-circle"></i> {{ run.status|title }}</span>
+    <a class="btn btn-sm btn-outline-secondary" href="{% url 'leadfinder:run_detail' run.id %}"><i class="ph ph-arrows-clockwise"></i> Refresh logs</a>
     {% if run.status == "pending" or run.status == "running" %}
       <form method="post" action="{% url 'leadfinder:run_stop' run.id %}" class="d-inline">
         {% csrf_token %}
@@ -22,7 +24,7 @@
   </div>
 </div>
 {% if run.status == "pending" or run.status == "running" %}
-  <div class="alert alert-info">Search is running in the background. Refresh this page to see new query logs and lead checks. Use Stop runner to cancel at the next safe checkpoint.</div>
+  <div class="alert alert-info">Search is running in the background. Refresh this page to see new updates. Use Stop runner to cancel at the next safe checkpoint.</div>
 {% elif run.status == "canceled" %}
   <div class="alert alert-warning">This run was stopped. Any books and leads already saved remain available for review. Use Retry run to start a clean new run with the same settings.</div>
 {% endif %}
@@ -32,6 +34,14 @@
     No search results came back from {{ run.source_provider }} for this keyword, so no books or leads could be created. Try a more specific keyword like “children picture book author”, “kids bedtime story”, or import a CSV with title, author, and Amazon URL.
   </div>
 {% endif %}
+
+<nav class="detail-jump-nav run-detail-jump-nav" aria-label="Run detail sections">
+  <a href="#run-overview"><i class="ph-bold ph-activity"></i><span>Overview</span></a>
+  <a href="#run-books"><i class="ph-bold ph-books"></i><span>Books</span><strong>{{ books|length }}</strong></a>
+  <a href="#run-leads"><i class="ph-bold ph-users-three"></i><span>Leads</span><strong>{{ leads|length }}</strong></a>
+  <a href="#run-checks"><i class="ph-bold ph-shield-check"></i><span>Checks</span><strong>{{ lead_checks|length }}</strong></a>
+  <a href="#run-search-logs"><i class="ph-bold ph-terminal-window"></i><span>Search logs</span><strong>{{ search_logs|length }}</strong></a>
+</nav>
 
 <style>
   /* Premium Dark Mode HSL Variables & Theme Override for Dashboard */
@@ -353,10 +363,52 @@
     color: #64748b !important;
     font-style: italic;
   }
+
+  .ai-diagnostics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 12px;
+  }
+
+  .ai-diagnostic-card {
+    border: 1px solid rgba(15, 118, 110, 0.16);
+    border-radius: 14px;
+    padding: 14px;
+    background: linear-gradient(135deg, rgba(236, 253, 245, 0.9), rgba(255, 255, 255, 0.96));
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+  }
+
+  .ai-diagnostic-card.warning {
+    border-color: rgba(245, 158, 11, 0.28);
+    background: linear-gradient(135deg, rgba(255, 251, 235, 0.95), rgba(255, 255, 255, 0.96));
+  }
+
+  .ai-diagnostic-label {
+    color: #51645a;
+    font-size: 0.76rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+  }
+
+  .ai-diagnostic-value {
+    color: #0f2f22;
+    font-size: 1rem;
+    font-weight: 850;
+    margin-bottom: 4px;
+  }
+
+  .ai-diagnostic-note {
+    color: #607168;
+    font-size: 0.82rem;
+    line-height: 1.35;
+    margin: 0;
+  }
 </style>
 
 <!-- Live Multi-Agent Workflow Visualizer Dashboard -->
-<section class="panel agent-visualizer-panel">
+<section class="panel agent-visualizer-panel" id="run-overview">
   <div class="visualizer-header">
     <div class="visualizer-title-group">
       <span class="pulse-dot"></span>
@@ -372,16 +424,25 @@
 
   <div class="stats-row">
     <div class="stat-card">
-      <div class="stat-num" id="stat-discovered">0</div>
-      <div class="stat-label">Discovered Candidates</div>
+      <div class="run-stat-copy">
+        <div class="stat-num" id="stat-discovered">0</div>
+        <div class="stat-label">Discovered Candidates</div>
+      </div>
+      <div class="run-stat-icon icon-leads"><i class="ph ph-users-three"></i></div>
     </div>
     <div class="stat-card">
-      <div class="stat-num text-success" id="stat-verified">0</div>
-      <div class="stat-label">Verified Leads</div>
+      <div class="run-stat-copy">
+        <div class="stat-num text-success" id="stat-verified">0</div>
+        <div class="stat-label">Verified Leads</div>
+      </div>
+      <div class="run-stat-icon icon-verified"><i class="ph ph-user-check"></i></div>
     </div>
     <div class="stat-card">
-      <div class="stat-num" id="stat-active-agent" style="color: hsl(260, 90%, 75%); font-weight: 800;">None</div>
-      <div class="stat-label">Current Leader</div>
+      <div class="run-stat-copy">
+        <div class="stat-num" id="stat-active-agent" style="color: hsl(260, 90%, 75%); font-weight: 800;">None</div>
+        <div class="stat-label">Current Leader</div>
+      </div>
+      <div class="run-stat-icon icon-leader"><i class="ph ph-crown"></i></div>
     </div>
   </div>
 
@@ -439,24 +500,18 @@
     </div>
   </div>
 
-  <!-- Real-time scrolling thought terminal -->
-  <div class="terminal-container">
-    <div class="terminal-header">
-      <div class="terminal-buttons">
-        <span class="btn-dot close"></span>
-        <span class="btn-dot minimize"></span>
-        <span class="btn-dot expand"></span>
-      </div>
-      <div class="terminal-title">Agent Thought Log Stream</div>
-      <div class="terminal-status">LIVE</div>
-    </div>
-    <div class="terminal-body" id="thought-terminal">
-      <div class="terminal-line system-line">[SYSTEM] Initializing Agent Thought ticker...</div>
-    </div>
-  </div>
 </section>
 
-<section class="panel">
+<details class="panel run-meta-panel run-config-disclosure">
+  <summary>
+    <span class="run-log-summary-copy">
+      <span class="eyebrow">Technical settings</span>
+      <strong>Show run configuration</strong>
+      <small>Provider, max books, timestamps, and error details.</small>
+    </span>
+    <span class="run-log-summary-meta"><span>Hidden</span><i class="ph-bold ph-caret-down"></i></span>
+  </summary>
+  <div class="run-log-content">
   <dl class="row mb-0">
     <dt class="col-sm-2">Provider</dt><dd class="col-sm-10">{{ run.source_provider }}</dd>
     <dt class="col-sm-2">Max books</dt><dd class="col-sm-10">{{ run.max_books }}</dd>
@@ -468,27 +523,48 @@
     <dt class="col-sm-2">Created</dt><dd class="col-sm-10">{{ run.created_at }}</dd>
     <dt class="col-sm-2">Error</dt><dd class="col-sm-10 text-danger">{{ run.error_message|default:"None" }}</dd>
   </dl>
-</section>
-<section class="panel">
-  <h2>Search Logs</h2>
-  <div class="table-responsive">
-    <table class="table table-sm align-middle">
-      <thead><tr><th>Status</th><th>Provider</th><th>Query</th><th>Results</th><th>Amazon candidates</th><th>Error</th></tr></thead>
-      <tbody>
-      {% for log in search_logs %}
-        <tr>
-          <td><span class="status-pill status-{{ log.status }}">{{ log.status }}</span></td>
-          <td>{{ log.provider }}</td>
-          <td class="log-query">{{ log.query }}</td>
-          <td>{{ log.total_results }}</td>
-          <td>{{ log.amazon_results }}</td>
-          <td class="text-danger">{{ log.error_message|default:"None"|truncatechars:120 }}</td>
-        </tr>
-      {% empty %}
-        <tr><td colspan="6">No search logs for this run. CSV/manual runs start from uploaded rows.</td></tr>
-      {% endfor %}
-      </tbody>
-    </table>
+  </div>
+</details>
+<section class="panel run-data-panel ai-run-diagnostics-panel" id="run-ai-diagnostics">
+  <div class="run-section-heading">
+    <div>
+      <p class="eyebrow">AI diagnostics</p>
+      <h2>What happened in this run?</h2>
+    </div>
+    <span class="run-section-count">{% if ai_diagnostics.enabled %}AI enabled{% else %}AI disabled{% endif %}</span>
+  </div>
+  <div class="ai-diagnostics-grid">
+    <div class="ai-diagnostic-card">
+      <div class="ai-diagnostic-label">AI setting</div>
+      <div class="ai-diagnostic-value">{% if ai_diagnostics.enabled %}Groq extraction requested{% else %}Groq extraction off{% endif %}</div>
+      <p class="ai-diagnostic-note">Stored setting: run_groq_ai_extraction={{ ai_diagnostics.enabled|yesno:"true,false" }}.</p>
+    </div>
+    <div class="ai-diagnostic-card {% if ai_diagnostics.enabled and not ai_diagnostics.groq_evidence_count %}warning{% endif %}">
+      <div class="ai-diagnostic-label">Contact AI result</div>
+      <div class="ai-diagnostic-value">{{ ai_diagnostics.groq_evidence_count }} saved AI contact evidence rows</div>
+      <p class="ai-diagnostic-note">
+        {% if ai_diagnostics.groq_evidence_count %}
+          AI extracted source-backed contact evidence.
+        {% else %}
+          No reliable email or phone was extracted from the available source text.
+        {% endif %}
+      </p>
+    </div>
+    <div class="ai-diagnostic-card">
+      <div class="ai-diagnostic-label">Brief generation</div>
+      <div class="ai-diagnostic-value">{{ ai_diagnostics.brief_count }} / {{ ai_diagnostics.total_leads }} lead briefs</div>
+      <p class="ai-diagnostic-note">The Copywriter step writes sales briefs even when contacts still need manual review.</p>
+    </div>
+    <div class="ai-diagnostic-card {% if not ai_diagnostics.video_enabled %}warning{% endif %}">
+      <div class="ai-diagnostic-label">Video AI</div>
+      <div class="ai-diagnostic-value">{% if ai_diagnostics.video_enabled %}Video search enabled{% else %}Skipped by setting{% endif %}</div>
+      <p class="ai-diagnostic-note">Stored setting: run_video_search={{ ai_diagnostics.video_enabled|yesno:"true,false" }}; video evidence on {{ ai_diagnostics.video_evidence_count }} leads.</p>
+    </div>
+    <div class="ai-diagnostic-card {% if ai_diagnostics.books_missing_author_count %}warning{% endif %}">
+      <div class="ai-diagnostic-label">Main blocker</div>
+      <div class="ai-diagnostic-value">{{ ai_diagnostics.books_missing_author_count }} books missing author</div>
+      <p class="ai-diagnostic-note">{{ ai_diagnostics.leads_missing_contact_count }} leads have no usable contact channel yet.</p>
+    </div>
   </div>
 </section>
 {% if book_errors %}
@@ -502,8 +578,11 @@
   {% endfor %}
 </section>
 {% endif %}
-<section class="panel">
-  <h2>Books</h2>
+<section class="panel run-data-panel" id="run-books">
+  <div class="run-section-heading">
+    <div><p class="eyebrow">Discovered records</p><h2>Books</h2></div>
+    <span class="run-section-count">{{ books|length }} items</span>
+  </div>
   <div class="table-responsive">
     <table class="table table-sm align-middle">
       <thead><tr><th>Title</th><th>Author</th><th>Amazon</th><th>ASIN</th><th>Confidence</th></tr></thead>
@@ -517,14 +596,41 @@
     </table>
   </div>
 </section>
-<section class="panel">
-  <h2>Leads</h2>
+<details class="panel run-log-disclosure" id="run-search-logs" {% if run.status == "pending" or run.status == "running" %}open{% endif %}>
+  <summary>
+    <span class="run-log-summary-copy">
+      <span class="eyebrow">Technical history</span>
+      <strong>Search Logs</strong>
+      <small>Open when you need provider queries, result counts, or errors.</small>
+    </span>
+    <span class="run-log-summary-meta"><span>{{ search_logs|length }} entries</span><i class="ph-bold ph-caret-down"></i></span>
+  </summary>
+  <div class="run-log-content">
   <div class="table-responsive">
     <table class="table table-sm align-middle">
-      <thead><tr><th>Score</th><th>Tier</th><th>Book</th><th>Email</th><th>Video</th><th>Review</th><th></th></tr></thead>
+      <thead><tr><th>Query</th><th>Provider</th><th>Results</th><th>Status</th><th>Error</th></tr></thead>
+      <tbody>
+      {% for log in search_logs %}
+        <tr><td>{{ log.query }}</td><td>{{ log.provider }}</td><td>{{ log.result_count }}</td><td>{{ log.status }}</td><td>{{ log.error_message|default:"—" }}</td></tr>
+      {% empty %}
+        <tr><td colspan="5" class="text-muted">No search logs were recorded.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  </div>
+</details>
+<section class="panel run-data-panel" id="run-leads">
+  <div class="run-section-heading">
+    <div><p class="eyebrow">Outreach output</p><h2>Leads</h2></div>
+    <span class="run-section-count">{{ leads|length }} items</span>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-sm align-middle">
+      <thead><tr><th>Score</th><th>Status</th><th>Book</th><th>Primary contact</th><th>Video</th><th>Reason</th><th></th></tr></thead>
       <tbody>
       {% for lead in leads %}
-        <tr><td><strong>{{ lead.lead_score }}</strong></td><td><span class="tier-pill tier-{{ lead.lead_tier }}">{{ lead.lead_tier }}</span></td><td>{{ lead.book.title }}</td><td>{{ lead.public_email|default:"Missing" }}</td><td>{{ lead.video_status }}</td><td>{{ lead.manual_review_status }}</td><td><a class="row-link" href="{% url 'leadfinder:lead_detail' lead.id %}">Open</a></td></tr>
+        <tr><td><strong>{{ lead.verification_score }}</strong></td><td><span class="tier-pill tier-{{ lead.verification_status }}">{{ lead.get_verification_status_display }}</span></td><td>{{ lead.book.title }}</td><td>{% if lead.primary_contact %}{{ lead.primary_contact.normalized_value }}{% else %}Missing{% endif %}</td><td>{{ lead.video_status }}</td><td>{{ lead.verification_reason|truncatechars:80 }}</td><td><a class="row-link" href="{% url 'leadfinder:lead_detail' lead.id %}">Open</a></td></tr>
       {% empty %}
         <tr><td colspan="7">No leads found for this run.</td></tr>
       {% endfor %}
@@ -532,26 +638,25 @@
     </table>
   </div>
 </section>
-<section class="panel">
-  <h2>Lead Checks</h2>
-  <div class="table-responsive">
-    <table class="table table-sm align-middle">
-      <thead><tr><th>Pass</th><th>Lead</th><th>Score</th><th>Review blockers</th></tr></thead>
-      <tbody>
-      {% for check in lead_checks %}
-        <tr>
-          <td>{% if check.passed %}<span class="check-pill check-pass">Pass</span>{% else %}<span class="check-pill check-warn">Needs fix</span>{% endif %}</td>
-          <td><a href="{% url 'leadfinder:lead_detail' check.lead.id %}">{{ check.lead.book.title }}</a></td>
-          <td>{{ check.lead.lead_score }}</td>
-          <td>{% if check.errors %}{{ check.errors|join:", " }}{% else %}<span class="muted">Ready for approval</span>{% endif %}</td>
-        </tr>
-      {% empty %}
-        <tr><td colspan="4">No leads to check yet.</td></tr>
-      {% endfor %}
-      </tbody>
-    </table>
+<section class="panel run-data-panel" id="run-checks">
+  <div class="run-section-heading">
+    <div><p class="eyebrow">Quality assurance</p><h2>Lead Checks</h2></div>
+    <span class="run-section-count">{{ lead_checks|length }} items</span>
   </div>
+  {% for item in lead_checks %}
+    <div class="notice-item mb-2">
+      <strong>{{ item.lead.book.title }}</strong>
+      {% if item.passed %}
+        <span class="text-success">Passed</span>
+      {% else %}
+        <span class="text-warning">{{ item.errors|join:"; " }}</span>
+      {% endif %}
+    </div>
+  {% empty %}
+    <p class="text-muted mb-0">No lead checks are available.</p>
+  {% endfor %}
 </section>
+</div>
 
 <script>
   document.addEventListener("DOMContentLoaded", function() {

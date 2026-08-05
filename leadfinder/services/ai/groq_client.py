@@ -32,15 +32,18 @@ class GroqJSONClient:
             {"role": "user", "content": f"{task}\n\nJSON input:\n{compact_payload}"},
         ]
         try:
-            client = Groq(api_key=self.api_key)
+            client = Groq(api_key=self.api_key, base_url="https://api.groq.com")
             completion = client.chat.completions.create(
                 model=self.model,
                 messages=messages,
                 temperature=0,
                 response_format={"type": "json_object"},
             )
-        except Exception:
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).warning("Groq AI completion failed: %s", exc)
             return None
+
         content = completion.choices[0].message.content or "{}"
         try:
             return json.loads(content)

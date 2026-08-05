@@ -47,48 +47,50 @@
     </div>
   </div>
 
-  <section class="runs-filter-panel" style="flex-wrap:wrap;">
+  <form class="runs-filter-panel" method="get" style="flex-wrap:wrap;">
     <div class="runs-search-row">
       <div class="runs-search-field">
         <i class="ph-bold ph-magnifying-glass"></i>
-        <input type="search" id="run-search" placeholder="Search runs by name or source..." autocomplete="off">
-        <kbd>⌘K</kbd>
+        <label class="visually-hidden" for="run-search">Search research runs</label>
+        <input type="search" id="run-search" name="q" value="{{ request.GET.q }}" placeholder="Search runs by name or source..." autocomplete="off">
+        <kbd>Ctrl K</kbd>
       </div>
     </div>
     <div class="runs-filter-grid">
       <label>Provider
-        <select id="run-provider-filter">
-          <option>All Providers</option>
-          <option>BookLife</option>
-          <option>Open Library</option>
-          <option>Manual</option>
+        <select id="run-provider-filter" name="provider">
+          <option value="">All providers</option>
+          <option value="booklife" {% if request.GET.provider == 'booklife' %}selected{% endif %}>BookLife</option>
+          <option value="ddgs" {% if request.GET.provider == 'ddgs' %}selected{% endif %}>DDGS</option>
+          <option value="tavily" {% if request.GET.provider == 'tavily' %}selected{% endif %}>Tavily</option>
+          <option value="manual" {% if request.GET.provider == 'manual' %}selected{% endif %}>Manual / ISBN</option>
+          <option value="csv" {% if request.GET.provider == 'csv' %}selected{% endif %}>CSV import</option>
         </select>
       </label>
       <label>Status
-        <select id="run-status-filter">
-          <option>All Statuses</option>
-          <option>Completed</option>
-          <option>Running</option>
-          <option>Failed</option>
-          <option>Canceled</option>
+        <select id="run-status-filter" name="status">
+          <option value="">All statuses</option>
+          <option value="active" {% if active_run_filter == 'active' %}selected{% endif %}>Active</option>
+          <option value="completed" {% if active_run_filter == 'completed' %}selected{% endif %}>Completed</option>
+          <option value="failed" {% if active_run_filter == 'failed' %}selected{% endif %}>Failed / canceled</option>
         </select>
       </label>
       <label>Date Range
         <span class="runs-date-field">All Time <i class="ph ph-calendar"></i></span>
       </label>
-      <button class="btn btn-secondary runs-more-filters" type="button">
-        <i class="ph-bold ph-funnel"></i> More Filters
+      <button class="btn btn-primary runs-more-filters" type="submit">
+        <i class="ph-bold ph-funnel"></i> Apply filters
       </button>
       <a class="runs-reset" href="{% url 'leadfinder:run_list' %}">Reset</a>
     </div>
-  </section>
+  </form>
 
   <div class="runs-list-controls">
     <div class="runs-tabs" role="tablist" aria-label="Run status filters">
-      <a class="runs-tab active" href="{% url 'leadfinder:run_list' %}">All Runs <span>{{ stats.total }}</span></a>
-      <a class="runs-tab" href="{% url 'leadfinder:run_list' %}?status=active">Active <span>{{ stats.running }}</span></a>
-      <a class="runs-tab" href="{% url 'leadfinder:run_list' %}?status=completed">Completed <span>{{ stats.completed }}</span></a>
-      <a class="runs-tab" href="{% url 'leadfinder:run_list' %}?status=failed">Failed <span>{{ stats.failed }}</span></a>
+      <a class="runs-tab {% if not active_run_filter %}active{% endif %}" href="{% url 'leadfinder:run_list' %}">All Runs <span>{{ stats.total }}</span></a>
+      <a class="runs-tab {% if active_run_filter == 'active' %}active{% endif %}" href="{% url 'leadfinder:run_list' %}?status=active">Active <span>{{ stats.running }}</span></a>
+      <a class="runs-tab {% if active_run_filter == 'completed' %}active{% endif %}" href="{% url 'leadfinder:run_list' %}?status=completed">Completed <span>{{ stats.completed }}</span></a>
+      <a class="runs-tab {% if active_run_filter == 'failed' %}active{% endif %}" href="{% url 'leadfinder:run_list' %}?status=failed">Failed <span>{{ stats.failed }}</span></a>
     </div>
     <div class="runs-table-tools">
       <button class="btn btn-secondary btn-sm" type="button"><i class="ph-bold ph-download-simple"></i> Export</button>
@@ -114,7 +116,7 @@
           </tr>
         </thead>
         <tbody>
-        {% for run in runs %}
+        {% for run in page_obj %}
           <tr>
             <td class="select-cell" data-label="Select"><input type="checkbox" class="form-check-input" aria-label="Select {{ run.keyword|default:run.source_provider }}"></td>
             <td data-label="Run Name / Source">
@@ -168,25 +170,37 @@
               {% endif %}
             </td>
             <td data-label="Actions" class="text-end">
-              <div class="runs-row-actions">
-                <a class="btn btn-secondary btn-sm run-open-button" href="{% url 'leadfinder:run_detail' run.id %}">
-                  <i class="ph ph-folder-open"></i> Open
-                </a>
-                {% if run.status == "pending" or run.status == "running" %}
-                  <form method="post" action="{% url 'leadfinder:run_stop' run.id %}">
-                    {% csrf_token %}
-                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                    <button class="btn btn-sm btn-danger" onclick="return confirm('Stop this research run? Work already saved will remain.');">
-                      <i class="ph-fill ph-stop-circle"></i>
-                    </button>
-                  </form>
-                {% elif run.status == "canceled" or run.status == "failed" %}
-                  <form method="post" action="{% url 'leadfinder:run_retry' run.id %}">
-                    {% csrf_token %}
-                    <button class="btn btn-sm btn-secondary"><i class="ph-bold ph-arrow-clockwise"></i> Retry</button>
-                  </form>
-                {% endif %}
-                <button class="btn btn-secondary btn-sm icon-only" type="button" title="More actions" aria-label="More actions"><i class="ph ph-dots-three-vertical"></i></button>
+              <div class="dropdown d-inline-block">
+                <button class="btn btn-secondary btn-sm action-dots-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Actions" aria-label="Actions">
+                  <i class="ph-bold ph-dots-three-vertical"></i>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end action-dropdown-menu">
+                  <li>
+                    <a class="dropdown-item action-dropdown-item" href="{% url 'leadfinder:run_detail' run.id %}">
+                      <i class="ph-bold ph-folder-open text-teal"></i> <span>Open Run Details</span>
+                    </a>
+                  </li>
+                  {% if run.status == "pending" or run.status == "running" %}
+                    <li>
+                      <form method="post" action="{% url 'leadfinder:run_stop' run.id %}" class="d-inline">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                        <button class="dropdown-item action-dropdown-item text-danger w-100 border-0 bg-transparent" type="submit" onclick="return confirm('Stop this research run? Work already saved will remain.');">
+                          <i class="ph-fill ph-stop-circle"></i> <span>Stop Run</span>
+                        </button>
+                      </form>
+                    </li>
+                  {% elif run.status == "canceled" or run.status == "failed" %}
+                    <li>
+                      <form method="post" action="{% url 'leadfinder:run_retry' run.id %}" class="d-inline">
+                        {% csrf_token %}
+                        <button class="dropdown-item action-dropdown-item text-primary w-100 border-0 bg-transparent" type="submit">
+                          <i class="ph-bold ph-arrow-clockwise"></i> <span>Retry Run</span>
+                        </button>
+                      </form>
+                    </li>
+                  {% endif %}
+                </ul>
               </div>
             </td>
           </tr>
@@ -203,26 +217,46 @@
       </table>
     </div>
     <div class="runs-table-footer">
-      <span>Showing 1 to {{ runs|length }} of {{ stats.total }} runs</span>
+      <span>Showing {{ page_obj.start_index|default:0 }} to {{ page_obj.end_index|default:0 }} of {{ page_obj.paginator.count|default:0 }} runs</span>
       <label>
-        <select aria-label="Rows per page">
-          <option selected>15 per page</option>
-          <option>25 per page</option>
-          <option>50 per page</option>
+        <select aria-label="Rows per page" id="per-page-select-runs" onchange="changePerPageRuns(this.value)">
+          <option value="15" {% if per_page == 15 %}selected{% endif %}>15 per page</option>
+          <option value="25" {% if per_page == 25 %}selected{% endif %}>25 per page</option>
+          <option value="50" {% if per_page == 50 %}selected{% endif %}>50 per page</option>
+          <option value="100" {% if per_page == 100 %}selected{% endif %}>100 per page</option>
         </select>
       </label>
       <div class="runs-pagination" aria-label="Pagination">
-        <button class="btn btn-secondary btn-sm icon-only" type="button" aria-label="Previous page"><i class="ph ph-caret-left"></i></button>
-        <span>1</span>
-        <button type="button">2</button>
-        <button type="button">3</button>
-        <button type="button">4</button>
-        <button type="button">5</button>
-        <em>...</em>
-        <button type="button">8</button>
-        <button class="btn btn-secondary btn-sm icon-only" type="button" aria-label="Next page"><i class="ph ph-caret-right"></i></button>
+        {% if page_obj.has_previous %}
+          <button class="btn btn-secondary btn-sm icon-only" type="button" aria-label="Previous page" onclick="goToRunPage({{ page_obj.previous_page_number }})"><i class="ph ph-caret-left"></i></button>
+        {% else %}
+          <button class="btn btn-secondary btn-sm icon-only" type="button" aria-label="Previous page" disabled><i class="ph ph-caret-left"></i></button>
+        {% endif %}
+
+        <span class="px-2" style="font-weight: 700;">{{ page_obj.number }} of {{ page_obj.paginator.num_pages|default:1 }}</span>
+
+        {% if page_obj.has_next %}
+          <button class="btn btn-secondary btn-sm icon-only" type="button" aria-label="Next page" onclick="goToRunPage({{ page_obj.next_page_number }})"><i class="ph ph-caret-right"></i></button>
+        {% else %}
+          <button class="btn btn-secondary btn-sm icon-only" type="button" aria-label="Next page" disabled><i class="ph ph-caret-right"></i></button>
+        {% endif %}
       </div>
     </div>
   </section>
 </div>
+
+<script>
+function goToRunPage(pageNum) {
+  const url = new URL(window.location.href);
+  url.searchParams.set('page', pageNum);
+  window.location.href = url.toString();
+}
+
+function changePerPageRuns(perPageVal) {
+  const url = new URL(window.location.href);
+  url.searchParams.set('per_page', perPageVal);
+  url.searchParams.set('page', 1);
+  window.location.href = url.toString();
+}
+</script>
 {% endblock %}

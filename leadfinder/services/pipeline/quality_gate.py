@@ -4,7 +4,14 @@ from leadfinder.services.amazon.amazon_url_parser import extract_asin, is_amazon
 from leadfinder.services.pipeline.source_audit import evidence_source_is_trusted_for_contact
 
 
-VERIFIED_CONTACT_EVIDENCE_TYPES = {"contact_page", "official_author_site", "publisher_site", "groq_extraction", "manual"}
+VERIFIED_CONTACT_EVIDENCE_TYPES = {
+    "contact_page",
+    "official_author_site",
+    "publisher_site",
+    "social_profile",
+    "groq_extraction",
+    "manual",
+}
 
 
 def has_verified_amazon_book_url(book) -> bool:

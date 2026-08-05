@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign in - Lead Finder</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+  <link href="/static/leadfinder/app.css" rel="stylesheet">
+</head>
+<body class="auth-page">
+  <main class="auth-shell">
+    <section class="auth-story" aria-label="Lead Finder workspace">
+      <div class="auth-brand"><span><i class="ph-fill ph-target"></i></span> Lead Finder</div>
+      <div>
+        <p class="auth-eyebrow">Protected sales workspace</p>
+        <h1>Every lead goes to the right person.</h1>
+        <p>Admins control research and daily allocation. Salespeople see only the leads assigned to them.</p>
+      </div>
+      <div class="auth-security-note"><i class="ph ph-lock-key"></i><span><strong>Private by default</strong><small>Session protection, CSRF validation, and role checks guard every data route.</small></span></div>
+    </section>
+    <section class="auth-card">
+      <div class="auth-card-head"><span class="auth-icon"><i class="ph ph-user-circle"></i></span><h2>Sign in</h2><p>Use the account created by your administrator.</p></div>
+      {% if form.errors %}<div class="auth-error"><i class="ph ph-warning-circle"></i> Email, username, or password is incorrect.</div>{% endif %}
+      <form method="post" class="auth-form" novalidate>
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ next }}">
+        <label for="id_username">Email or username</label>
+        {{ form.username }}
+        <label for="id_password">Password</label>
+        {{ form.password }}
+        <button type="submit">Sign in securely <i class="ph ph-arrow-right"></i></button>
+      </form>
+      <p class="auth-footnote">Access is logged and limited by your assigned role.</p>
+    </section>
+  </main>
+</body>
+</html>

@@ -6,6 +6,27 @@ from leadfinder.utils.source_confidence import clamp_confidence
 
 
 def classify_video(video_data: dict, use_ai: bool = True) -> VideoClassification:
+    text = " ".join(str(video_data.get(key) or "") for key in ["title", "description", "snippet"]).lower()
+    is_trailer = "trailer" in text
+    is_animated = any(term in text for term in ["animated", "animation", "motion graphics"])
+    is_read_aloud = any(term in text for term in ["read aloud", "read-aloud", "storytime"])
+    book_title = str(video_data.get("book_title") or "").strip().lower()
+    author_name = str(video_data.get("author_name") or "").strip().lower()
+
+    # Explicit public title/description signals are deterministic and should not
+    # be downgraded by an optional or non-deterministic AI response.
+    if is_animated or is_trailer or is_read_aloud:
+        return VideoClassification(
+            matches_book=True if book_title and book_title in text else None,
+            matches_author=True if author_name and author_name in text else None,
+            is_book_trailer=is_trailer,
+            is_animated_video=is_animated,
+            is_read_aloud=is_read_aloud,
+            is_author_interview="interview" in text,
+            confidence=0.8,
+            reason="Explicit video keyword found in the public title or description.",
+        )
+
     prompt = (
         "Classify book trailer or animated promo video evidence.\n"
         "Your JSON output MUST contain exactly the following keys with these types:\n"
@@ -30,14 +51,10 @@ def classify_video(video_data: dict, use_ai: bool = True) -> VideoClassification
             confidence=clamp_confidence(ai.get("confidence")),
             reason=ai.get("reason") or "",
         )
-    text = " ".join(str(video_data.get(key) or "") for key in ["title", "description", "snippet"]).lower()
-    is_trailer = "trailer" in text
-    is_animated = any(term in text for term in ["animated", "animation", "motion graphics"])
-    is_read_aloud = any(term in text for term in ["read aloud", "read-aloud", "storytime"])
     confidence = 0.8 if is_animated or is_trailer or is_read_aloud else 0.2
     return VideoClassification(
-        matches_book=True if video_data.get("book_title", "").lower() in text else None,
-        matches_author=True if video_data.get("author_name", "").lower() in text else None,
+        matches_book=True if book_title and book_title in text else None,
+        matches_author=True if author_name and author_name in text else None,
         is_book_trailer=is_trailer,
         is_animated_video=is_animated,
         is_read_aloud=is_read_aloud,

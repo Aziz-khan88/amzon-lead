@@ -6,7 +6,7 @@ from leadfinder.services.amazon.amazon_scraper import (
     extract_review_count,
 )
 from leadfinder.services.pipeline.process_book import process_book
-from leadfinder.models import ResearchRun, Book, AuthorProfile, Lead, Evidence
+from leadfinder.models import ResearchRun, Book, AuthorProfile, Lead, Evidence, SearchQueryLog
 
 def test_extract_rating():
     assert extract_rating("4.8 out of 5 stars") == 4.8
@@ -158,6 +158,138 @@ def test_pipeline_integration_with_public_search_data(monkeypatch):
     evidences = Evidence.objects.filter(lead=lead)
     assert evidences.filter(field_name="amazon_author_url").exists()
     assert evidences.filter(field_name="canonical_website", source_url="https://mockauthor.com").exists()
+
+
+@pytest.mark.django_db
+def test_process_book_recovers_missing_author_before_contact_search(monkeypatch):
+    class MockSearchResultDTO:
+        def __init__(self, title, url, snippet, rank=1):
+            self.title = title
+            self.url = url
+            self.snippet = snippet
+            self.provider = "mock_search"
+            self.rank = rank
+
+    class FakeSearchProvider:
+        provider_name = "mock_search"
+
+        def search(self, query, max_results=3):
+            if '"The Lost Kite" author' in query:
+                return [
+                    MockSearchResultDTO(
+                        "The Lost Kite by Morgan Finch | Goodreads",
+                        "https://www.goodreads.com/book/show/123-the-lost-kite",
+                        "The Lost Kite is a children's picture book by Morgan Finch.",
+                    )
+                ]
+            return []
+
+    monkeypatch.setattr("leadfinder.services.pipeline.process_book.get_search_provider", lambda *args, **kwargs: FakeSearchProvider())
+    monkeypatch.setattr(
+        "leadfinder.services.amazon.amazon_scraper.fallback_amazon_book_page",
+        lambda asin, use_ai=True, book_title="": {
+            "title": book_title,
+            "authors": [],
+            "rating": None,
+            "review_count": None,
+            "publisher": "",
+            "publication_date": "",
+            "cover_image_url": "",
+            "description": "",
+            "scraped_successfully": False,
+        },
+    )
+
+    class FakeClassification:
+        is_childrens_book = True
+        is_picture_or_illustrated_book = True
+        confidence = 0.8
+        reason = "Mock classification"
+
+    monkeypatch.setattr("leadfinder.services.pipeline.process_book.classify_book", lambda *args, **kwargs: FakeClassification())
+
+    class FakeExtraction:
+        canonical_website = ""
+        contact_page_url = ""
+        publisher_url = ""
+        instagram_url = ""
+        facebook_url = ""
+        tiktok_url = ""
+        youtube_url = ""
+        linkedin_url = ""
+        goodreads_url = ""
+        location = ""
+        agent_name = ""
+        representation_email = ""
+        publicist_email = ""
+        confidence = 0.0
+        public_email = ""
+        public_phone = ""
+        evidence = []
+        warnings = []
+
+    monkeypatch.setattr("leadfinder.services.pipeline.process_book.extract_contact_data", lambda *args, **kwargs: FakeExtraction())
+
+    run = ResearchRun.objects.create(
+        keyword="ISBN Search: B0LOSTKITE",
+        source_provider="manual",
+        settings_json={"run_video_search": False, "run_groq_ai_extraction": False},
+    )
+    book = Book.objects.create(
+        research_run=run,
+        title="The Lost Kite",
+        author_name="",
+        asin="B0LOSTKITE",
+        amazon_book_url="https://www.amazon.com/dp/B0LOSTKITE",
+        amazon_source_url="https://www.amazon.com/dp/B0LOSTKITE",
+        normalized_key="the_lost_kite",
+        source_provider="manual",
+    )
+
+    lead = process_book(book, run_video_search=False, run_ai_extraction=False)
+    book.refresh_from_db()
+
+    assert book.author_name == "Morgan Finch"
+    assert lead.author_profile.identity_confidence == 0.55
+    assert "Author recovered from title/identifier search evidence" in lead.author_profile.identity_reason
+    assert SearchQueryLog.objects.filter(book=book, query='"The Lost Kite" author').exists()
+    assert Evidence.objects.filter(book=book, field_name="author_name", field_value="Morgan Finch").exists()
+    assert "Rejected by strict validation: Missing title or author." not in lead.warnings_json
+
+
+@pytest.mark.django_db
+def test_missing_author_recovery_rejects_title_fragment(monkeypatch):
+    class MockSearchResultDTO:
+        title = "I See, I Feel, I Hear, I Touch, I Taste! A Book About My 5 ..."
+        url = "https://www.amazon.com/Feel-Touch-Taste-About-Senses/dp/B0DVGB8KB9"
+        snippet = "Amazon.com: I See, I Feel, I Hear, I Touch, I Taste! A Book About My 5 Senses"
+        provider = "mock_search"
+        rank = 1
+
+    class FakeSearchProvider:
+        provider_name = "mock_search"
+
+        def search(self, query, max_results=3):
+            return [MockSearchResultDTO()]
+
+    from leadfinder.services.pipeline.process_book import _recover_missing_author_from_search
+
+    run = ResearchRun.objects.create(keyword="ISBN Search: B0DVGB8KB9", source_provider="manual")
+    book = Book.objects.create(
+        research_run=run,
+        title="I See, I Feel, I Hear, I Touch, I Taste! A Book About My...",
+        author_name="",
+        asin="B0DVGB8KB9",
+        normalized_key="five_senses",
+        source_provider="manual",
+    )
+
+    recovered = _recover_missing_author_from_search(book, FakeSearchProvider(), 5)
+    book.refresh_from_db()
+
+    assert recovered is False
+    assert book.author_name == ""
+    assert not Evidence.objects.filter(book=book, field_name="author_name").exists()
 
 
 def test_fallback_amazon_book_page_asin_catalog(monkeypatch):

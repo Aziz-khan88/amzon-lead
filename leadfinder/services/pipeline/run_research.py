@@ -4,6 +4,7 @@ import os
 import re
 
 from django.conf import settings
+from django.db.models import Q
 
 from leadfinder.models import Book, Evidence, ResearchRun, SearchQueryLog, SearchResult, AgentThought
 from leadfinder.services.amazon.amazon_url_parser import (
@@ -237,9 +238,49 @@ def guess_title_author(title: str, snippet: str | None) -> tuple[str, str, float
     return cleaned_title[:500] or title[:500], author[:255], confidence
 
 
+def _candidate_batch_for_run(run: ResearchRun, candidates: list[dict]) -> list[dict]:
+    candidates = dedupe_book_candidates(candidates)
+    if not run.settings_json.get("only_new_books"):
+        return candidates[: run.max_books]
+
+    existing_books = Book.objects.exclude(research_run=run)
+    existing_keys = set(existing_books.values_list("normalized_key", flat=True))
+    existing_asins = {
+        value.upper()
+        for value in existing_books.exclude(asin="").values_list("asin", flat=True)
+        if value
+    }
+    new_candidates: list[dict] = []
+    skipped = 0
+    for candidate in candidates:
+        asin = str(candidate.get("asin") or "").strip().upper()
+        key = normalized_book_key(
+            candidate["title"],
+            candidate.get("author_name"),
+            asin,
+        )
+        if key in existing_keys or (asin and asin in existing_asins):
+            skipped += 1
+            continue
+        existing_keys.add(key)
+        if asin:
+            existing_asins.add(asin)
+        new_candidates.append(candidate)
+        if len(new_candidates) >= run.max_books:
+            break
+
+    settings_json = dict(run.settings_json or {})
+    settings_json["scheduled_dedupe_skipped"] = skipped
+    run.settings_json = settings_json
+    run.save(update_fields=["settings_json", "updated_at"])
+    if skipped:
+        log_agent_thought(run, "Scout", f"Skipped {skipped} books already discovered in earlier runs.")
+    return new_candidates
+
+
 def _create_google_books_from_candidates(run: ResearchRun, candidates: list[dict]) -> list[Book]:
     books: list[Book] = []
-    for candidate in candidates[: run.max_books]:
+    for candidate in _candidate_batch_for_run(run, candidates):
         book = Book.objects.create(
             research_run=run,
             title=candidate["title"],
@@ -468,7 +509,7 @@ def discover_books_from_keyword(run: ResearchRun) -> list[Book]:
         raise RuntimeError(f"All discovery searches failed. First error: {failures[0]}")
 
     books: list[Book] = []
-    for candidate in dedupe_book_candidates(candidates)[: run.max_books]:
+    for candidate in _candidate_batch_for_run(run, candidates):
         book = Book.objects.create(
             research_run=run,
             title=candidate["title"],
@@ -578,6 +619,11 @@ def run_research_pipeline(research_run_id) -> None:
         log_agent_thought(run, "Scout", f"Discovery phase complete. Found {len(books)} candidate books to process.")
         log_agent_thought(run, "Harvester", f"Harvester initialized. Beginning detail collection, creator crawling, and video search for {len(books)} books.")
 
+        scheduled_target = int(run.settings_json.get("target_verified_leads") or 0)
+        scheduled_requirement = run.settings_json.get("require_contact", "email_or_phone")
+        scheduled_verified_count = 0
+        processed_books_count = 0
+
         for book in books:
             raise_if_run_canceled(run)
             if not isinstance(book.source_raw_json, dict):
@@ -586,16 +632,41 @@ def run_research_pipeline(research_run_id) -> None:
             book.save(update_fields=["source_raw_json", "updated_at"])
 
             try:
-                process_book(
+                lead = process_book(
                     book,
                     run_video_search=bool(run.settings_json.get("run_video_search", True)),
                     run_ai_extraction=bool(run.settings_json.get("run_groq_ai_extraction", True)),
+                    verify_email_mx=bool(run.settings_json.get("verify_email_mx", True)),
                 )
+                processed_books_count += 1
+                qualification = Q(verification_status="verified")
+                if not bool(run.settings_json.get("verify_email_mx", True)):
+                    qualification |= Q(
+                        channel="email",
+                        verification_status="other",
+                        verification_score__gte=75,
+                        deliverability_status="unknown",
+                    )
+                verified_candidates = lead.contact_candidates.filter(qualification)
+                if scheduled_requirement == "email_only":
+                    verified_candidates = verified_candidates.filter(channel="email")
+                else:
+                    verified_candidates = verified_candidates.filter(channel__in=["email", "phone"])
+                if scheduled_target and verified_candidates.exists():
+                    scheduled_verified_count += 1
                 book.refresh_from_db()
                 if not isinstance(book.source_raw_json, dict):
                     book.source_raw_json = {}
                 book.source_raw_json["processing_status"] = "completed"
                 book.save(update_fields=["source_raw_json", "updated_at"])
+
+                if scheduled_target:
+                    progress = dict(run.settings_json or {})
+                    progress["scheduled_verified_count"] = scheduled_verified_count
+                    progress["scheduled_processed_books"] = processed_books_count
+                    progress["scheduled_target_reached"] = scheduled_verified_count >= scheduled_target
+                    run.settings_json = progress
+                    run.save(update_fields=["settings_json", "updated_at"])
             except RunCanceled:
                 try:
                     book.refresh_from_db()
@@ -607,6 +678,7 @@ def run_research_pipeline(research_run_id) -> None:
                     pass
                 raise
             except Exception as exc:
+                processed_books_count += 1
                 try:
                     book.refresh_from_db()
                 except Exception:
@@ -619,6 +691,13 @@ def run_research_pipeline(research_run_id) -> None:
                 book.source_raw_json = warnings
                 book.save(update_fields=["source_raw_json", "updated_at"])
             raise_if_run_canceled(run)
+            if scheduled_target and scheduled_verified_count >= scheduled_target:
+                log_agent_thought(
+                    run,
+                    "Coordinator",
+                    f"Scheduled target reached: {scheduled_verified_count} verified contactable leads.",
+                )
+                break
         log_agent_thought(run, "Coordinator", f"Pipeline run completed successfully. Finalized and compiled leads database.")
         run.mark_completed()
     except RunCanceled:

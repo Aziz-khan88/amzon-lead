@@ -354,10 +354,18 @@ def evidence_source_is_trusted_for_contact(
 ) -> bool:
     if not field_value or not source_url:
         return False
-    if is_catalog_or_platform_source(source_url):
+    is_direct_social_evidence = evidence_type == "social_profile"
+    if is_catalog_or_platform_source(source_url) and not is_direct_social_evidence:
         return False
 
-    verified_types = {"contact_page", "official_author_site", "publisher_site", "groq_extraction", "manual"}
+    verified_types = {
+        "contact_page",
+        "official_author_site",
+        "publisher_site",
+        "social_profile",
+        "groq_extraction",
+        "manual",
+    }
     if evidence_type not in verified_types:
         return False
 
@@ -369,6 +377,15 @@ def evidence_source_is_trusted_for_contact(
         source_snippet,
         allow_title_bridge=True,
     )
+
+    if is_direct_social_evidence:
+        if not identity_match:
+            return False
+        if field_name in {"public_email", "representation_email", "publicist_email"}:
+            return not is_untrusted_contact_email_domain(field_value) and not has_generic_admin_prefix(field_value)
+        if field_name == "public_phone":
+            return True
+        return identity_match
 
     if field_name in {"public_email", "representation_email", "publicist_email"}:
         if is_untrusted_contact_email_domain(field_value) or has_generic_admin_prefix(field_value):

@@ -15,7 +15,7 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument("--output", default="data/book_trailer_leads_700.csv")
         parser.add_argument("--limit", type=int, default=700)
-        parser.add_argument("--tier", choices=["hot", "warm", "cold", "rejected"])
+        parser.add_argument("--status", choices=["verified", "not_verified", "other"])
         parser.add_argument("--with-email", action="store_true")
         parser.add_argument("--required-fields", action="store_true")
         parser.add_argument("--amazon-author-required", action="store_true")
@@ -28,9 +28,9 @@ class Command(BaseCommand):
             output = Path(settings.BASE_DIR) / output
         output.parent.mkdir(parents=True, exist_ok=True)
 
-        leads = Lead.objects.select_related("book", "author_profile").order_by("-lead_score", "-created_at")
-        if options["tier"]:
-            leads = leads.filter(lead_tier=options["tier"])
+        leads = Lead.objects.select_related("book", "author_profile", "primary_contact").order_by("-verification_score", "-created_at")
+        if options["status"]:
+            leads = leads.filter(verification_status=options["status"])
         if options["with_email"]:
             leads = leads.exclude(public_email="")
         if options["amazon_author_required"]:
