@@ -17,11 +17,15 @@ def get_mx_hosts(domain: str) -> list[str]:
     Performs a DNS lookup for the MX records of a domain.
     Returns a list of MX hosts sorted by preference.
     """
+    if not domain:
+        return []
     try:
-        resolver = dns.resolver.Resolver()
-        dns_timeout = float(getattr(settings, "APP_DNS_TIMEOUT_SECONDS", 2.0))
+        resolver = dns.resolver.Resolver(configure=True)
+        dns_timeout = float(getattr(settings, "APP_DNS_TIMEOUT_SECONDS", 1.0))
         resolver.timeout = dns_timeout
         resolver.lifetime = dns_timeout
+        # Ensure fast reliable public DNS resolution fallback
+        resolver.nameservers = list(dict.fromkeys(resolver.nameservers + ["8.8.8.8", "1.1.1.1"]))
         
         answers = resolver.resolve(domain, 'MX')
         # Sort answers by preference safely (handles mock strings in unit tests)
@@ -34,9 +38,10 @@ def get_mx_hosts(domain: str) -> list[str]:
         logger.debug(f"No MX records found for {domain}: {e}")
         # Try checking for an A record as a fallback
         try:
-            resolver = dns.resolver.Resolver()
+            resolver = dns.resolver.Resolver(configure=True)
             resolver.timeout = dns_timeout
             resolver.lifetime = dns_timeout
+            resolver.nameservers = list(dict.fromkeys(resolver.nameservers + ["8.8.8.8", "1.1.1.1"]))
             a_answers = resolver.resolve(domain, 'A')
             if a_answers:
                 return [domain]
@@ -45,6 +50,7 @@ def get_mx_hosts(domain: str) -> list[str]:
     except Exception as e:
         logger.warning(f"Error resolving MX records for {domain}: {e}")
     return []
+
 
 def smtp_ping(mx_host: str, recipient: str, sender: str = "verify@leadfinder.com", timeout: float = 2.0) -> tuple[bool | None, str]:
     """

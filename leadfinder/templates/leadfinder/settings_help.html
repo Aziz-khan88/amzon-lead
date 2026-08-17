@@ -17,7 +17,7 @@
         <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom">
           <div>
             <h2 class="h5 font-weight-700 mb-0 text-dark"><i class="ph-bold ph-key text-teal me-2"></i> API Keys & Provider Settings</h2>
-            <small class="text-muted">Changes are saved to your local .env configuration and applied immediately.</small>
+            <small class="text-muted">Replace a secret without ever displaying its stored value. Blank secret fields are left unchanged.</small>
           </div>
           <button type="submit" class="btn btn-primary btn-sm px-3 font-weight-700">
             <i class="ph-bold ph-floppy-disk"></i> Save Settings
@@ -44,7 +44,7 @@
               <span class="badge bg-warning-subtle text-warning border border-warning-subtle"><i class="ph-fill ph-warning-circle"></i> Missing</span>
             {% endif %}
           </div>
-          <input type="password" name="GROQ_API_KEY" value="{{ current_env.GROQ_API_KEY }}" class="form-control form-control-sm" placeholder="gsk_..." autocomplete="off">
+          <input type="password" name="GROQ_API_KEY" class="form-control form-control-sm" placeholder="Enter a replacement key" autocomplete="new-password">
           <small class="text-muted d-block mt-1">Used for 1-click AI Outreach Pitch Generator.</small>
         </div>
 
@@ -69,7 +69,7 @@
               <span class="badge bg-warning-subtle text-warning border border-warning-subtle"><i class="ph-fill ph-warning-circle"></i> Missing</span>
             {% endif %}
           </div>
-          <input type="password" name="TAVILY_API_KEY" value="{{ current_env.TAVILY_API_KEY }}" class="form-control form-control-sm" placeholder="tvly-..." autocomplete="off">
+          <input type="password" name="TAVILY_API_KEY" class="form-control form-control-sm" placeholder="Enter a replacement key" autocomplete="new-password">
           <small class="text-muted d-block mt-1">Powers fast multi-query web search and author contact page discovery.</small>
         </div>
 
@@ -83,7 +83,7 @@
                 <span class="badge bg-secondary-subtle text-muted border border-secondary-subtle">Missing</span>
               {% endif %}
             </div>
-            <input type="password" name="GOOGLE_API_KEY" value="{{ current_env.GOOGLE_API_KEY }}" class="form-control form-control-sm" placeholder="AIzaSy..." autocomplete="off">
+            <input type="password" name="GOOGLE_API_KEY" class="form-control form-control-sm" placeholder="Enter a replacement key" autocomplete="new-password">
           </div>
           <div class="col-md-6">
             <div class="d-flex justify-content-between align-items-center mb-1">
@@ -94,7 +94,7 @@
                 <span class="badge bg-secondary-subtle text-muted border border-secondary-subtle">Missing</span>
               {% endif %}
             </div>
-            <input type="text" name="GOOGLE_CSE_ID" value="{{ current_env.GOOGLE_CSE_ID }}" class="form-control form-control-sm" placeholder="3495..." autocomplete="off">
+            <input type="password" name="GOOGLE_CSE_ID" class="form-control form-control-sm" placeholder="Enter a replacement ID" autocomplete="new-password">
           </div>
         </div>
 
@@ -107,7 +107,7 @@
               <span class="badge bg-secondary-subtle text-muted border border-secondary-subtle">Missing</span>
             {% endif %}
           </div>
-          <input type="password" name="YOUTUBE_API_KEY" value="{{ current_env.YOUTUBE_API_KEY }}" class="form-control form-control-sm" placeholder="AIzaSy..." autocomplete="off">
+          <input type="password" name="YOUTUBE_API_KEY" class="form-control form-control-sm" placeholder="Enter a replacement key" autocomplete="new-password">
           <small class="text-muted d-block mt-1">Used to check public book trailer videos and author YouTube channels.</small>
         </div>
 
@@ -120,7 +120,7 @@
               <span class="badge bg-secondary-subtle text-muted border border-secondary-subtle">Missing</span>
             {% endif %}
           </div>
-          <input type="password" name="GOOGLE_BOOKS_API_KEY" value="{{ current_env.GOOGLE_BOOKS_API_KEY }}" class="form-control form-control-sm" placeholder="AIzaSy..." autocomplete="off">
+          <input type="password" name="GOOGLE_BOOKS_API_KEY" class="form-control form-control-sm" placeholder="Enter a replacement key" autocomplete="new-password">
         </div>
 
         <div class="mb-3">
@@ -132,7 +132,7 @@
               <span class="badge bg-secondary-subtle text-muted border border-secondary-subtle">Missing</span>
             {% endif %}
           </div>
-          <input type="password" name="BRAVE_API_KEY" value="{{ current_env.BRAVE_API_KEY }}" class="form-control form-control-sm" placeholder="BSA..." autocomplete="off">
+          <input type="password" name="BRAVE_API_KEY" class="form-control form-control-sm" placeholder="Enter a replacement key" autocomplete="new-password">
         </div>
 
         <div class="row g-2 mb-3">
@@ -145,7 +145,7 @@
                 <span class="badge bg-secondary-subtle text-muted border border-secondary-subtle">Missing</span>
               {% endif %}
             </div>
-            <input type="password" name="AMAZON_CREATORS_CLIENT_ID" value="{{ current_env.AMAZON_CREATORS_CLIENT_ID }}" class="form-control form-control-sm" placeholder="amzn1..." autocomplete="off">
+            <input type="password" name="AMAZON_CREATORS_CLIENT_ID" class="form-control form-control-sm" placeholder="Enter a replacement client ID" autocomplete="new-password">
           </div>
           <div class="col-md-6">
             <div class="d-flex justify-content-between align-items-center mb-1">
@@ -156,11 +156,22 @@
                 <span class="badge bg-secondary-subtle text-muted border border-secondary-subtle">Missing</span>
               {% endif %}
             </div>
-            <input type="password" name="AMAZON_CREATORS_CLIENT_SECRET" value="{{ current_env.AMAZON_CREATORS_CLIENT_SECRET }}" class="form-control form-control-sm" placeholder="Secret..." autocomplete="off">
+            <input type="password" name="AMAZON_CREATORS_CLIENT_SECRET" class="form-control form-control-sm" placeholder="Enter a replacement secret" autocomplete="new-password">
           </div>
         </div>
 
         <div class="text-end mt-4 pt-2 border-top">
+          <div class="d-flex gap-2 justify-content-end align-items-center flex-wrap mb-2">
+            <button type="submit" name="settings_action" value="test" class="btn btn-outline-secondary btn-sm">
+              <i class="ph-bold ph-check-circle"></i> Test configuration
+            </button>
+            <label class="visually-hidden" for="remove-key">Configured secret to remove</label>
+            <select name="remove_key" id="remove-key" class="form-select form-select-sm" style="max-width: 220px;">
+              <option value="">Remove a configured secret…</option>
+              {% for key, configured in keys.items %}{% if configured %}<option value="{{ key }}">{{ key }}</option>{% endif %}{% endfor %}
+            </select>
+            <button type="submit" name="settings_action" value="remove" class="btn btn-outline-danger btn-sm">Remove</button>
+          </div>
           <button type="submit" class="btn btn-primary px-4 font-weight-700">
             <i class="ph-bold ph-floppy-disk"></i> Save Configuration
           </button>

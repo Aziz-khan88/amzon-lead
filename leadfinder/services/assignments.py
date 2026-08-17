@@ -7,12 +7,12 @@ from django.db.models import F, Q
 from django.utils import timezone
 
 from leadfinder.models import (
-    ContactCandidate,
     Lead,
     LeadAssignment,
     LeadAssignmentSchedule,
     LeadAssignmentScheduleRun,
 )
+from leadfinder.services.eligibility import EligibilityPolicy
 
 
 WEEKDAY_INDEX = {"mon": 0, "tue": 1, "wed": 2, "thu": 3, "fri": 4, "sat": 5, "sun": 6}
@@ -36,7 +36,7 @@ def eligible_leads(schedule: LeadAssignmentSchedule):
     leads = Lead.objects.filter(do_not_contact=False).exclude(assignments__is_current=True)
     leads = leads.filter(lead_score__gte=schedule.minimum_lead_score)
     if schedule.verified_only:
-        leads = leads.filter(verification_status="verified")
+        leads = EligibilityPolicy.verified_ready(leads)
 
     has_email = Q(public_email__gt="") | Q(representation_email__gt="") | Q(publicist_email__gt="")
     has_phone = Q(public_phone__gt="")
@@ -49,8 +49,7 @@ def eligible_leads(schedule: LeadAssignmentSchedule):
     elif schedule.contact_requirement == "email_and_phone":
         leads = leads.filter(has_email & has_phone)
     elif schedule.contact_requirement == "verified_contact":
-        verified = ContactCandidate.objects.filter(verification_status="verified").values("lead_id")
-        leads = leads.filter(pk__in=verified)
+        leads = EligibilityPolicy.verified_ready(leads)
     return leads.order_by("-verification_score", "-lead_score", "created_at")
 
 

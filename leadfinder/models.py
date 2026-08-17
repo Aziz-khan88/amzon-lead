@@ -290,6 +290,8 @@ class Lead(TimestampedModel):
     verification_reasons_json = models.JSONField(default=list, blank=True)
     verification_version = models.CharField(max_length=32, blank=True)
     verified_at = models.DateTimeField(null=True, blank=True)
+    uploader_attested = models.BooleanField(default=False, db_index=True)
+    uploader_attested_at = models.DateTimeField(null=True, blank=True)
     primary_contact = models.ForeignKey(
         "ContactCandidate",
         on_delete=models.SET_NULL,

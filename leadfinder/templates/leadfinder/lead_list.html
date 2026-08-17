@@ -268,8 +268,8 @@
                       {% else %}
                         <a href="tel:{{ lead.primary_contact.normalized_value }}" class="contact-link text-primary font-weight-600"><i class="ph ph-phone me-1"></i>{{ lead.primary_contact.normalized_value }}</a>
                       {% endif %}
-                      {% if lead.primary_contact.verification_status == 'verified' %}
-                        <span class="badge bg-success-subtle text-success border border-success-subtle px-1.5 py-0.5 small" title="Passed email & MX verification"><i class="ph-fill ph-seal-check me-0.5"></i> Verified</span>
+                      {% if lead.has_verified_current_contact %}
+                        <span class="contact-verified-badge badge bg-success-subtle text-success border border-success-subtle px-1.5 py-0.5 small" title="Passed source, identity, and deliverability checks"><i class="ph-fill ph-seal-check me-0.5"></i> Verified</span>
                       {% elif lead.primary_contact.verification_status == 'not_verified' %}
                         <span class="badge bg-warning-subtle text-warning border border-warning-subtle px-1.5 py-0.5 small" title="Verification unconfirmed"><i class="ph-fill ph-warning-circle me-0.5"></i> Check</span>
                       {% else %}
@@ -281,8 +281,8 @@
                     <div class="verified-contact-line d-flex align-items-center gap-1.5 flex-wrap">
                       {% with main_email=lead.public_email|default:lead.representation_email|default:lead.publicist_email %}
                         <a href="mailto:{{ main_email }}" class="contact-link text-primary font-weight-600"><i class="ph ph-envelope me-1"></i>{{ main_email }}</a>
-                        {% if lead.verification_status == 'verified' %}
-                          <span class="badge bg-success-subtle text-success border border-success-subtle px-1.5 py-0.5 small"><i class="ph-fill ph-seal-check me-0.5"></i> Verified</span>
+                        {% if lead.has_verified_current_contact %}
+                          <span class="contact-verified-badge badge bg-success-subtle text-success border border-success-subtle px-1.5 py-0.5 small"><i class="ph-fill ph-seal-check me-0.5"></i> Verified</span>
                         {% else %}
                           <span class="badge bg-secondary-subtle text-muted border border-secondary-subtle px-1.5 py-0.5 small">Review</span>
                         {% endif %}

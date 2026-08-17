@@ -112,6 +112,24 @@ def test_free_metadata_resolution_reconciles_exact_identifier_aliases():
     assert result["field_evidence"]["title"]["agreement"] == 1.0
 
 
+def test_legacy_free_metadata_helper_uses_exact_identifier_reconciliation(monkeypatch):
+    from leadfinder.services.amazon.amazon_scraper import fetch_metadata_from_free_apis
+    from leadfinder.services.books import isbn_intelligence
+
+    original_resolve = isbn_intelligence.resolve_free_metadata
+    monkeypatch.setattr(
+        isbn_intelligence,
+        "resolve_free_metadata",
+        lambda identifier: original_resolve(identifier, session=CatalogSession()),
+    )
+    cache.clear()
+
+    result = fetch_metadata_from_free_apis("9780306406157")
+
+    assert result is not None
+    assert result["title"] == "The Example Book"
+    assert result["authors"] == [{"name": "Ada Author", "url": ""}]
+
 def test_analyze_and_barcode_routes(client, db):
     analyze_response = client.get(
         reverse("leadfinder:isbn_analyze"), {"identifier": "9780306406157"}

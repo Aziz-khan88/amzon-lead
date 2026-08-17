@@ -121,7 +121,9 @@
             <td class="select-cell" data-label="Select"><input type="checkbox" class="form-check-input" aria-label="Select {{ run.keyword|default:run.source_provider }}"></td>
             <td data-label="Run Name / Source">
               <div class="run-name-cell">
-                <strong>{{ run.keyword|default:"Untitled run" }}</strong>
+                <a class="row-link font-weight-700 text-dark" href="{% url 'leadfinder:run_detail' run.id %}" aria-label="Open {{ run.keyword|default:run.source_provider }}">
+                  {{ run.keyword|default:"Untitled run" }}
+                </a>
                 <span>
                   {% if run.source_provider == "booklife" %}
                     BookLife
@@ -170,6 +172,15 @@
               {% endif %}
             </td>
             <td data-label="Actions" class="text-end">
+              {% if run.status == "completed" %}
+                <a class="btn btn-primary btn-sm" href="{% url 'leadfinder:run_detail' run.id %}#run-leads">
+                  Review {{ run.total_leads }} lead{{ run.total_leads|pluralize }}
+                </a>
+              {% elif run.status == "failed" or run.status == "canceled" %}
+                <a class="btn btn-outline-danger btn-sm" href="{% url 'leadfinder:run_detail' run.id %}">View failure</a>
+              {% else %}
+                <a class="btn btn-outline-primary btn-sm" href="{% url 'leadfinder:run_detail' run.id %}">Open live workspace</a>
+              {% endif %}
               <div class="dropdown d-inline-block">
                 <button class="btn btn-secondary btn-sm action-dots-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Actions" aria-label="Actions">
                   <i class="ph-bold ph-dots-three-vertical"></i>

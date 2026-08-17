@@ -313,7 +313,7 @@ def test_fallback_amazon_book_page_asin_catalog(monkeypatch):
                     MockSearchResultDTO(
                         "Children of Time Series 3 Books Set by Adrian Tchaikovsky | Goodreads",
                         "https://www.goodreads.com/book/show/123456.Children_of_Time_Series_3_Books_Set",
-                        "Children of Time Series 3 Books Set includes Children of Time, Children of Ruin, Children of Memory. Published December 10, 2024 by Adrian Tchaikovsky."
+                        "ASIN B0DQ1YHSZX. Children of Time Series 3 Books Set includes Children of Time, Children of Ruin, Children of Memory. Published December 10, 2024 by Adrian Tchaikovsky."
                     )
                 ]
             return []
@@ -326,6 +326,43 @@ def test_fallback_amazon_book_page_asin_catalog(monkeypatch):
     
     assert len(data["authors"]) == 1
     assert data["authors"][0]["name"] == "Adrian Tchaikovsky"
+
+
+def test_fallback_amazon_book_page_rejects_sign_in_and_unanchored_results(monkeypatch):
+    class MockSearchResultDTO:
+        def __init__(self, title, url, snippet):
+            self.title = title
+            self.url = url
+            self.snippet = snippet
+            self.provider = "mock"
+            self.rank = 1
+
+    class FakeSearchProvider:
+        provider_name = "mock"
+
+        def search(self, query, max_results=3):
+            return [
+                MockSearchResultDTO(
+                    "Amazon Sign-In",
+                    "https://www.amazon.com/ap/signin",
+                    "Sign in to Amazon to continue.",
+                ),
+                MockSearchResultDTO(
+                    "Unrelated book by Another Author",
+                    "https://www.goodreads.com/book/show/1",
+                    "A great book, but it does not identify the requested ASIN.",
+                ),
+            ]
+
+    monkeypatch.setattr("leadfinder.services.amazon.amazon_scraper.get_search_provider", lambda *args, **kwargs: FakeSearchProvider())
+    monkeypatch.setattr("leadfinder.services.ai.groq_client.GroqJSONClient.available", False)
+
+    from leadfinder.services.amazon.amazon_scraper import fallback_amazon_book_page
+
+    data = fallback_amazon_book_page("B0TEST0001", use_ai=False, book_title="Book for ASIN B0TEST0001")
+
+    assert data["title"] == ""
+    assert data["authors"] == []
 
 
 def test_fallback_amazon_book_page_title_author_query(monkeypatch):

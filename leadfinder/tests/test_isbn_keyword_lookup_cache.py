@@ -155,6 +155,28 @@ def test_candidate_from_search_result_extracts_catalog_isbn(monkeypatch):
     assert "valid_isbn13" in candidate["analysis_layers"]
 
 
+def test_direct_amazon_result_is_the_only_qualified_amazon_evidence(monkeypatch):
+    from leadfinder.services.books import isbn_keyword_lookup as lookup
+
+    monkeypatch.setattr(lookup, "classify_book", lambda *args, **kwargs: FakeClassification())
+    monkeypatch.setattr(lookup, "fetch_metadata_from_free_apis", lambda asin: None)
+    monkeypatch.setattr(lookup, "GroqJSONClient", EmptyGroqClient)
+    dto = SearchResultDTO(
+        title="Dragon Bedtime by Alice Author",
+        url="https://www.amazon.com/dp/0306406152?tag=untrusted",
+        snippet="A children picture book by Alice Author.",
+        rank=1,
+        provider="ddgs",
+    )
+
+    candidate = lookup.candidate_from_search_result(dto, "ddgs", None, None)
+
+    assert candidate is not None
+    assert candidate["amazon_qualified"] is True
+    assert candidate["amazon_asin"] == "0306406152"
+    assert candidate["amazon_book_url"] == dto.url
+    assert candidate["amazon_qualification_evidence"] == "direct_amazon_product_url"
+
 def test_catalog_candidate_keeps_structured_valid_isbn(monkeypatch):
     from leadfinder.services.books import isbn_keyword_lookup as lookup
 
@@ -208,9 +230,9 @@ def test_amazon_identity_uses_isbn10_and_rejects_unmappable_979():
     unmapped = lookup.amazon_identity("9791090636071")
 
     assert mapped == {
-        "qualified": True,
+        "qualified": False,
         "amazon_asin": "0306406152",
-        "evidence": "isbn10_catalog_mapping",
+        "evidence": "isbn10_requires_amazon_product_evidence",
     }
     assert unmapped["qualified"] is False
     assert unmapped["evidence"] == "no_amazon_asin_mapping"
@@ -234,9 +256,10 @@ def test_catalog_candidate_has_canonical_amazon_identity(monkeypatch):
     )
 
     assert candidate is not None
-    assert candidate["amazon_qualified"] is True
-    assert candidate["amazon_asin"] == "0306406152"
-    assert candidate["amazon_book_url"] == "https://www.amazon.com/dp/0306406152"
+    assert candidate["amazon_qualified"] is False
+    assert candidate["amazon_asin"] == ""
+    assert candidate["amazon_book_url"] == ""
+    assert candidate["amazon_qualification_evidence"] == "isbn10_requires_amazon_product_evidence"
 
 
 def test_extracts_text_asin(monkeypatch):
@@ -373,5 +396,6 @@ def test_keyword_lookup_falls_through_to_library_of_congress(tmp_path, monkeypat
 
     batches = [event["books"] for event in events if event["status"] == "progress"]
     assert batches[0][0]["source"] == "library_of_congress"
-    assert batches[0][0]["amazon_asin"] == "0306406152"
+    assert batches[0][0]["amazon_qualified"] is False
+    assert batches[0][0]["amazon_asin"] == ""
     assert events[-1]["count"] == 1

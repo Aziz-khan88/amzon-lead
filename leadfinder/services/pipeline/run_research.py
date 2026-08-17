@@ -658,6 +658,8 @@ def run_research_pipeline(research_run_id) -> None:
                 if not isinstance(book.source_raw_json, dict):
                     book.source_raw_json = {}
                 book.source_raw_json["processing_status"] = "completed"
+                book.source_raw_json["processing_stage"] = "Complete"
+                book.source_raw_json["processing_detail"] = "Evidence and review data are ready."
                 book.save(update_fields=["source_raw_json", "updated_at"])
 
                 if scheduled_target:
@@ -673,6 +675,8 @@ def run_research_pipeline(research_run_id) -> None:
                     if not isinstance(book.source_raw_json, dict):
                         book.source_raw_json = {}
                     book.source_raw_json["processing_status"] = "failed"
+                    book.source_raw_json["processing_stage"] = "Canceled"
+                    book.source_raw_json["processing_detail"] = "The runner was stopped before this item completed."
                     book.save(update_fields=["source_raw_json", "updated_at"])
                 except Exception:
                     pass
@@ -686,6 +690,8 @@ def run_research_pipeline(research_run_id) -> None:
                 if not isinstance(book.source_raw_json, dict):
                     book.source_raw_json = {}
                 book.source_raw_json["processing_status"] = "failed"
+                book.source_raw_json["processing_stage"] = "Needs a valid evidence match"
+                book.source_raw_json["processing_detail"] = str(exc)[:5000]
                 warnings = book.source_raw_json
                 warnings.setdefault("book_processing_errors", []).append(str(exc))
                 book.source_raw_json = warnings

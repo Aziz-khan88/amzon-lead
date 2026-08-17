@@ -257,6 +257,36 @@ def test_run_list_status_filter_is_functional(client, db):
     assert "Done run" not in html
 
 
+def test_run_list_exposes_a_direct_review_action(client, db):
+    run = ResearchRun.objects.create(keyword="Ready run", source_provider="ddgs", status="completed")
+
+    response = client.get(reverse("leadfinder:run_list"))
+    html = response.content.decode()
+
+    assert response.status_code == 200
+    assert f'href="{reverse("leadfinder:run_detail", args=[run.id])}#run-leads"' in html
+    assert "Review 0 leads" in html
+
+
+def test_settings_never_renders_stored_secrets_or_overwrites_them_when_blank(client, monkeypatch):
+    monkeypatch.setenv("GROQ_API_KEY", "private-key-that-must-not-render")
+    saved = {}
+    monkeypatch.setattr("leadfinder.views.save_env_settings", lambda updates: saved.update(updates))
+
+    response = client.get(reverse("leadfinder:settings_help"))
+    assert response.status_code == 200
+    assert b"private-key-that-must-not-render" not in response.content
+
+    response = client.post(
+        reverse("leadfinder:settings_help"),
+        {"SEARCH_PROVIDER": "ddgs", "GROQ_MODEL": "llama-3.3-70b-versatile", "GROQ_API_KEY": ""},
+    )
+
+    assert response.status_code == 302
+    assert saved["SEARCH_PROVIDER"] == "ddgs"
+    assert "GROQ_API_KEY" not in saved
+
+
 
 def test_broad_discovery_queries_start_with_non_exact_amazon_searches():
     queries = discovery_queries("Children books")
@@ -329,19 +359,19 @@ def test_detail_pages_render(client, sample_lead):
     assert 'id="lead-portfolio"' in lead_html
 
 
-def test_lead_list_counts_direct_email_without_annotation_error(client, sample_lead):
+def test_lead_list_does_not_label_an_unverified_direct_email_as_verified(client, sample_lead):
     response = client.get(reverse("leadfinder:lead_list"))
     html = response.content.decode()
 
     assert response.status_code == 200
     assert "Verified email" in html
-    assert "<strong>1</strong>" in html
+    assert "<strong>0</strong>" in html
 
     filtered = client.get(reverse("leadfinder:lead_list"), {"verified_email": "1"})
     filtered_html = filtered.content.decode()
 
     assert filtered.status_code == 200
-    assert "The Moonlit Bunny Adventure" in filtered_html
+    assert "The Moonlit Bunny Adventure" not in filtered_html
 
 
 def test_run_detail_explains_ai_contact_extraction_outcome(client, db):
@@ -547,6 +577,8 @@ def test_isbn_search_page_loads(client, db):
     assert b"isbn-search-workspace" in response.content
     assert b"lookup-result-title" in response.content
     assert b"lookup-selection-status" in response.content
+    assert b"direct-form-error" in response.content
+    assert b"has-active-direct-run" in response.content
     assert b"alert(" not in response.content
 
 
@@ -599,6 +631,8 @@ def test_isbn_search_post_scrapes_and_redirects(client, db, monkeypatch, sample_
     # Verify that the Book was pre-created in the database
     book = Book.objects.get(research_run=run)
     assert book.asin == "B0NEWASINX"
+    assert book.amazon_book_url == ""
+    assert book.amazon_source_url == ""
     assert book.source_raw_json.get("processing_status") == "pending"
 
 
@@ -629,6 +663,7 @@ def test_isbn_search_status_endpoint(client, db):
     assert len(data["tasks"]) == 1
     assert data["tasks"][0]["asin"] == "B0NEWASINX"
     assert data["tasks"][0]["status"] == "processing"
+    assert data["tasks"][0]["stage"] == ""
 
 
 def test_isbn_search_active_run_console_uses_light_ui(client, db):
@@ -654,6 +689,8 @@ def test_isbn_search_active_run_console_uses_light_ui(client, db):
     assert b"Active Deep Enrichment" in response.content
     assert b"queue-task-card" in response.content
     assert b"task-title-text" in response.content
+    assert b"has-active-direct-run" in response.content
+    assert b"task.stage" in response.content
 
 
 def test_lead_list_filtration_and_sorting(client, sample_lead):

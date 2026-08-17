@@ -225,6 +225,32 @@ def is_catalog_or_platform_source(url: str) -> bool:
     return host_matches_any(url, CATALOG_OR_PLATFORM_HOST_PARTS)
 
 
+CORPORATE_AUTHOR_PATTERNS = [
+    r"\beditors?\b",
+    r"\beditorial\b",
+    r"\bstaff\b",
+    r"\bdisney\b",
+    r"\bpublishing\b",
+    r"\bpress\b",
+    r"\binc\.?\b",
+    r"\bllc\.?\b",
+    r"\bstudios?\b",
+    r"\bpublications?\b",
+    r"\bteam\b",
+    r"\bmagazine\b",
+    r"\bnational geographic\b",
+    r"\bsports illustrated\b",
+    r"\bscholastic\b",
+]
+
+
+def is_corporate_author_entity(author_name: str) -> bool:
+    name = (author_name or "").lower().strip()
+    if not name:
+        return False
+    return any(re.search(pattern, name) for pattern in CORPORATE_AUTHOR_PATTERNS)
+
+
 def is_untrusted_contact_email_domain(email: str) -> bool:
     domain = registered_domain_from_email(email)
     if not domain:
@@ -235,6 +261,7 @@ def is_untrusted_contact_email_domain(email: str) -> bool:
 def has_generic_admin_prefix(email: str) -> bool:
     local = email_local_part(email)
     return local in GENERIC_ADMIN_EMAIL_PREFIXES
+
 
 
 def email_domain_matches_source(email: str, source_url: str) -> bool:

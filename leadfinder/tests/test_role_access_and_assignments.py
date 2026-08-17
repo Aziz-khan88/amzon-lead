@@ -58,6 +58,27 @@ def test_session_login_accepts_email_address(role_users):
     assert str(admin.id) == client.session["_auth_user_id"]
 
 
+def test_login_session_duration_matches_remember_me_choice(role_users):
+    admin, _, _ = role_users
+    client = Client()
+
+    response = client.post(
+        reverse("leadfinder:login"),
+        {"username": admin.email, "password": "StrongPassword-4815"},
+    )
+    assert response.status_code == 302
+    assert client.session.get_expire_at_browser_close() is True
+
+    persistent_client = Client()
+    response = persistent_client.post(
+        reverse("leadfinder:login"),
+        {"username": admin.email, "password": "StrongPassword-4815", "remember_me": "on"},
+    )
+    assert response.status_code == 302
+    assert persistent_client.session.get_expire_at_browser_close() is False
+    assert persistent_client.session.get_expiry_age() > 29 * 24 * 60 * 60
+
+
 def test_salesperson_only_sees_assigned_leads(role_users):
     admin, sales_a, sales_b = role_users
     visible = make_lead(1)

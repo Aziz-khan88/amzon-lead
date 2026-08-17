@@ -8,6 +8,7 @@ from openpyxl import Workbook
 
 from leadfinder.models import AuthorProfile, Book, ContactCandidate, Evidence, Lead, ResearchRun
 from leadfinder.services.export.csv_export import export_leads_xlsx
+from leadfinder.services.eligibility import EligibilityPolicy
 from leadfinder.utils.normalize import normalized_author_key, normalized_book_key
 from leadfinder.views import parse_import_file
 
@@ -86,7 +87,7 @@ def test_parse_app_xlsx_export_reassembles_author_book_and_contact_tabs(db):
     assert rows[0]["email source url"] == "https://robin.example/contact"
 
 
-def test_manual_excel_import_creates_leads_without_background_ai_or_checks(client, db, monkeypatch):
+def test_manual_excel_import_creates_attested_leads_without_background_ai_or_checks(client, db, monkeypatch):
     started = []
     monkeypatch.setattr("leadfinder.views._start_manual_import_checks", lambda run_id: started.append(run_id))
     upload = SimpleUploadedFile(
@@ -106,13 +107,16 @@ def test_manual_excel_import_creates_leads_without_background_ai_or_checks(clien
     assert lead.book.author_name == "Avery Moon"
     assert lead.public_email == "avery@example.com"
     assert lead.public_phone == "+1 415 555 2671"
-    assert lead.verification_status == "verified"
-    assert lead.verification_score == 100
-    assert lead.manual_review_status == "approved"
+    assert lead.verification_status == "other"
+    assert lead.verification_score == 0
+    assert lead.manual_review_status == "needs_review"
+    assert lead.uploader_attested is True
+    assert lead.uploader_attested_at is not None
+    assert EligibilityPolicy.evaluate(lead).is_verified_ready is False
     assert lead.primary_contact is not None
     assert lead.primary_contact.channel == "email"
-    assert lead.primary_contact.verification_status == "verified"
-    assert ContactCandidate.objects.filter(lead=lead, channel="phone", verification_status="verified").exists()
+    assert lead.primary_contact.verification_status == "other"
+    assert ContactCandidate.objects.filter(lead=lead, channel="phone", verification_status="other").exists()
     assert lead.author_profile.contact_page_url == "https://avery.example/contact"
     assert Evidence.objects.filter(lead=lead, field_name="public_email", source_url="https://avery.example/contact").exists()
 

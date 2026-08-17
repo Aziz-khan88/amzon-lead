@@ -122,22 +122,26 @@ def canonical_book_key(value: str | None) -> str:
 
 
 def amazon_identity(value: str | None) -> dict[str, str | bool]:
-    """Return an Amazon-addressable identity without inventing 979 mappings.
+    """Return a possible ASIN alias without treating it as Amazon evidence.
 
-    Amazon print-book ASINs normally use ISBN-10. A 978 ISBN-13 can be converted
-    losslessly; 979 ISBNs cannot and therefore need direct Amazon evidence before
-    they can enter this Amazon-only result set.
+    An ISBN-10 can be used in an Amazon product URL, but that does not prove that
+    a matching product exists. A URL is qualified only when a real Amazon product
+    result carries that identifier; callers must make that source check.
     """
     analysis = analyze_identifier(value)
     if not analysis.valid:
         return {"qualified": False, "amazon_asin": "", "evidence": "invalid_identifier"}
     if analysis.identifier_type == "asin":
-        return {"qualified": True, "amazon_asin": analysis.canonical, "evidence": "amazon_asin"}
+        return {
+            "qualified": False,
+            "amazon_asin": analysis.canonical,
+            "evidence": "asin_requires_amazon_product_evidence",
+        }
     if analysis.isbn10:
         return {
-            "qualified": True,
+            "qualified": False,
             "amazon_asin": analysis.isbn10,
-            "evidence": "isbn10_catalog_mapping",
+            "evidence": "isbn10_requires_amazon_product_evidence",
         }
     return {"qualified": False, "amazon_asin": "", "evidence": "no_amazon_asin_mapping"}
 
@@ -292,8 +296,6 @@ def cached_book_is_valid(book: dict, year_start: int | None, year_end: int | Non
         return False
     if not has_author(book.get("author_name")):
         return False
-    if not amazon_identity(code)["qualified"]:
-        return False
     return True
 
 
@@ -444,8 +446,13 @@ def build_book_record(
     if not normalized_code or not title:
         return None
     amazon = amazon_identity(normalized_code)
-    if not amazon["qualified"]:
-        return None
+    source_asin = extract_asin(source_url) if is_amazon_url(source_url) else None
+    identifier = analyze_identifier(normalized_code)
+    amazon_aliases = {
+        value for value in (identifier.canonical, identifier.isbn10) if value
+    }
+    has_direct_amazon_product = bool(source_asin and source_asin in amazon_aliases)
+    verified_amazon_url = source_url if has_direct_amazon_product else ""
 
     try:
         api_data = fetch_metadata_from_free_apis(normalized_code)
@@ -471,10 +478,12 @@ def build_book_record(
         "author_name": (author_name or "").strip()[:255],
         "asin": normalized_code,
         "isbn": normalized_code,
-        "amazon_asin": amazon["amazon_asin"],
-        "amazon_book_url": f"https://www.amazon.com/dp/{amazon['amazon_asin']}",
-        "amazon_qualified": True,
-        "amazon_qualification_evidence": amazon["evidence"],
+        "amazon_asin": source_asin or "",
+        "amazon_book_url": verified_amazon_url,
+        "amazon_qualified": has_direct_amazon_product,
+        "amazon_qualification_evidence": (
+            "direct_amazon_product_url" if has_direct_amazon_product else amazon["evidence"]
+        ),
         "publication_date": publication_date[:100],
         "cover_image_url": cover_image_url,
         "publisher": publisher[:255],

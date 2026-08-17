@@ -9,6 +9,7 @@ import threading
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 from openpyxl import load_workbook
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.core.paginator import Paginator
@@ -42,6 +43,7 @@ from .services.amazon.amazon_url_parser import extract_asin, is_amazon_url, norm
 from .services.booklife import BOOKLIFE_CATEGORIES, grouped_booklife_categories
 from .services.books.isbn_intelligence import analyze_identifier, generate_barcode_svg
 from .services.export.csv_export import export_leads_response, export_leads_xlsx
+from .services.eligibility import EligibilityPolicy
 from .services.pipeline.quality_gate import can_approve_lead, has_verified_contact_source
 from .services.pipeline.source_audit import is_catalog_or_platform_source
 from .services.pipeline.run_research import keyword_suggestions, run_research_pipeline
@@ -415,11 +417,13 @@ def import_books_from_rows(rows: list[dict], run: ResearchRun, source_label: str
         )
         imported_verification_score = min(100, _int_or_none(_value(row, "verification_score")) or 0)
         if is_manual_import:
-            imported_verification_status = "verified"
-            imported_verification_score = max(imported_verification_score, 100)
-            imported_verification_reason = "Trusted manual import. Contact values came from the uploaded lead sheet."
-            imported_verification_reasons = ["manual_import_trusted"]
-            imported_verified_at = timezone.now()
+            # An upload records who attested to a value; it is never evidence
+            # that the value passed source, identity, and deliverability checks.
+            imported_verification_status = "other"
+            imported_verification_score = 0
+            imported_verification_reason = "Imported contact values are awaiting system verification."
+            imported_verification_reasons = ["uploader_attested", "import_awaiting_verification"]
+            imported_verified_at = None
         else:
             imported_verification_status = _status_value(_value(row, "verification_status"))
             imported_verification_reason = ""
@@ -438,8 +442,10 @@ def import_books_from_rows(rows: list[dict], run: ResearchRun, source_label: str
             verification_status=imported_verification_status,
             verification_reason=imported_verification_reason,
             verification_reasons_json=imported_verification_reasons,
-            verification_version="manual-import-v1" if is_manual_import else "",
+            verification_version="manual-import-v2" if is_manual_import else "",
             verified_at=imported_verified_at,
+            uploader_attested=is_manual_import,
+            uploader_attested_at=timezone.now() if is_manual_import else None,
             video_status=_video_status_value(_value(row, "video_status")),
             video_confidence=min(1, max(0, _float_or_zero(_value(row, "video_confidence")))),
             sales_agent_summary=_value(row, "sales_agent_summary"),
@@ -447,7 +453,7 @@ def import_books_from_rows(rows: list[dict], run: ResearchRun, source_label: str
             suggested_first_line=_value(row, "suggested_first_line"),
             do_not_contact=_bool_value(_value(row, "do_not_contact")),
             notes=_value(row, "notes"),
-            manual_review_status="approved" if is_manual_import else "needs_review",
+            manual_review_status="needs_review",
         )
         contact_sources = {
             "public_email": _source_url(row, "public_email_source_url", contact_page_url or website),
@@ -472,12 +478,11 @@ def import_books_from_rows(rows: list[dict], run: ResearchRun, source_label: str
                     role=role,
                     raw_value=value,
                     normalized_value=value,
-                    verification_status="verified",
-                    verification_score=100,
-                    deliverability_status="manual_import",
+                    verification_status="other",
+                    verification_score=0,
+                    deliverability_status="not_checked",
                     is_primary=primary_contact is None,
-                    selected_reason="Trusted manual import from uploaded lead sheet.",
-                    last_checked_at=timezone.now(),
+                    selected_reason="Uploader-attested import; system verification has not run.",
                 )
                 if primary_contact is None:
                     primary_contact = candidate
@@ -491,7 +496,7 @@ def import_books_from_rows(rows: list[dict], run: ResearchRun, source_label: str
                     field_value=value,
                     source_url=source_url,
                     source_title="Manual import",
-                    confidence=0.95 if is_manual_import else 0.7,
+                    confidence=0.5 if is_manual_import else 0.7,
                     is_primary=True,
                 )
         if primary_contact:
@@ -505,9 +510,9 @@ def dashboard(request):
     leads = lead_queryset_for_user(request.user)
     failed_runs = ResearchRun.objects.filter(status="failed")
     total_leads = leads.count()
-    verified_leads = leads.filter(verification_status="verified").count()
+    verified_leads = EligibilityPolicy.verified_ready(leads).count()
     not_verified_leads = leads.filter(verification_status="not_verified").count()
-    other_leads = leads.filter(verification_status="other").count()
+    other_leads = EligibilityPolicy.needs_review(leads).count()
     public_emails = leads.exclude(public_email="").count()
 
     def percentage(value):
@@ -911,7 +916,9 @@ def run_agent_status(request, pk):
             progress = 99
             
     discovered_count = total_books
-    verified_leads_count = Lead.objects.filter(book__research_run=run, verification_status="verified").count()
+    verified_leads_count = EligibilityPolicy.verified_ready(
+        Lead.objects.filter(book__research_run=run)
+    ).count()
     
     thoughts = run.agent_thoughts.order_by("created_at")
     recent_thoughts = [
@@ -1003,10 +1010,10 @@ def lead_list(request):
         queryset=LeadAssignment.objects.filter(is_current=True).select_related("assigned_to"),
         to_attr="current_assignments",
     )
-    leads = lead_queryset_for_user(
+    leads = EligibilityPolicy.annotate(lead_queryset_for_user(
         request.user,
         Lead.objects.select_related("book", "author_profile", "primary_contact").prefetch_related(current_assignment_prefetch),
-    ).annotate(
+    )).annotate(
         has_verified_email=Exists(verified_contacts.filter(channel="email")),
         has_verified_phone=Exists(verified_contacts.filter(channel="phone")),
     )
@@ -1030,24 +1037,28 @@ def lead_list(request):
             )
             
         if cd.get("valid_only"):
-            leads = leads.filter(Q(verification_status="verified") | email_q | phone_q)
+            leads = EligibilityPolicy.verified_ready(leads)
         if cd.get("verification_status"):
             if cd["verification_status"] == "verified":
-                leads = leads.filter(Q(verification_status="verified") | email_q | phone_q)
+                leads = EligibilityPolicy.verified_ready(leads)
             elif cd["verification_status"] == "not_verified":
                 leads = leads.filter(verification_status="not_verified")
             elif cd["verification_status"] == "other":
-                leads = leads.filter(~(email_q | phone_q | Q(verification_status="verified")))
+                leads = EligibilityPolicy.needs_review(leads)
         if cd.get("video_status"):
             leads = leads.filter(video_status=cd["video_status"])
         if cd.get("score_min") is not None:
             leads = leads.filter(verification_score__gte=cd["score_min"])
         if cd.get("score_max") is not None:
             leads = leads.filter(verification_score__lte=cd["score_max"])
-        if cd.get("has_email") or cd.get("verified_email"):
+        if cd.get("has_email"):
             leads = leads.filter(email_q | Q(has_verified_email=True))
-        if cd.get("has_phone") or cd.get("verified_phone"):
+        if cd.get("verified_email"):
+            leads = leads.filter(has_verified_email=True)
+        if cd.get("has_phone"):
             leads = leads.filter(phone_q | Q(has_verified_phone=True))
+        if cd.get("verified_phone"):
+            leads = leads.filter(has_verified_phone=True)
         if cd.get("has_amazon_url"):
             leads = leads.exclude(book__amazon_book_url="")
         if cd.get("has_website"):
@@ -1072,15 +1083,15 @@ def lead_list(request):
     leads = leads.order_by(order_field)
     
     # Calculate stats for dashboard header
-    stats_queryset = lead_queryset_for_user(request.user).annotate(
+    stats_queryset = EligibilityPolicy.annotate(lead_queryset_for_user(request.user)).annotate(
         has_verified_email=Exists(verified_contacts.filter(channel="email")),
         has_verified_phone=Exists(verified_contacts.filter(channel="phone")),
     )
     stats_total = stats_queryset.count()
-    stats_verified = stats_queryset.filter(Q(verification_status="verified") | email_q | phone_q).distinct().count()
-    stats_verified_email = stats_queryset.filter(email_q | Q(has_verified_email=True)).distinct().count()
-    stats_verified_phone = stats_queryset.filter(phone_q | Q(has_verified_phone=True)).distinct().count()
-    stats_other = stats_queryset.filter(~(email_q | phone_q | Q(verification_status="verified"))).distinct().count()
+    stats_verified = EligibilityPolicy.verified_ready(stats_queryset).count()
+    stats_verified_email = stats_queryset.filter(has_verified_email=True).count()
+    stats_verified_phone = stats_queryset.filter(has_verified_phone=True).count()
+    stats_other = EligibilityPolicy.needs_review(stats_queryset).count()
     stats_email = stats_verified_email
     
     # Pagination
@@ -1599,7 +1610,7 @@ def export_leads_csv(request):
     leads = lead_queryset_for_user(request.user).exclude(do_not_contact=True).order_by("-verification_score", "-created_at")
     valid_only = request.GET.get("valid_only", "0").lower() not in {"0", "false", "all", "no", ""}
     if valid_only:
-        leads = _contactable_queryset(leads.filter(verification_status="verified"))
+        leads = EligibilityPolicy.verified_ready(leads)
     limit = request.GET.get("limit")
     if limit:
         try:
@@ -1613,7 +1624,7 @@ def export_leads_xlsx_view(request):
     leads = lead_queryset_for_user(request.user).exclude(do_not_contact=True).order_by("-verification_score", "-created_at")
     valid_only = request.GET.get("valid_only", "0").lower() not in {"0", "false", "all", "no", ""}
     if valid_only:
-        leads = _contactable_queryset(leads.filter(verification_status="verified"))
+        leads = EligibilityPolicy.verified_ready(leads)
     limit = request.GET.get("limit")
     if limit:
         try:
@@ -1787,9 +1798,15 @@ def team_member_role_update(request, pk):
 
 
 def save_env_settings(updates: dict[str, str]) -> None:
+    """Persist approved settings without exposing or corrupting secret values."""
     env_path = os.path.join(settings.BASE_DIR, ".env")
     for k, v in updates.items():
-        os.environ[k] = v
+        if "\n" in v or "\r" in v:
+            raise ValueError(f"{k} must be a single-line value.")
+        if v:
+            os.environ[k] = v
+        else:
+            os.environ.pop(k, None)
         
     lines = []
     if os.path.exists(env_path):
@@ -1808,7 +1825,8 @@ def save_env_settings(updates: dict[str, str]) -> None:
         if "=" in stripped:
             k = stripped.split("=", 1)[0].strip()
             if k in updates:
-                new_lines.append(f'{k}="{updates[k]}"\n')
+                escaped_value = updates[k].replace("\\", "\\\\").replace('"', '\\"')
+                new_lines.append(f'{k}="{escaped_value}"\n')
                 updated_keys.add(k)
             else:
                 new_lines.append(line)
@@ -1817,7 +1835,8 @@ def save_env_settings(updates: dict[str, str]) -> None:
             
     for k, v in updates.items():
         if k not in updated_keys:
-            new_lines.append(f'{k}="{v}"\n')
+            escaped_value = v.replace("\\", "\\\\").replace('"', '\\"')
+            new_lines.append(f'{k}="{escaped_value}"\n')
             
     with open(env_path, "w", encoding="utf-8") as f:
         f.writelines(new_lines)
@@ -1837,14 +1856,56 @@ def settings_help(request):
         "AMAZON_CREATORS_CLIENT_ID",
         "AMAZON_CREATORS_CLIENT_SECRET",
     ]
+    secret_names = {
+        "GROQ_API_KEY",
+        "TAVILY_API_KEY",
+        "GOOGLE_API_KEY",
+        "GOOGLE_CSE_ID",
+        "BRAVE_API_KEY",
+        "YOUTUBE_API_KEY",
+        "GOOGLE_BOOKS_API_KEY",
+        "AMAZON_CREATORS_CLIENT_ID",
+        "AMAZON_CREATORS_CLIENT_SECRET",
+    }
 
     if request.method == "POST":
-        updates = {}
-        for key in api_key_names:
-            if key in request.POST:
-                updates[key] = request.POST[key].strip()
-        save_env_settings(updates)
-        messages.success(request, "API Keys & Provider Settings updated successfully!")
+        action = request.POST.get("settings_action", "save")
+        remove_key = request.POST.get("remove_key", "")
+        if action == "remove":
+            if remove_key not in secret_names:
+                messages.error(request, "Choose a configured secret to remove.")
+            else:
+                save_env_settings({remove_key: ""})
+                messages.success(request, f"{remove_key} was removed from local configuration.")
+        elif action == "test":
+            configured_count = sum(bool(os.getenv(key)) for key in secret_names)
+            provider = request.POST.get("SEARCH_PROVIDER", os.getenv("SEARCH_PROVIDER", "ddgs"))
+            dependencies = {
+                "tavily": ("TAVILY_API_KEY",),
+                "google": ("GOOGLE_API_KEY", "GOOGLE_CSE_ID"),
+                "brave": ("BRAVE_API_KEY",),
+            }
+            missing = [key for key in dependencies.get(provider, ()) if not os.getenv(key)]
+            if missing:
+                messages.warning(request, f"{provider.title()} is not ready: add {', '.join(missing)}.")
+            else:
+                messages.success(
+                    request,
+                    f"Configuration check passed: {configured_count} stored credential(s). "
+                    "No provider request was sent.",
+                )
+        else:
+            updates = {}
+            for key in api_key_names:
+                value = request.POST.get(key, "").strip()
+                if key not in secret_names or value:
+                    updates[key] = value
+            try:
+                save_env_settings(updates)
+            except ValueError as exc:
+                messages.error(request, str(exc))
+            else:
+                messages.success(request, "Provider settings updated. Blank secret fields were left unchanged.")
         return redirect("leadfinder:settings_help")
 
     def configured(name: str) -> bool:
@@ -1855,7 +1916,9 @@ def settings_help(request):
 
     booklife_direct_fetch = os.getenv("BOOKLIFE_DIRECT_FETCH_ALLOWED", "").lower() in {"1", "true", "yes", "on"}
 
-    current_env = {key: os.getenv(key, "") for key in api_key_names}
+    # Only non-sensitive configuration is rendered into HTML.  Secret values
+    # are represented by a configured/missing boolean and can only be replaced.
+    current_env = {key: os.getenv(key, "") for key in ("SEARCH_PROVIDER", "GROQ_MODEL")}
 
     context = {
         "search_provider": os.getenv("SEARCH_PROVIDER", "tavily"),
@@ -1998,12 +2061,16 @@ def isbn_search(request):
             # Create initial Book records
             for analysis in identifier_analyses:
                 code = analysis.canonical
-                is_asin = analysis.identifier_type == "asin"
-                if is_amazon_url(analysis.raw):
-                    supplied_amazon_url = normalize_amazon_book_url(analysis.raw, os.getenv("AMAZON_ASSOCIATE_TAG") or None)
-                else:
-                    code_to_use = analysis.isbn10 or analysis.canonical
-                    supplied_amazon_url = normalize_amazon_book_url(f"https://www.amazon.com/dp/{code_to_use}", os.getenv("AMAZON_ASSOCIATE_TAG") or None)
+                # A typed ISBN/ASIN is not proof that an Amazon product exists.
+                # Preserve an actual user-supplied Amazon product URL only; the
+                # pipeline may later attach independently found product evidence.
+                supplied_amazon_url = (
+                    normalize_amazon_book_url(
+                        analysis.raw, os.getenv("AMAZON_ASSOCIATE_TAG") or None
+                    )
+                    if is_amazon_url(analysis.raw) and extract_asin(analysis.raw)
+                    else ""
+                )
                 Book.objects.create(
                     research_run=run,
                     title=f"Book for {analysis.identifier_type.upper()} {code}",
@@ -2099,6 +2166,8 @@ def isbn_search_status(request, run_id):
             "title": book.title,
             "author": book.author_name or "Searching...",
             "status": status,
+            "stage": raw.get("processing_stage", ""),
+            "detail": raw.get("processing_detail", ""),
             "lead_id": lead_id,
             "errors": errors,
             "identifier": raw.get("identifier_intelligence", {}),

@@ -3,38 +3,750 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Sign in - Lead Finder</title>
+  <title>Sign in – Lead Finder</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
-  <link href="/static/leadfinder/app.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --green-dark: #0b2415;
+      --green-mid:  #15532e;
+      --green-btn:  #166534;
+      --green-bright: #22c55e;
+      --green-soft: #4ade80;
+      --card-radius: 20px;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      overflow-x: hidden;
+    }
+
+    /* ─────────── KEYFRAMES ─────────── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(28px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+    @keyframes slideRight {
+      from { opacity: 0; transform: translateX(48px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0px) rotate(0deg); }
+      33%       { transform: translateY(-14px) rotate(2deg); }
+      66%       { transform: translateY(-6px) rotate(-1deg); }
+    }
+    @keyframes pulse-ring {
+      0%   { box-shadow: 0 0 0 0 rgba(34,197,94,.35); }
+      70%  { box-shadow: 0 0 0 10px rgba(34,197,94,0); }
+      100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); }
+    }
+    @keyframes shimmer {
+      0%   { background-position: -200% center; }
+      100% { background-position:  200% center; }
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    @keyframes particle-drift {
+      0%   { transform: translateY(0) translateX(0) scale(1); opacity: .4; }
+      50%  { transform: translateY(-60px) translateX(20px) scale(1.2); opacity: .15; }
+      100% { transform: translateY(-120px) translateX(-10px) scale(.8); opacity: 0; }
+    }
+    @keyframes draw-line {
+      from { transform: scaleX(0); }
+      to   { transform: scaleX(1); }
+    }
+    @keyframes count-up {
+      from { opacity: 0; transform: translateY(4px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ─────────── LEFT PANEL ─────────── */
+    .lf-left {
+      width: 50%;
+      background: var(--green-dark);
+      background-image:
+        radial-gradient(ellipse 90% 65% at 15% 115%, rgba(34,197,94,.18) 0%, transparent 60%),
+        radial-gradient(ellipse 70% 45% at 85% -5%,  rgba(22,163,74,.12) 0%, transparent 55%);
+      display: flex;
+      flex-direction: column;
+      padding: 40px 56px 52px;
+      position: relative;
+      overflow: hidden;
+      animation: fadeIn .6s ease both;
+    }
+
+    /* grid mesh */
+    .lf-left::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px);
+      background-size: 48px 48px;
+      pointer-events: none;
+      animation: fadeIn 1.2s ease both;
+    }
+
+    /* floating particles */
+    .lf-particles { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+    .lf-p {
+      position: absolute;
+      border-radius: 50%;
+      background: var(--green-bright);
+      animation: particle-drift linear infinite;
+      opacity: 0;
+    }
+    .lf-p:nth-child(1)  { width:5px; height:5px;  left:12%; bottom:15%; animation-duration:7s;  animation-delay:0s;   }
+    .lf-p:nth-child(2)  { width:3px; height:3px;  left:28%; bottom:8%;  animation-duration:9s;  animation-delay:1.5s; }
+    .lf-p:nth-child(3)  { width:6px; height:6px;  left:45%; bottom:20%; animation-duration:11s; animation-delay:.8s;  }
+    .lf-p:nth-child(4)  { width:4px; height:4px;  left:62%; bottom:12%; animation-duration:8s;  animation-delay:3s;   }
+    .lf-p:nth-child(5)  { width:3px; height:3px;  left:78%; bottom:30%; animation-duration:10s; animation-delay:2s;   }
+    .lf-p:nth-child(6)  { width:5px; height:5px;  left:88%; bottom:5%;  animation-duration:6s;  animation-delay:.4s;  }
+    .lf-p:nth-child(7)  { width:4px; height:4px;  left:55%; bottom:40%; animation-duration:12s; animation-delay:4s;   }
+    .lf-p:nth-child(8)  { width:3px; height:3px;  left:35%; bottom:55%; animation-duration:9s;  animation-delay:2.5s; }
+
+    /* brand */
+    .lf-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #fff;
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: -.2px;
+      position: relative;
+      z-index: 1;
+      animation: fadeUp .7s .15s ease both;
+    }
+
+    .lf-brand-icon {
+      width: 36px; height: 36px;
+      background: rgba(34,197,94,.18);
+      border: 1px solid rgba(34,197,94,.35);
+      border-radius: 9px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      transition: background .3s, transform .3s;
+    }
+    .lf-brand:hover .lf-brand-icon {
+      background: rgba(34,197,94,.3);
+      transform: rotate(-8deg) scale(1.08);
+    }
+    .lf-brand-icon svg { width: 18px; height: 18px; color: var(--green-soft); }
+
+    /* hero */
+    .lf-hero {
+      margin-top: auto;
+      position: relative;
+      z-index: 1;
+      padding-bottom: 8px;
+    }
+
+    .lf-eyebrow {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1.6px;
+      text-transform: uppercase;
+      color: var(--green-soft);
+      margin-bottom: 20px;
+      animation: fadeUp .7s .35s ease both;
+    }
+
+    .lf-headline {
+      font-size: clamp(28px, 3.2vw, 42px);
+      font-weight: 800;
+      color: #fff;
+      line-height: 1.15;
+      letter-spacing: -.6px;
+      margin-bottom: 18px;
+      animation: fadeUp .7s .5s ease both;
+    }
+
+    .lf-sub {
+      font-size: 14px;
+      color: rgba(255,255,255,.55);
+      line-height: 1.7;
+      max-width: 360px;
+      margin-bottom: 28px;
+      animation: fadeUp .7s .62s ease both;
+    }
+
+    .lf-divider {
+      width: 36px; height: 3px;
+      background: var(--green-bright);
+      border-radius: 2px;
+      margin-bottom: 40px;
+      transform-origin: left;
+      animation: draw-line .6s .75s cubic-bezier(.4,0,.2,1) both;
+    }
+
+    /* features */
+    .lf-features {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .lf-feat {
+      animation: fadeUp .6s ease both;
+      transition: transform .25s ease;
+    }
+    .lf-feat:nth-child(1) { animation-delay: .85s; }
+    .lf-feat:nth-child(2) { animation-delay: .98s; }
+    .lf-feat:nth-child(3) { animation-delay: 1.1s; }
+    .lf-feat:hover { transform: translateY(-4px); }
+
+    .lf-feat-icon {
+      width: 38px; height: 38px;
+      background: rgba(255,255,255,.07);
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 12px;
+      transition: background .25s, border-color .25s, transform .25s;
+    }
+    .lf-feat:hover .lf-feat-icon {
+      background: rgba(34,197,94,.15);
+      border-color: rgba(34,197,94,.3);
+      transform: scale(1.1) rotate(-5deg);
+    }
+    .lf-feat-icon svg { width: 18px; height: 18px; color: var(--green-soft); }
+
+    .lf-feat h3 {
+      font-size: 13px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 6px;
+    }
+    .lf-feat p {
+      font-size: 12px;
+      color: rgba(255,255,255,.42);
+      line-height: 1.65;
+      transition: color .25s;
+    }
+    .lf-feat:hover p { color: rgba(255,255,255,.6); }
+
+    /* ─────────── RIGHT PANEL ─────────── */
+    .lf-right {
+      width: 50%;
+      background: #f0f2f0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 32px;
+      animation: none;
+    }
+
+    /* card */
+    .lf-card {
+      background: #fff;
+      border-radius: var(--card-radius);
+      padding: 40px 40px 36px;
+      width: 100%;
+      max-width: 420px;
+      box-shadow: 0 4px 32px rgba(0,0,0,.07), 0 1px 4px rgba(0,0,0,.04);
+      animation: none;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* top shimmer bar on card */
+    .lf-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: -200%;
+      width: 200%; height: 3px;
+      background: linear-gradient(90deg, transparent 0%, var(--green-bright) 50%, transparent 100%);
+      animation: shimmer 2.8s 1s linear infinite;
+      background-size: 200% auto;
+    }
+
+    /* card icon */
+    .lf-card-icon {
+      width: 52px; height: 52px;
+      background: #f0faf4;
+      border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 20px;
+      animation: pulse-ring 2.5s 1.5s ease-out infinite;
+      transition: transform .3s;
+    }
+    .lf-card-icon:hover { transform: scale(1.08) rotate(-6deg); }
+    .lf-card-icon svg { width: 24px; height: 24px; color: #16a34a; }
+
+    .lf-card h2 {
+      font-size: 26px;
+      font-weight: 800;
+      color: #111827;
+      letter-spacing: -.5px;
+      margin-bottom: 6px;
+      animation: none;
+    }
+
+    .lf-card > p {
+      font-size: 13.5px;
+      color: #6b7280;
+      margin-bottom: 22px;
+      animation: none;
+    }
+
+    .lf-sep {
+      height: 1px;
+      background: #e5e7eb;
+      margin-bottom: 22px;
+      transform-origin: left;
+      animation: none;
+    }
+
+    /* error */
+    .lf-error {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 10px;
+      padding: 11px 14px;
+      font-size: 13px;
+      color: #b91c1c;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 18px;
+      animation: fadeUp .4s ease both;
+    }
+
+    /* ── FORM ── */
+    .lf-form label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 7px;
+      transition: color .2s;
+    }
+    .lf-form label.focused { color: #16a34a; }
+
+    .lf-field {
+      position: relative;
+      margin-bottom: 16px;
+      animation: none;
+    }
+    .lf-field:nth-child(3) { animation-delay: 0s; }
+    .lf-field:nth-child(6) { animation-delay: 0s; }
+
+    .lf-field-icon {
+      position: absolute;
+      left: 13px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #9ca3af;
+      display: flex;
+      pointer-events: none;
+      transition: color .25s;
+    }
+    .lf-field-icon svg { width: 16px; height: 16px; }
+
+    .lf-field:focus-within .lf-field-icon { color: #16a34a; }
+
+    .lf-field input {
+      width: 100%;
+      height: 48px;
+      padding: 0 44px 0 42px;
+      border: 1.5px solid #d1d5db;
+      border-radius: 11px;
+      font-size: 14px;
+      font-family: inherit;
+      color: #111827;
+      background: #fff;
+      outline: none;
+      transition: border-color .22s, box-shadow .22s, background .22s;
+    }
+    .lf-field input:focus {
+      border-color: #16a34a;
+      box-shadow: 0 0 0 3.5px rgba(22,163,74,.13);
+      background: #fafffe;
+    }
+    .lf-field input:hover:not(:focus) { border-color: #9ca3af; }
+    .lf-field input::placeholder { color: #9ca3af; }
+
+    /* eye btn */
+    .lf-eye-btn {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: #9ca3af;
+      padding: 4px;
+      display: flex; align-items: center;
+      border-radius: 6px;
+      transition: color .2s, background .2s, transform .2s;
+    }
+    .lf-eye-btn:hover { color: #374151; background: #f3f4f6; }
+    .lf-eye-btn:active { transform: translateY(-50%) scale(.88); }
+    .lf-eye-btn svg { width: 17px; height: 17px; }
+
+    /* remember row */
+    .lf-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 22px;
+      animation: none;
+    }
+
+    .lf-remember {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: #374151;
+      cursor: pointer;
+      user-select: none;
+      transition: color .2s;
+    }
+    .lf-remember:hover { color: #111827; }
+
+    .lf-remember input[type="checkbox"] {
+      width: 16px; height: 16px;
+      border: 1.5px solid #d1d5db;
+      border-radius: 4px;
+      accent-color: #16a34a;
+      cursor: pointer;
+      transition: transform .2s;
+    }
+    .lf-remember input[type="checkbox"]:checked { transform: scale(1.1); }
+
+    .lf-forgot {
+      font-size: 13px;
+      color: #16a34a;
+      font-weight: 500;
+      text-decoration: none;
+      position: relative;
+      transition: color .2s;
+    }
+    .lf-forgot::after {
+      content: '';
+      position: absolute;
+      left: 0; bottom: -1px;
+      width: 0; height: 1.5px;
+      background: #16a34a;
+      transition: width .25s;
+    }
+    .lf-forgot:hover::after { width: 100%; }
+    .lf-forgot:hover { color: #15803d; }
+
+    /* submit button */
+    .lf-btn-wrap {
+      animation: none;
+    }
+
+    .lf-btn {
+      width: 100%;
+      height: 50px;
+      background: linear-gradient(135deg, #15532e 0%, #166534 60%, #166534 100%);
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      font-size: 14.5px;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      gap: 9px;
+      letter-spacing: -.1px;
+      position: relative;
+      overflow: hidden;
+      transition: transform .18s, box-shadow .18s;
+      margin-bottom: 20px;
+    }
+
+    /* shimmer sweep on button */
+    .lf-btn::before {
+      content: '';
+      position: absolute;
+      top: 0; left: -75%;
+      width: 50%; height: 100%;
+      background: linear-gradient(120deg, transparent 0%, rgba(255,255,255,.18) 50%, transparent 100%);
+      transform: skewX(-20deg);
+      transition: left .55s ease;
+    }
+    .lf-btn:hover::before { left: 130%; }
+    .lf-btn:hover {
+      box-shadow: 0 6px 24px rgba(21,83,46,.35);
+      transform: translateY(-2px);
+    }
+    .lf-btn:active { transform: translateY(0) scale(.98); box-shadow: none; }
+
+    /* arrow animation */
+    .lf-btn svg {
+      width: 17px; height: 17px;
+      transition: transform .25s;
+    }
+    .lf-btn:hover svg { transform: translateX(5px); }
+
+    /* spinner on loading */
+    .lf-btn.loading .btn-text { opacity: 0; }
+    .lf-btn.loading::after {
+      content: '';
+      position: absolute;
+      width: 20px; height: 20px;
+      border: 2.5px solid rgba(255,255,255,.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+
+    /* footnote */
+    .lf-footnote {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12.5px;
+      color: #6b7280;
+      animation: none;
+    }
+    .lf-footnote svg { width: 16px; height: 16px; color: #16a34a; flex-shrink: 0; }
+
+    /* ─────────── RESPONSIVE ─────────── */
+    @media (max-width: 900px) {
+      body { flex-direction: column; }
+      .lf-left, .lf-right { width: 100%; }
+
+      .lf-left {
+        padding: 32px 28px 44px;
+        animation: fadeIn .6s ease both;
+      }
+      .lf-right {
+        animation: none;
+      }
+      .lf-features { grid-template-columns: 1fr 1fr; gap: 18px; }
+      .lf-hero { margin-top: 48px; }
+    }
+
+    @media (max-width: 560px) {
+      .lf-left { padding: 28px 20px 36px; }
+      .lf-right { padding: 28px 16px; }
+      .lf-card { padding: 28px 22px 24px; border-radius: 16px; }
+      .lf-features { grid-template-columns: 1fr; gap: 16px; }
+      .lf-headline { font-size: 26px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
 </head>
-<body class="auth-page">
-  <main class="auth-shell">
-    <section class="auth-story" aria-label="Lead Finder workspace">
-      <div class="auth-brand"><span><i class="ph-fill ph-target"></i></span> Lead Finder</div>
-      <div>
-        <p class="auth-eyebrow">Protected sales workspace</p>
-        <h1>Every lead goes to the right person.</h1>
-        <p>Admins control research and daily allocation. Salespeople see only the leads assigned to them.</p>
+<body>
+
+  <!-- ════════════════ LEFT ════════════════ -->
+  <div class="lf-left">
+
+    <!-- floating particles -->
+    <div class="lf-particles">
+      <div class="lf-p"></div><div class="lf-p"></div><div class="lf-p"></div>
+      <div class="lf-p"></div><div class="lf-p"></div><div class="lf-p"></div>
+      <div class="lf-p"></div><div class="lf-p"></div>
+    </div>
+
+    <div class="lf-brand">
+      <div class="lf-brand-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+          <circle cx="12" cy="7" r="4"/>
+        </svg>
       </div>
-      <div class="auth-security-note"><i class="ph ph-lock-key"></i><span><strong>Private by default</strong><small>Session protection, CSRF validation, and role checks guard every data route.</small></span></div>
-    </section>
-    <section class="auth-card">
-      <div class="auth-card-head"><span class="auth-icon"><i class="ph ph-user-circle"></i></span><h2>Sign in</h2><p>Use the account created by your administrator.</p></div>
-      {% if form.errors %}<div class="auth-error"><i class="ph ph-warning-circle"></i> Email, username, or password is incorrect.</div>{% endif %}
-      <form method="post" class="auth-form" novalidate>
+      Lead Finder
+    </div>
+
+    <div class="lf-hero">
+      <p class="lf-eyebrow">Protected Sales Workspace</p>
+      <h1 class="lf-headline">Every lead goes to<br>the right person.</h1>
+      <p class="lf-sub">Admins control research and daily allocation.<br>Salespeople see only the leads assigned to them.</p>
+      <div class="lf-divider"></div>
+    </div>
+
+    <div class="lf-features">
+      <div class="lf-feat">
+        <div class="lf-feat-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+        </div>
+        <h3>Private by default</h3>
+        <p>Your data is protected with encryption and strict access controls.</p>
+      </div>
+      <div class="lf-feat">
+        <div class="lf-feat-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
+        </div>
+        <h3>Role-based access</h3>
+        <p>Each user sees only what they need to do their job securely.</p>
+      </div>
+      <div class="lf-feat">
+        <div class="lf-feat-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            <polyline points="9 12 11 14 15 10"/>
+          </svg>
+        </div>
+        <h3>Secure workflow</h3>
+        <p>Session protection, CSRF validation, and role checks guard every route.</p>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ════════════════ RIGHT ════════════════ -->
+  <div class="lf-right">
+    <div class="lf-card">
+
+      <div class="lf-card-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+          <circle cx="12" cy="7" r="4"/>
+        </svg>
+      </div>
+
+      <h2>Sign in</h2>
+      <p>Use the account created by your administrator.</p>
+      <div class="lf-sep"></div>
+
+      {% if form.errors %}
+      <div class="lf-error" role="alert">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="12"/>
+          <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        Email, username, or password is incorrect.
+      </div>
+      {% endif %}
+
+      <form method="post" class="lf-form" id="loginForm">
         {% csrf_token %}
         <input type="hidden" name="next" value="{{ next }}">
-        <label for="id_username">Email or username</label>
-        {{ form.username }}
-        <label for="id_password">Password</label>
-        {{ form.password }}
-        <button type="submit">Sign in securely <i class="ph ph-arrow-right"></i></button>
+
+        <label for="id_username" id="lbl_username">Email or username</label>
+        <div class="lf-field">
+          <span class="lf-field-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+              <polyline points="22,6 12,13 2,6"/>
+            </svg>
+          </span>
+          <input type="text" name="username" id="id_username"
+                 placeholder="name@example.com"
+                 autocomplete="username" autofocus required aria-required="true"
+                 data-label="lbl_username">
+        </div>
+
+        <label for="id_password" id="lbl_password">Password</label>
+        <div class="lf-field">
+          <span class="lf-field-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+          </span>
+          <input type="password" name="password" id="id_password"
+                 placeholder="••••••••"
+                 autocomplete="current-password" required aria-required="true"
+                 data-label="lbl_password">
+          <button type="button" class="lf-eye-btn" id="togglePwd" aria-label="Show password">
+            <svg id="eyeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="lf-row">
+          <label class="lf-remember">
+            <input type="checkbox" name="remember_me" id="id_remember_me">
+            Remember me
+          </label>
+          <span class="lf-forgot" title="Contact your administrator to reset your password.">Password reset: contact admin</span>
+        </div>
+
+        <div class="lf-btn-wrap">
+          <button type="submit" class="lf-btn" id="submitBtn">
+            <span class="btn-text" style="display:flex;align-items:center;gap:9px;">
+              Sign in securely
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="5" y1="12" x2="19" y2="12"/>
+                <polyline points="12 5 19 12 12 19"/>
+              </svg>
+            </span>
+          </button>
+        </div>
       </form>
-      <p class="auth-footnote">Access is logged and limited by your assigned role.</p>
-    </section>
-  </main>
+
+      <div class="lf-footnote">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+          <polyline points="22 4 12 14.01 9 11.01"/>
+        </svg>
+        Access is logged and limited by your assigned role.
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    /* ── eye toggle ── */
+    const toggleBtn = document.getElementById('togglePwd');
+    const pwdInput  = document.getElementById('id_password');
+    const eyeIcon   = document.getElementById('eyeIcon');
+
+    toggleBtn.addEventListener('click', () => {
+      const show = pwdInput.type === 'password';
+      pwdInput.type = show ? 'text' : 'password';
+      eyeIcon.innerHTML = show
+        ? `<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+           <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+           <line x1="1" y1="1" x2="23" y2="23"/>`
+        : `<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+           <circle cx="12" cy="12" r="3"/>`;
+    });
+
+    /* ── label color on focus ── */
+    document.querySelectorAll('.lf-form input[data-label]').forEach(inp => {
+      const lbl = document.getElementById(inp.dataset.label);
+      inp.addEventListener('focus', () => lbl && lbl.classList.add('focused'));
+      inp.addEventListener('blur',  () => lbl && lbl.classList.remove('focused'));
+    });
+
+    /* ── submit loading state ── */
+    document.getElementById('loginForm').addEventListener('submit', function() {
+      const btn = document.getElementById('submitBtn');
+      btn.classList.add('loading');
+      btn.disabled = true;
+    });
+  </script>
+
 </body>
 </html>

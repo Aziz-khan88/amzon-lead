@@ -9,6 +9,7 @@ import tldextract
 logger = logging.getLogger(__name__)
 
 from django.conf import settings
+from django.utils import timezone
 
 from leadfinder.models import (
     AuthorProfile,
@@ -48,9 +49,11 @@ from leadfinder.services.pipeline.source_audit import (
     email_domain_matches_source,
     evidence_source_is_trusted_for_contact,
     is_catalog_or_platform_source,
+    is_corporate_author_entity,
     is_untrusted_contact_email_domain,
     looks_like_publisher_or_agency_site,
 )
+
 from leadfinder.services.scoring.lead_score import score_from_lead
 from leadfinder.services.search import get_search_provider
 from leadfinder.services.search.video_provider import search_youtube_api
@@ -61,6 +64,22 @@ from leadfinder.utils.source_confidence import clamp_confidence
 from leadfinder.utils.url_safety import is_safe_public_url
 
 DOMAIN_EXTRACTOR = tldextract.TLDExtract(suffix_list_urls=(), cache_dir=None)
+
+
+class IdentifierEvidenceUnavailableError(ValueError):
+    """Raised when an ISBN/ASIN is valid syntax but has no book-level evidence."""
+
+
+def _set_processing_stage(book, stage: str, detail: str = "") -> None:
+    """Persist human-readable runner progress without creating a second state model."""
+
+    raw = dict(book.source_raw_json or {})
+    raw["processing_status"] = "processing"
+    raw["processing_stage"] = stage
+    raw["processing_detail"] = detail
+    raw["processing_updated_at"] = timezone.now().isoformat()
+    book.source_raw_json = raw
+    book.save(update_fields=["source_raw_json", "updated_at"])
 
 
 SOCIAL_CLASSES = {
@@ -796,6 +815,7 @@ def process_book(
     verify_email_mx: bool = True,
 ) -> Lead:
     raise_if_run_canceled(book.research_run_id)
+    _set_processing_stage(book, "Resolving exact book evidence", "Checking the identifier against permitted public sources.")
     log_agent_thought(book.research_run, "Harvester", f"Harvester details retrieval started for book: '{book.title}'")
     amazon_author_url = ""
     if book.asin:
@@ -919,6 +939,32 @@ def process_book(
         except Exception as exc:
             logger.error(f"Error enriching book with Amazon scraper: {exc}")
 
+    # ASINs are syntax-only identifiers.  Never infer a book or author from a
+    # generic marketplace/search page: without a resolved title and author,
+    # proceeding would turn unrelated sites and social profiles into a lead.
+    from leadfinder.services.amazon.amazon_url_parser import extract_asin
+
+    has_exact_supplied_product_url = extract_asin(book.amazon_book_url or "") == (book.asin or "").upper()
+    if (
+        book.source_provider == "manual"
+        and book.asin
+        and (
+            (not book.author_name and not has_exact_supplied_product_url)
+            or not book.title
+            or re.fullmatch(r"\s*Book for (?:ASIN|ISBN10|ISBN13) [A-Z0-9-]+\s*", book.title, re.I)
+        )
+    ):
+        _set_processing_stage(
+            book,
+            "Exact book evidence not found",
+            "No matching public catalog or indexed book result confirmed this identifier.",
+        )
+        raise IdentifierEvidenceUnavailableError(
+            f"No exact public book metadata was found for {book.asin}. "
+            "The item was not enriched to prevent a mismatched author or contact."
+        )
+
+    _set_processing_stage(book, "Finding author-owned sources", "Looking for identity-matched official sites and public profiles.")
     enrichment_provider = (book.research_run.settings_json or {}).get("enrichment_provider")
     provider = get_search_provider(enrichment_provider or book.research_run.source_provider)
     max_results = min(max(int(getattr(settings, "APP_MAX_SEARCH_RESULTS_PER_QUERY", 5)), 1), 10)
@@ -1021,6 +1067,7 @@ def process_book(
     crawled_links: list[str] = []
     page_source_url = canonical_url
     if canonical_url:
+        _set_processing_stage(book, "Reviewing author website", "Collecting public contact evidence from permitted author-owned pages.")
         log_agent_thought(book.research_run, "Harvester", f"Crawling author website {canonical_url} to extract contact links and page content.")
         max_pages = int(getattr(settings, "APP_MAX_AUTHOR_PAGES_TO_CRAWL", 5))
         for page_url in candidate_author_pages(canonical_url)[:max_pages]:
@@ -1186,9 +1233,10 @@ def process_book(
     other_books = []
     
     metadata_recovered_author = bool((book.source_raw_json or {}).get("metadata_recovery") and book.author_name)
+    is_corporate_entity = is_corporate_author_entity(book.author_name)
     initial_identity_confidence = (
         0.85
-        if author_bio
+        if (author_bio or is_corporate_entity)
         else (0.75 if canonical_url and book.author_name else (0.55 if metadata_recovered_author else (0.35 if book.author_name else 0.1)))
     )
     author_profile = AuthorProfile.objects.create(
@@ -1213,11 +1261,16 @@ def process_book(
         publicist_email=extraction.publicist_email or "",
         identity_confidence=initial_identity_confidence,
         identity_reason=(
-            "Author recovered from title/identifier search evidence; official contact path still requires manual review."
-            if metadata_recovered_author
-            else "Matched through public catalog and web-search evidence; manual review required by default."
+            "Corporate/Editorial Team Entity: Contact paths routed to publisher press office & agency."
+            if is_corporate_entity
+            else (
+                "Author recovered from title/identifier search evidence; official contact path still requires manual review."
+                if metadata_recovered_author
+                else "Matched through public catalog and web-search evidence; manual review required by default."
+            )
         ),
     )
+
 
     lead = Lead.objects.create(
         book=book,
@@ -1379,6 +1432,7 @@ def process_book(
                 is_primary=True,
             )
 
+    _set_processing_stage(book, "Auditing public social profiles", "Only identity-matched public profiles and one-hop bio links are considered.")
     social_audits = harvest_social_profiles(lead)
     if social_audits:
         fetched_socials = sum(1 for audit in social_audits if audit.fetch_status == "fetched")
@@ -1392,6 +1446,7 @@ def process_book(
     lead.refresh_from_db()
     author_profile.refresh_from_db()
 
+    _set_processing_stage(book, "Verifying contact evidence", "Checking source quality and selected contact signals.")
     verify_lead_contacts(lead, check_network=verify_email_mx)
     lead.refresh_from_db()
     log_agent_thought(
@@ -1403,6 +1458,7 @@ def process_book(
     video_classifications = []
     video_reason = ""
     if run_video_search:
+        _set_processing_stage(book, "Checking existing video presence", "Looking for public trailer and promotional-video evidence.")
         log_agent_thought(book.research_run, "Harvester", f"Scanning YouTube API / video searches for book '{book.title}' promotional trailers.")
         for query in video_queries(book):
             raise_if_run_canceled(book.research_run_id)
@@ -1530,6 +1586,7 @@ def process_book(
         "missing_data": missing,
         "warnings": lead.warnings_json,
     }
+    _set_processing_stage(book, "Preparing the review brief", "Creating the evidence-backed sales summary and quality score.")
     log_agent_thought(book.research_run, "Copywriter", f"Synthesizing customized pitch angle and sales brief for '{book.title}'...")
     summary = summarize_sales_brief(payload, use_ai=run_ai_extraction)
     lead.sales_agent_summary = summary.get("sales_agent_summary", "")

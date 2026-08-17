@@ -29,6 +29,7 @@ class RateLimitedLoginView(LoginView):
     template_name = "registration/login.html"
     window_seconds = 15 * 60
     maximum_attempts = 5
+    remember_me_seconds = 30 * 24 * 60 * 60
 
     def _cache_key(self):
         identity = f"{self.request.META.get('REMOTE_ADDR', '')}:{self.request.POST.get('username', '').lower()}"
@@ -49,4 +50,11 @@ class RateLimitedLoginView(LoginView):
 
     def form_valid(self, form):
         cache.delete(self._cache_key())
-        return super().form_valid(form)
+        response = super().form_valid(form)
+        # The login screen promises a persistent session only when this option
+        # is selected.  Otherwise the session ends when the browser closes.
+        if self.request.POST.get("remember_me"):
+            self.request.session.set_expiry(self.remember_me_seconds)
+        else:
+            self.request.session.set_expiry(0)
+        return response

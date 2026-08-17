@@ -12,9 +12,13 @@ def can_fetch_url(url: str, user_agent: str) -> bool:
     parser = RobotFileParser()
     try:
         response = requests.get(robots_url, timeout=5, headers={"User-Agent": user_agent})
-        if response.status_code >= 400:
+        # A missing robots.txt means there are no published restrictions.  A
+        # denied or unavailable robots endpoint is not permission to crawl.
+        if response.status_code == 404:
             return True
+        if response.status_code >= 400:
+            return False
         parser.parse(response.text.splitlines())
         return parser.can_fetch(user_agent, url)
     except Exception:
-        return True
+        return False

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from leadfinder.services.amazon.amazon_url_parser import extract_asin, is_amazon_url
+from leadfinder.services.eligibility import EligibilityPolicy
 from leadfinder.services.pipeline.source_audit import evidence_source_is_trusted_for_contact
 
 
@@ -123,6 +124,17 @@ def can_approve_lead(lead, allow_incomplete_video: bool = False, manual_identity
     errors: list[str] = []
     book = lead.book
     author = lead.author_profile
+    eligibility = EligibilityPolicy.evaluate(lead)
+    if not eligibility.is_verified_ready:
+        errors.extend(
+            "Lead has no current system-verified contact."
+            if code in {
+                EligibilityPolicy.REASON_NO_VERIFIED_CONTACT,
+                EligibilityPolicy.REASON_IMPORT_AWAITING_VERIFICATION,
+            }
+            else "Lead is marked do-not-contact."
+            for code in eligibility.reason_codes
+        )
     if not has_verified_amazon_book_url(book) and not book.evidence.exists():
         errors.append("Lead needs an Amazon URL or strong book source.")
     if not book.author_name:

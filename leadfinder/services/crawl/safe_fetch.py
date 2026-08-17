@@ -13,6 +13,8 @@ from .robots import can_fetch_url
 
 
 USER_AGENT = "BookTrailerLeadFinder/1.0 (+public lead research; respects robots.txt)"
+MAX_CRAWL_BYTES = 2_000_000
+MAX_CRAWL_REDIRECTS = 3
 
 
 @dataclass(slots=True)
@@ -49,33 +51,60 @@ def is_ignored_crawl_host(url: str) -> bool:
 
 
 def safe_fetch(url: str) -> FetchedPage | None:
-    if not is_safe_public_url(url):
-        return None
-    if is_ignored_crawl_host(url):
-        return None
-    if not can_fetch_url(url, USER_AGENT):
-        return None
+    """Fetch a bounded, robots-permitted author page with safe redirect hops."""
+
     timeout = int(getattr(settings, "APP_REQUEST_TIMEOUT_SECONDS", 15))
-    time.sleep(float(getattr(settings, "APP_CRAWL_DELAY_SECONDS", getattr(settings, "APP_REQUEST_DELAY_SECONDS", 0.4))))
-    try:
-        response = requests.get(
-            url,
-            headers={"User-Agent": USER_AGENT, "Accept": "text/html,application/xhtml+xml"},
-            timeout=timeout,
-            allow_redirects=True,
-        )
-    except requests.RequestException:
+    current_url = url
+    response = None
+    for _ in range(MAX_CRAWL_REDIRECTS + 1):
+        if (
+            not is_safe_public_url(current_url)
+            or is_ignored_crawl_host(current_url)
+            or not can_fetch_url(current_url, USER_AGENT)
+        ):
+            return None
+        time.sleep(float(getattr(settings, "APP_CRAWL_DELAY_SECONDS", getattr(settings, "APP_REQUEST_DELAY_SECONDS", 0.4))))
+        try:
+            response = requests.get(
+                current_url,
+                headers={"User-Agent": USER_AGENT, "Accept": "text/html,application/xhtml+xml"},
+                timeout=timeout,
+                allow_redirects=False,
+                stream=True,
+            )
+        except requests.RequestException:
+            return None
+        if response.is_redirect or response.is_permanent_redirect:
+            location = response.headers.get("location")
+            response.close()
+            if not location:
+                return None
+            current_url = urljoin(current_url, location)
+            continue
+        break
+    else:
         return None
-    final_url = response.url
-    if not is_safe_public_url(final_url):
+
+    if response is None or response.status_code >= 400:
+        if response is not None:
+            response.close()
         return None
-    content_type = response.headers.get("content-type", "")
+    content_type = response.headers.get("content-type", "").lower()
     if "text/html" not in content_type and "application/xhtml" not in content_type:
+        response.close()
         return None
+    body = bytearray()
+    try:
+        for chunk in response.iter_content(chunk_size=65_536):
+            body.extend(chunk)
+            if len(body) > MAX_CRAWL_BYTES:
+                return None
+    finally:
+        response.close()
     return FetchedPage(
-        url=final_url,
+        url=current_url,
         status_code=response.status_code,
-        html=response.text,
+        html=bytes(body).decode(response.encoding or "utf-8", errors="replace"),
         content_type=content_type,
     )
 
