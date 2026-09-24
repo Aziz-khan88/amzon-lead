@@ -67,31 +67,42 @@ logger = logging.getLogger(__name__)
 
 HEADER_ALIASES = {
     "title": ["title", "book_title", "name", "book name", "book project", "book / project"],
-    "author_name": ["author", "author_name", "author owner", "author / owner"],
+    "author_name": ["author", "author_name", "author owner", "author / owner", "author / owner name", "author owner name"],
     "illustrator_name": ["illustrator", "illustrator_name"],
-    "amazon_book_url": ["amazon_url", "amazon_book_url", "link", "amazon product url", "amazon book url", "amazon / book url", "amazon url"],
+    "amazon_book_url": [
+        "amazon_url",
+        "amazon_book_url",
+        "link",
+        "amazon product url",
+        "amazon book url",
+        "amazon / book url",
+        "amazon url",
+        "amazon book / author url",
+        "amazon book author url",
+        "amazon / author url",
+    ],
     "asin": ["asin"],
     "category": ["category"],
     "review_count": ["review_count", "no_of_ratings"],
     "rating": ["rating", "rating_out_of_5"],
     "publisher": ["publisher", "publisher imprint"],
-    "publication_date": ["publication_date"],
+    "publication_date": ["publication_date", "publication date"],
     "cover_image_url": ["cover_image_url"],
     "author_website": ["author_website", "author website", "official website", "website"],
-    "contact_page_url": ["contact_page_url", "contact page url", "contact url", "contact form", "proof url"],
+    "contact_page_url": ["contact_page_url", "contact page url", "contact url", "contact form", "proof url", "email proof url", "email proof"],
     "public_email": ["public_email", "primary_email", "primary email", "email", "email address"],
     "representation_email": ["representation_email", "secondary_email", "secondary email", "agent email"],
     "publicist_email": ["publicist_email", "publicist email"],
-    "public_phone": ["public_phone", "phone", "phone number"],
-    "public_email_source_url": ["public_email_source_url", "email source url", "email_source_url"],
-    "public_phone_source_url": ["public_phone_source_url", "phone source url", "phone_source_url"],
-    "verification_status": ["verification_status", "verification level"],
+    "public_phone": ["public_phone", "phone", "phone number", "phone dial format"],
+    "public_email_source_url": ["public_email_source_url", "email source url", "email_source_url", "email proof url", "email proof"],
+    "public_phone_source_url": ["public_phone_source_url", "phone source url", "phone_source_url", "phone proof url", "phone proof"],
+    "verification_status": ["verification_status", "verification level", "lead quality status", "lead quality", "quality status"],
     "verification_score": ["verification_score"],
     "video_status": ["video_status"],
     "video_confidence": ["video_confidence"],
     "lead_score": ["lead_score"],
     "do_not_contact": ["do_not_contact", "dnc"],
-    "location": ["location", "region"],
+    "location": ["location", "region", "phone country / region", "phone country region", "country"],
     "agent_name": ["agent_name", "agent name"],
     "publisher_url": ["publisher_url", "publisher url"],
     "instagram_url": ["instagram_url", "instagram url"],
@@ -99,7 +110,7 @@ HEADER_ALIASES = {
     "tiktok_url": ["tiktok_url", "tiktok url"],
     "youtube_url": ["youtube_url", "youtube url"],
     "linkedin_url": ["linkedin_url", "linkedin url"],
-    "sales_agent_summary": ["sales_agent_summary", "why this lead fits"],
+    "sales_agent_summary": ["sales_agent_summary", "why this lead fits", "owner contact rationale", "contact rationale"],
     "suggested_first_line": ["suggested_first_line", "recommended first touch"],
     "suggested_pitch_angle": ["suggested_pitch_angle", "best fit bsp service"],
     "notes": ["notes"],
@@ -355,11 +366,17 @@ def _bool_value(value: str) -> bool:
 
 
 def _status_value(value: str) -> str:
-    value = normalize_text(value)
-    if value in {"verified", "valid", "approved"}:
-        return "verified"
-    if value in {"not verified", "invalid", "failed", "undeliverable"}:
+    norm = normalize_text(value)
+    if not norm:
+        return "other"
+    if norm in {"not verified", "invalid", "failed", "undeliverable", "no"}:
         return "not_verified"
+    if (
+        norm in {"verified", "valid", "approved", "complete", "yes", "a", "a+", "a-"}
+        or "verified" in norm
+        or norm.startswith(("a ", "a -", "a-", "a+", "b ", "b -", "b-", "b+", "high", "complete"))
+    ) and not any(kw in norm for kw in ("needs proof", "pending", "not verified", "unverified", "incomplete", "no contact")):
+        return "verified"
     return "other"
 
 

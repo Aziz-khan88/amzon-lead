@@ -152,3 +152,51 @@ def test_manual_import_preview_does_not_write_records(client, db):
     assert b"Detected preview" in response.content
     assert b"Moonlight Garden" in response.content
     assert ResearchRun.objects.count() == 0
+
+
+def test_import_excel_leads_command_and_deduplication(db, tmp_path):
+    from django.core.management import call_command
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Sheet1"
+    ws.append([
+        "Book Name", "Amazon Book / Author URL", "Amazon URL Status", "Category",
+        "Author / Owner Name", "Phone", "Phone Dial Format", "Email", "Email Proof URL",
+        "Phone Proof URL", "Lead Quality Status", "Publication Date",
+    ])
+    ws.append([
+        "Starlight Voyage", "https://www.amazon.com/dp/B09ABCDEF1", "Verified", "Sci-Fi",
+        "Morgan Sky", "555-123-4567", "+15551234567", "morgan@skybooks.example", "https://skybooks.example/contact",
+        "https://skybooks.example/contact", "A — Verified author lead", "2025.0",
+    ])
+    ws.append([
+        "Quiet Whispers", "https://www.amazon.com/dp/B09ABCDEF2", "Pending", "Poetry",
+        "Riley Rain", "", "", "riley@example.org", "",
+        "", "Needs proof completion", "2024-05-01 00:00:00",
+    ])
+
+    test_file = tmp_path / "leads_test.xlsx"
+    wb.save(test_file)
+
+    call_command("import_excel_leads", str(test_file))
+
+    assert Book.objects.filter(title="Starlight Voyage").count() == 1
+    assert Book.objects.filter(title="Quiet Whispers").count() == 1
+
+    lead1 = Lead.objects.get(book__title="Starlight Voyage")
+    assert lead1.verification_status == "verified"
+    assert lead1.book.publication_date == "2025"
+    assert lead1.primary_contact.deliverability_status == "deliverable"
+    assert EligibilityPolicy.evaluate(lead1).is_verified_ready is True
+
+    lead2 = Lead.objects.get(book__title="Quiet Whispers")
+    assert lead2.verification_status == "other"
+    assert lead2.book.publication_date == "2024-05-01"
+    assert EligibilityPolicy.evaluate(lead2).is_verified_ready is False
+
+    # Second call should deduplicate and not create additional books
+    call_command("import_excel_leads", str(test_file))
+    assert Book.objects.filter(title="Starlight Voyage").count() == 1
+    assert Book.objects.filter(title="Quiet Whispers").count() == 1
+
