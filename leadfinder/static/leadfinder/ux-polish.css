@@ -237,12 +237,12 @@ body.modern-app .table tbody tr {
 }
 body.modern-app .table-responsive .table tbody tr,
 body.modern-app .panel .table tbody tr {
-  animation: ux-row-in 0.4s var(--ux-ease) both;
-  animation-delay: calc(var(--ux-row, 0) * 28ms);
+  animation: ux-row-in 0.3s var(--ux-ease) both;
+  animation-delay: calc(var(--ux-row, 0) * 18ms);
 }
 @keyframes ux-row-in {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 body.modern-app .table tbody tr:hover {
   background: #f2f8f4 !important;
@@ -903,6 +903,7 @@ body.modern-app .action-dropdown-menu {
   border-radius: 10px !important;
   box-shadow: 0 10px 28px rgba(21, 53, 36, 0.12) !important;
   padding: 0.35rem !important;
+  z-index: 1070 !important;
 }
 
 body.modern-app .action-dropdown-item {
@@ -1445,5 +1446,49 @@ body.modern-app .leads-table tbody tr.hot-row td:first-child {
   body.modern-app .leads-table {
     min-width: 980px !important;
   }
+}
+
+/* ==========================================================================
+   25. BULLETPROOF DROPDOWN ELEVATION & STACKING CONTEXT MANAGEMENT
+   ========================================================================== */
+body.modern-app .table tbody tr:has(.show),
+body.modern-app .table tbody tr:has([aria-expanded="true"]),
+body.modern-app .table tbody tr.has-open-dropdown,
+body.modern-app .leads-reference-table tbody tr:has(.show),
+body.modern-app .leads-reference-table tbody tr:has([aria-expanded="true"]),
+body.modern-app .leads-reference-table tbody tr.has-open-dropdown,
+body.modern-app .runs-reference-table tbody tr:has(.show),
+body.modern-app .runs-reference-table tbody tr:has([aria-expanded="true"]),
+body.modern-app .runs-reference-table tbody tr.has-open-dropdown {
+  position: relative !important;
+  z-index: 1050 !important;
+  transform: none !important;
+}
+
+body.modern-app .table tbody tr:has(.show) td,
+body.modern-app .table tbody tr:has([aria-expanded="true"]) td,
+body.modern-app .table tbody tr.has-open-dropdown td,
+body.modern-app .table tbody td:has(.show),
+body.modern-app .table tbody td:has([aria-expanded="true"]),
+body.modern-app .table tbody td.has-open-dropdown {
+  position: relative !important;
+  z-index: 1050 !important;
+}
+
+body.modern-app .dropdown:has(.show),
+body.modern-app .dropdown.show {
+  position: relative !important;
+  z-index: 1060 !important;
+}
+
+body.modern-app .action-dropdown-menu,
+.action-dropdown-menu {
+  z-index: 1070 !important;
+}
+
+/* Ensure table container does not clamp dropdown menus */
+.leads-table-wrap,
+.runs-table-wrap {
+  min-height: 280px;
 }
 

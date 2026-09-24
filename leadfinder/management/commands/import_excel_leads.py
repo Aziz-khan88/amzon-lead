@@ -178,6 +178,11 @@ class Command(BaseCommand):
                 raw_email = _clean_contact_value(r.get("Email"))
                 raw_phone = _clean_contact_value(r.get("Phone"))
                 raw_dial_format = _clean_contact_value(r.get("Phone Dial Format"))
+
+                # Safeguard for shifted author name placed in Phone column
+                if ("children" in author_name.lower() or "verified" in author_name.lower()) and raw_phone and not any(c.isdigit() for c in raw_phone):
+                    author_name = raw_phone
+                    raw_phone = ""
                 email_proof_url = str(r.get("Email Proof URL") or "").strip()
                 phone_proof_url = str(r.get("Phone Proof URL") or "").strip()
                 if not raw_email and "@" in email_proof_url and not email_proof_url.startswith(("http://", "https://")):

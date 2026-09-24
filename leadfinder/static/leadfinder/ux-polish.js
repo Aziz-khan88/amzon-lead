@@ -295,6 +295,27 @@
     });
   }
 
+  /* ── 9. Table Dropdown Elevation ───────────────────────────────────────── */
+  function setupDropdownElevation() {
+    document.addEventListener("show.bs.dropdown", (e) => {
+      const row = e.target.closest("tr");
+      if (row) {
+        row.classList.add("has-open-dropdown");
+        const td = e.target.closest("td");
+        if (td) td.classList.add("has-open-dropdown");
+      }
+    });
+
+    document.addEventListener("hidden.bs.dropdown", (e) => {
+      const row = e.target.closest("tr");
+      if (row) {
+        row.classList.remove("has-open-dropdown");
+        const td = e.target.closest("td");
+        if (td) td.classList.remove("has-open-dropdown");
+      }
+    });
+  }
+
   document.addEventListener("DOMContentLoaded", () => {
     setupStagger();
     setupCounters();
@@ -304,5 +325,7 @@
     setupCopyButtons();
     setupBackToTop();
     setupTooltips();
+    setupDropdownElevation();
   });
 })();
+
