@@ -4169,42 +4169,37 @@ body {
 
 .leads-reference-table th:nth-child(1),
 .leads-reference-table td:nth-child(1) {
-  width: 30px;
+  width: 38px;
 }
 
 .leads-reference-table th:nth-child(2),
 .leads-reference-table td:nth-child(2) {
-  width: 72px;
+  width: 32%;
 }
 
 .leads-reference-table th:nth-child(3),
 .leads-reference-table td:nth-child(3) {
-  width: 145px;
+  width: 27%;
 }
 
 .leads-reference-table th:nth-child(4),
 .leads-reference-table td:nth-child(4) {
-  width: 115px;
+  width: 11%;
 }
 
 .leads-reference-table th:nth-child(5),
 .leads-reference-table td:nth-child(5) {
-  width: 82px;
+  width: 10%;
 }
 
 .leads-reference-table th:nth-child(6),
 .leads-reference-table td:nth-child(6) {
-  width: 82px;
+  width: 11%;
 }
 
 .leads-reference-table th:nth-child(7),
 .leads-reference-table td:nth-child(7) {
-  width: 88px;
-}
-
-.leads-reference-table th:nth-child(8),
-.leads-reference-table td:nth-child(8) {
-  width: 88px;
+  width: 9%;
 }
 
 .leads-reference-table thead,
@@ -10299,21 +10294,19 @@ body.modern-app .leads-reference-table {
 }
 
 body.modern-app .leads-reference-table th:nth-child(1),
-body.modern-app .leads-reference-table td:nth-child(1) { width: 42px; }
+body.modern-app .leads-reference-table td:nth-child(1) { width: 38px; }
 body.modern-app .leads-reference-table th:nth-child(2),
-body.modern-app .leads-reference-table td:nth-child(2) { width: 96px; }
+body.modern-app .leads-reference-table td:nth-child(2) { width: 32%; }
 body.modern-app .leads-reference-table th:nth-child(3),
-body.modern-app .leads-reference-table td:nth-child(3) { width: 190px; }
+body.modern-app .leads-reference-table td:nth-child(3) { width: 27%; }
 body.modern-app .leads-reference-table th:nth-child(4),
-body.modern-app .leads-reference-table td:nth-child(4) { width: 170px; }
+body.modern-app .leads-reference-table td:nth-child(4) { width: 11%; }
 body.modern-app .leads-reference-table th:nth-child(5),
-body.modern-app .leads-reference-table td:nth-child(5) { width: 112px; }
+body.modern-app .leads-reference-table td:nth-child(5) { width: 10%; }
 body.modern-app .leads-reference-table th:nth-child(6),
-body.modern-app .leads-reference-table td:nth-child(6) { width: 122px; }
+body.modern-app .leads-reference-table td:nth-child(6) { width: 11%; }
 body.modern-app .leads-reference-table th:nth-child(7),
-body.modern-app .leads-reference-table td:nth-child(7) { width: 138px; }
-body.modern-app .leads-reference-table th:nth-child(8),
-body.modern-app .leads-reference-table td:nth-child(8) { width: 120px; }
+body.modern-app .leads-reference-table td:nth-child(7) { width: 9%; }
 
 body.modern-app .leads-reference-table thead th {
   background: #fbfcfb !important;
@@ -10670,21 +10663,19 @@ body.modern-app .rows-per-page select {
   }
 
   body.modern-app .leads-reference-table th:nth-child(1),
-  body.modern-app .leads-reference-table td:nth-child(1) { width: 42px !important; }
+  body.modern-app .leads-reference-table td:nth-child(1) { width: 38px !important; }
   body.modern-app .leads-reference-table th:nth-child(2),
-  body.modern-app .leads-reference-table td:nth-child(2) { width: 96px !important; }
+  body.modern-app .leads-reference-table td:nth-child(2) { width: 32% !important; }
   body.modern-app .leads-reference-table th:nth-child(3),
-  body.modern-app .leads-reference-table td:nth-child(3) { width: 190px !important; }
+  body.modern-app .leads-reference-table td:nth-child(3) { width: 27% !important; }
   body.modern-app .leads-reference-table th:nth-child(4),
-  body.modern-app .leads-reference-table td:nth-child(4) { width: 170px !important; }
+  body.modern-app .leads-reference-table td:nth-child(4) { width: 11% !important; }
   body.modern-app .leads-reference-table th:nth-child(5),
-  body.modern-app .leads-reference-table td:nth-child(5) { width: 112px !important; }
+  body.modern-app .leads-reference-table td:nth-child(5) { width: 10% !important; }
   body.modern-app .leads-reference-table th:nth-child(6),
-  body.modern-app .leads-reference-table td:nth-child(6) { width: 122px !important; }
+  body.modern-app .leads-reference-table td:nth-child(6) { width: 11% !important; }
   body.modern-app .leads-reference-table th:nth-child(7),
-  body.modern-app .leads-reference-table td:nth-child(7) { width: 138px !important; }
-  body.modern-app .leads-reference-table th:nth-child(8),
-  body.modern-app .leads-reference-table td:nth-child(8) { width: 120px !important; }
+  body.modern-app .leads-reference-table td:nth-child(7) { width: 9% !important; }
 
   body.modern-app .leads-table td::before,
   body.modern-app .leads-reference-table td::before {

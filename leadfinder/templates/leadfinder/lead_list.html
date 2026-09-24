@@ -202,15 +202,15 @@
         <table class="table align-middle lead-table leads-reference-table leads-table">
           <thead>
             <tr>
-              <th class="select-cell" style="width: 3%;">
+              <th class="select-cell" style="width: 38px;">
                 <input type="checkbox" id="selectAll" class="form-check-input select-all-checkbox" aria-label="Select all leads">
               </th>
-              <th style="width: 28%;">Book Details</th>
-              <th style="width: 30%;">Author & Contact Email</th>
-              <th style="width: 12%;">Channels</th>
-              <th style="width: 9%;">Published</th>
-              <th style="width: 10%;">Task</th>
-              <th class="text-end" style="width: 8%;">Actions</th>
+              <th style="width: 32%;">Book Details</th>
+              <th style="width: 27%;">Author & Contact Email</th>
+              <th style="width: 11%;">Channels</th>
+              <th style="width: 10%;">Published</th>
+              <th style="width: 11%;">Task</th>
+              <th class="text-end" style="width: 9%;">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -322,7 +322,7 @@
                 </div>
               </td>
               <td data-label="Published">
-                <span class="published-date">{{ lead.book.publication_date|default:"-" }}</span>
+                <span class="published-date" title="{{ lead.book.publication_date }}">{{ lead.book.publication_date|truncatechars:20|default:"-" }}</span>
               </td>
               <td data-label="Task">{% with assignment=lead.current_assignments.0 %}{% if assignment %}<span class="task-status task-{{ assignment.status }}">{{ assignment.get_status_display }}</span><small class="task-owner">{{ assignment.assigned_to.get_full_name|default:assignment.assigned_to.username }}</small>{% else %}<span class="task-status task-unassigned">Unassigned</span>{% endif %}{% endwith %}</td>
               <td class="text-end" data-label="Action">

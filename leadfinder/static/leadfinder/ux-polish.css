@@ -1125,3 +1125,325 @@ body.modern-app .modern-kpi-card:first-child .kpi-topline > i {
     transform: none;
   }
 }
+
+/* ==========================================================================
+   24. LEADS TABLE UX/UI POLISH & RESPONSIVE 1440px / LAPTOP / DESKTOP FIT
+   ========================================================================== */
+
+/* Outer wrapper & zero-overflow fit */
+body.modern-app .leads-table-wrap {
+  overflow-x: auto !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  border-radius: 0 0 14px 14px !important;
+}
+
+body.modern-app .leads-reference-table,
+body.modern-app .lead-table.leads-table,
+body.modern-app .leads-table {
+  width: 100% !important;
+  min-width: 100% !important;
+  table-layout: fixed !important;
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+  margin-bottom: 0 !important;
+}
+
+/* Exact 7-column proportions for Leads Table */
+body.modern-app .leads-reference-table th:nth-child(1),
+body.modern-app .leads-reference-table td:nth-child(1),
+body.modern-app .leads-table th:nth-child(1),
+body.modern-app .leads-table td:nth-child(1) {
+  width: 38px !important;
+  min-width: 38px !important;
+  max-width: 38px !important;
+  text-align: center !important;
+  padding: 0.75rem 0.35rem !important;
+}
+
+body.modern-app .leads-reference-table th:nth-child(2),
+body.modern-app .leads-reference-table td:nth-child(2),
+body.modern-app .leads-table th:nth-child(2),
+body.modern-app .leads-table td:nth-child(2) {
+  width: 32% !important;
+  min-width: 250px !important;
+  padding: 0.75rem 0.65rem !important;
+}
+
+body.modern-app .leads-reference-table th:nth-child(3),
+body.modern-app .leads-reference-table td:nth-child(3),
+body.modern-app .leads-table th:nth-child(3),
+body.modern-app .leads-table td:nth-child(3) {
+  width: 27% !important;
+  min-width: 210px !important;
+  padding: 0.75rem 0.65rem !important;
+}
+
+body.modern-app .leads-reference-table th:nth-child(4),
+body.modern-app .leads-reference-table td:nth-child(4),
+body.modern-app .leads-table th:nth-child(4),
+body.modern-app .leads-table td:nth-child(4) {
+  width: 11% !important;
+  min-width: 100px !important;
+  padding: 0.75rem 0.5rem !important;
+}
+
+body.modern-app .leads-reference-table th:nth-child(5),
+body.modern-app .leads-reference-table td:nth-child(5),
+body.modern-app .leads-table th:nth-child(5),
+body.modern-app .leads-table td:nth-child(5) {
+  width: 10% !important;
+  min-width: 95px !important;
+  padding: 0.75rem 0.5rem !important;
+}
+
+body.modern-app .leads-reference-table th:nth-child(6),
+body.modern-app .leads-reference-table td:nth-child(6),
+body.modern-app .leads-table th:nth-child(6),
+body.modern-app .leads-table td:nth-child(6) {
+  width: 11% !important;
+  min-width: 100px !important;
+  padding: 0.75rem 0.5rem !important;
+}
+
+body.modern-app .leads-reference-table th:nth-child(7),
+body.modern-app .leads-reference-table td:nth-child(7),
+body.modern-app .leads-table th:nth-child(7),
+body.modern-app .leads-table td:nth-child(7) {
+  width: 9% !important;
+  min-width: 75px !important;
+  text-align: right !important;
+  padding: 0.75rem 0.75rem !important;
+}
+
+/* Ensure nonexistent 8th child does not take space */
+body.modern-app .leads-reference-table th:nth-child(8),
+body.modern-app .leads-reference-table td:nth-child(8) {
+  display: none !important;
+}
+
+/* Header typography & styling */
+body.modern-app .leads-reference-table thead th,
+body.modern-app .leads-table thead th {
+  background: #f7faf8 !important;
+  border-bottom: 1px solid #e2eae5 !important;
+  color: #3b5043 !important;
+  font-size: 0.72rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.04em !important;
+  text-transform: uppercase !important;
+}
+
+/* Book Details Cell: Flex layout with robust typography */
+body.modern-app .leads-reference-table .book-cell,
+body.modern-app .leads-table .book-cell {
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 0.75rem !important;
+  min-width: 0 !important;
+}
+
+body.modern-app .leads-reference-table .book-cover-mini,
+body.modern-app .leads-reference-table .no-cover-mini,
+body.modern-app .leads-table .book-cover-mini,
+body.modern-app .leads-table .no-cover-mini {
+  width: 38px !important;
+  min-width: 38px !important;
+  max-width: 38px !important;
+  height: 52px !important;
+  object-fit: cover !important;
+  border-radius: 6px !important;
+  border: 1px solid #dce6e0 !important;
+  background: #eef4f0 !important;
+  color: #0b7a48 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+}
+
+body.modern-app .leads-reference-table .stacked-cell,
+body.modern-app .leads-table .stacked-cell {
+  min-width: 0 !important;
+  flex: 1 1 auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0.25rem !important;
+}
+
+body.modern-app .leads-reference-table .row-title,
+body.modern-app .leads-table .row-title {
+  color: #122017 !important;
+  font-size: 0.88rem !important;
+  font-weight: 700 !important;
+  line-height: 1.35 !important;
+  max-width: 100% !important;
+  white-space: normal !important;
+  word-break: normal !important;
+  overflow-wrap: break-word !important;
+  display: -webkit-box !important;
+  -webkit-line-clamp: 2 !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+/* Author & Contact Column */
+body.modern-app .leads-reference-table .author-name-line,
+body.modern-app .leads-table .author-name-line {
+  font-size: 0.88rem !important;
+  font-weight: 700 !important;
+  color: #122017 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  max-width: 100% !important;
+}
+
+body.modern-app .leads-reference-table .row-link,
+body.modern-app .leads-table .row-link {
+  color: #0a7c48 !important;
+  font-size: 0.88rem !important;
+  font-weight: 700 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.25rem !important;
+}
+
+body.modern-app .leads-reference-table .contact-link,
+body.modern-app .leads-table .contact-link {
+  color: #0969da !important;
+  font-size: 0.82rem !important;
+  font-weight: 600 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.25rem !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  max-width: 100% !important;
+}
+
+/* Channels Column */
+body.modern-app .leads-reference-table .channel-actions,
+body.modern-app .leads-table .channel-actions {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.35rem !important;
+  flex-wrap: nowrap !important;
+}
+
+body.modern-app .leads-reference-table .channel-actions .icon-link,
+body.modern-app .leads-table .channel-actions .icon-link {
+  width: 28px !important;
+  height: 28px !important;
+  border-radius: 6px !important;
+  background: #f0f4f1 !important;
+  border: 1px solid #dce5df !important;
+  color: #415247 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 0.85rem !important;
+  text-decoration: none !important;
+  transition: all 0.15s ease !important;
+}
+
+body.modern-app .leads-reference-table .channel-actions .icon-link:hover,
+body.modern-app .leads-table .channel-actions .icon-link:hover {
+  background: #e1efe7 !important;
+  border-color: #aed9c1 !important;
+  color: #097945 !important;
+  transform: translateY(-1px) !important;
+}
+
+/* Published Date Column */
+body.modern-app .leads-reference-table .published-date,
+body.modern-app .leads-table .published-date {
+  font-size: 0.82rem !important;
+  font-weight: 500 !important;
+  color: #435649 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  display: inline-block !important;
+  max-width: 100% !important;
+}
+
+/* Task Badge Column */
+body.modern-app .leads-reference-table .task-status,
+body.modern-app .leads-table .task-status {
+  display: inline-block !important;
+  padding: 0.2rem 0.55rem !important;
+  font-size: 0.72rem !important;
+  font-weight: 600 !important;
+  border-radius: 999px !important;
+  white-space: nowrap !important;
+}
+
+body.modern-app .leads-reference-table .task-unassigned,
+body.modern-app .leads-table .task-unassigned {
+  background: #f1f3f2 !important;
+  color: #6a7970 !important;
+  border: 1px solid #e1e6e3 !important;
+}
+
+body.modern-app .leads-reference-table .task-owner,
+body.modern-app .leads-table .task-owner {
+  display: block !important;
+  font-size: 0.7rem !important;
+  color: #55665b !important;
+  margin-top: 0.15rem !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+/* Actions Column */
+body.modern-app .leads-reference-table .action-dots-btn,
+body.modern-app .leads-table .action-dots-btn {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 8px !important;
+  background: #ffffff !important;
+  border: 1px solid #dbe4de !important;
+  color: #3b4e43 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+}
+
+body.modern-app .leads-reference-table .action-dots-btn:hover,
+body.modern-app .leads-table .action-dots-btn:hover {
+  background: #f2f7f4 !important;
+  border-color: #bed7c8 !important;
+  color: #0a7946 !important;
+}
+
+/* Row states & hover */
+body.modern-app .leads-reference-table tbody tr,
+body.modern-app .leads-table tbody tr {
+  transition: background-color 0.12s ease !important;
+  border-bottom: 1px solid #ebf1ed !important;
+}
+
+body.modern-app .leads-reference-table tbody tr:hover td,
+body.modern-app .leads-table tbody tr:hover td {
+  background-color: #f5f9f6 !important;
+}
+
+body.modern-app .leads-reference-table tbody tr.hot-row td:first-child,
+body.modern-app .leads-table tbody tr.hot-row td:first-child {
+  border-left: 3px solid #0e9f6e !important;
+}
+
+/* Tablet & Mobile responsive fallback */
+@media (max-width: 1100px) {
+  body.modern-app .leads-reference-table,
+  body.modern-app .leads-table {
+    min-width: 980px !important;
+  }
+}
+

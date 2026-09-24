@@ -24,8 +24,23 @@ def _clean_pub_date(value) -> str:
     if val.endswith(".0") and val[:-2].isdigit():
         return val[:-2]
     if " 00:00:00" in val:
-        return val.replace(" 00:00:00", "").strip()
-    return val
+        val = val.replace(" 00:00:00", "").strip()
+    import re
+    m1 = re.search(r"\b(19\d{2}|20\d{2})[-/](\d{1,2})[-/](\d{1,2})\b", val)
+    if m1:
+        return f"{m1.group(1)}-{int(m1.group(2)):02d}-{int(m1.group(3)):02d}"
+    m_written = re.search(r"(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),?\s+(20\d{2}|19\d{2})", val, re.I)
+    if m_written:
+        months = {"january":1,"february":2,"march":3,"april":4,"may":5,"june":6,"july":7,"august":8,"september":9,"october":10,"november":11,"december":12}
+        mo = months[m_written.group(1).lower()]
+        return f"{m_written.group(3)}-{mo:02d}-{int(m_written.group(2)):02d}"
+    m2 = re.search(r"\b(19\d{2}|20\d{2})[-/](\d{1,2})\b", val)
+    if m2:
+        return f"{m2.group(1)}-{int(m2.group(2)):02d}"
+    m3 = re.search(r"\b(19\d{2}|20\d{2})\b", val)
+    if m3:
+        return m3.group(1)
+    return ""
 
 
 def _extract_root_website(url: str) -> str:
@@ -165,6 +180,13 @@ class Command(BaseCommand):
                 raw_dial_format = _clean_contact_value(r.get("Phone Dial Format"))
                 email_proof_url = str(r.get("Email Proof URL") or "").strip()
                 phone_proof_url = str(r.get("Phone Proof URL") or "").strip()
+                if not raw_email and "@" in email_proof_url and not email_proof_url.startswith(("http://", "https://")):
+                    raw_email = email_proof_url
+                    if phone_proof_url.startswith(("http://", "https://")):
+                        email_proof_url = phone_proof_url
+                        phone_proof_url = ""
+                    else:
+                        email_proof_url = ""
                 location = str(r.get("Phone Country / Region") or r.get("Phone Country/Region") or "").strip()
                 rationale = str(r.get("Owner Contact Rationale") or "").strip()
                 notes = str(r.get("Notes") or "").strip()
