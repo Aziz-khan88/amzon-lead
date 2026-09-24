@@ -1,5 +1,12 @@
 {% extends "base.html" %}
 {% block title %}New Research Run - Book Trailer Lead Finder{% endblock %}
+{% block topbar_page_actions %}
+  <div class="topbar-page-actions run-new-topbar-actions">
+    <a class="btn btn-outline-primary" href="{% url 'leadfinder:run_list' %}">
+      <i class="ph-bold ph-arrow-left"></i> All Runs
+    </a>
+  </div>
+{% endblock %}
 {% block content %}
 <div class="new-run-page screenshot-new-run-page">
   <header class="new-run-command">

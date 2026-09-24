@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import re
+from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import urlparse
 
 import tldextract
@@ -35,8 +36,11 @@ from leadfinder.services.ai.reconcile_lead import reconcile_and_verify_lead
 from leadfinder.services.ai.summarize_sales_brief import render_brief_markdown, summarize_sales_brief
 from leadfinder.services.crawl.extract_links import extract_links, extract_social_links
 from leadfinder.services.crawl.extract_text import extract_page_title, extract_visible_text
+from leadfinder.services.crawl.contact_form import detect_contact_forms
 from leadfinder.services.crawl.contact_regex import extract_emails, extract_phones
-from leadfinder.services.crawl.safe_fetch import candidate_author_pages, safe_fetch
+from leadfinder.services.crawl.deobfuscate import extract_hidden_contacts
+from leadfinder.services.crawl.js_render import rerender_if_thin
+from leadfinder.services.crawl.safe_fetch import candidate_author_pages, discover_contact_links, safe_fetch
 from leadfinder.services.books.isbn_intelligence import (
     analyze_identifier,
     public_resolution_to_book_data,
@@ -55,9 +59,11 @@ from leadfinder.services.pipeline.source_audit import (
 )
 
 from leadfinder.services.scoring.lead_score import score_from_lead
+from leadfinder.services.parallel import map_parallel, stage_workers
 from leadfinder.services.search import get_search_provider
 from leadfinder.services.search.video_provider import search_youtube_api
 from leadfinder.services.social import harvest_social_profiles
+from leadfinder.services.social.wikidata_profiles import find_author_profiles
 from leadfinder.services.verification import verify_lead_contacts
 from leadfinder.utils.normalize import normalized_author_key, is_valid_author_name, normalize_text
 from leadfinder.utils.source_confidence import clamp_confidence
@@ -68,6 +74,15 @@ DOMAIN_EXTRACTOR = tldextract.TLDExtract(suffix_list_urls=(), cache_dir=None)
 
 class IdentifierEvidenceUnavailableError(ValueError):
     """Raised when an ISBN/ASIN is valid syntax but has no book-level evidence."""
+
+
+class CorporateEntityRejectedError(ValueError):
+    """Raised when the "author" is a publisher, brand, or company.
+
+    The pipeline only produces individual-author leads; corporate entities are
+    rejected here — before classification, search waves, video lookups, and AI
+    extraction — so a publisher record never spends query or token budget.
+    """
 
 
 def _set_processing_stage(book, stage: str, detail: str = "") -> None:
@@ -271,56 +286,142 @@ def classify_result_url(url: str) -> tuple[str, float]:
     return "author_site", 0.45
 
 
-def author_discovery_queries(book) -> list[str]:
-    author = book.author_name
-    title = book.title
-    if not author:
-        return []
-    return [
-        f'"{author}" "{title}" author website',
-        f'"{author}" "{title}" contact',
-        f'"{author}" "{title}" official author site',
-        f'"{author}" "{title}" media kit',
-        f'"{author}" "{title}" school visits',
-        f'"{author}" children\'s book author',
-        f'"{author}" picture book author',
-        f'"{author}" author visits contact',
-        f'"{author}" booking email children author',
-        f'"{title}" "{author}" official website',
-        f'"{title}" "{author}" publisher',
-        f'"{author}" "{title}" Instagram',
-        f'"{author}" "{title}" Facebook',
-        f'"{author}" "{title}" YouTube',
-        f'"{author}" "{title}" book trailer',
-        f'"{author}" "{title}" email',
-        f'"{author}" "{title}" phone',
-        f'"{author}" "{title}" booking contact',
-        f'site:instagram.com "{author}" "{title}" email',
-        f'site:facebook.com "{author}" "{title}" email',
-        f'site:facebook.com "{author}" "{title}" phone',
-        f'site:linkedin.com "{author}" "{title}" contact',
-        f'site:youtube.com "{author}" "{title}" email',
+ANCHOR_CONNECTORS = {"a", "an", "the", "of", "in", "on", "at", "to", "and", "or", "for", "with"}
+
+
+def _title_anchor(title: str, *, max_words: int = 6) -> str:
+    """Quoted-search anchor for a book title.
+
+    Full quoted titles over-constrain web search (subtitles and long titles
+    return nothing), so long titles collapse to their first few significant
+    tokens, which still identify the book when paired with the author name.
+    Leading/trailing connector words are dropped so the quoted anchor never
+    starts or ends on filler like "of a".
+    """
+
+    words = (title or "").split()
+    if len(words) <= max_words:
+        return (title or "").strip()
+    significant = [
+        word
+        for word in words
+        if normalize_text(word) not in TITLE_STOPWORDS and normalize_text(word) not in ANCHOR_CONNECTORS
     ]
+    anchor_words = significant[:4] if significant else words[:4]
+    while anchor_words and normalize_text(anchor_words[-1]) in ANCHOR_CONNECTORS:
+        anchor_words.pop()
+    while anchor_words and normalize_text(anchor_words[0]) in ANCHOR_CONNECTORS:
+        anchor_words.pop(0)
+    return " ".join(anchor_words).strip(" :-")
+
+
+def _author_query_plan(book) -> dict[str, list[str]]:
+    """Categorized author-discovery queries.
+
+    Categories exist so execution can pick a BALANCED mix: the old flat list
+    put every social ``site:`` query after position 18, and the bounded query
+    budget meant they were never executed at all.
+    """
+
+    author = (book.author_name or "").strip()
+    title = (book.title or "").strip()
+    if not author:
+        return {"site": [], "contact": [], "social": []}
+    anchor = _title_anchor(title)
+    pair = f'"{author}" "{anchor}"' if anchor else f'"{author}"'
+    social_anchor = f' "{anchor}"' if anchor else ""
+    return {
+        "site": [
+            f"{pair} author website",
+            f'"{author}" official author website',
+            f"{pair} official site",
+            f'"{author}" children\'s picture book author website',
+            f"{pair} publisher",
+            f'"{author}" author-illustrator website',
+            f'"{author}" writes and illustrates',
+            f"{pair} author page publisher",
+        ],
+        "contact": [
+            f"{pair} contact",
+            f'"{author}" author contact email',
+            f'"{author}" school visits booking contact',
+            f"{pair} media kit",
+            f'"{author}" picture book author contact',
+            f'"{author}" press kit author contact',
+            f'"{author}" booking school visit author',
+            f"{pair} get in touch",
+        ],
+        "social": [
+            f'site:instagram.com "{author}"{social_anchor}',
+            f'site:facebook.com "{author}"{social_anchor}',
+            f'site:youtube.com "{author}"{social_anchor}',
+            f'site:linkedin.com "{author}"{social_anchor}',
+            f'site:tiktok.com "{author}"{social_anchor}',
+            f'"{author}"{social_anchor} linktree OR linktr.ee OR bio.site',
+            f"{pair} book trailer",
+            f"{pair} interview author",
+        ],
+    }
+
+
+def select_author_discovery_queries(book, limit: int) -> list[str]:
+    """Balanced round-robin pick across query categories, capped at ``limit``.
+
+    Guarantees the bounded budget always includes official-site, contact-intent,
+    AND social-platform coverage, whatever ``limit`` is.
+    """
+
+    plan = _author_query_plan(book)
+    limit = max(1, int(limit))
+    ordered: list[str] = []
+    categories = ["site", "contact", "social"]
+    while len(ordered) < limit and any(plan[category] for category in categories):
+        for category in categories:
+            if plan[category]:
+                ordered.append(plan[category].pop(0))
+                if len(ordered) >= limit:
+                    break
+    return list(dict.fromkeys(ordered))[:limit]
+
+
+def author_discovery_queries(book) -> list[str]:
+    """Full flattened plan (all categories), kept for callers that want every
+    candidate query rather than a budgeted balanced selection."""
+
+    plan = _author_query_plan(book)
+    return list(dict.fromkeys(query for category in ("site", "contact", "social") for query in plan[category]))
+
 
 def deep_contact_discovery_queries(book) -> list[str]:
-    author = book.author_name
-    title = book.title
+    author = (book.author_name or "").strip()
+    anchor = _title_anchor(book.title)
     if not author:
         return []
-    return [
-        f'"{author}" official website',
-        f'"{author}" author website contact',
-        f'"{author}" "{title}" official website',
-        f'"{author}" "{title}" contact email',
-        f'"{author}" children\'s author contact email',
-        f'"{author}" picture book author contact',
-        f'"{author}" school visits booking contact',
-        f'"{author}" media kit contact',
-        f'"{author}" email "@gmail.com" OR "@yahoo.com" OR "@outlook.com"',
-        f'"{author}" ("agent" OR "agency" OR "represented by") contact',
-        f'"{author}" ("publicist" OR "publicity" OR "press" OR "media") email',
-        f'"{author}" contact page',
-    ]
+    pair = f'"{author}" "{anchor}"' if anchor else f'"{author}"'
+    return list(
+        dict.fromkeys(
+            [
+                f'"{author}" official website',
+                f'"{author}" author website contact',
+                f"{pair} official website",
+                f"{pair} contact email",
+                f'"{author}" children\'s author contact email',
+                f'"{author}" picture book author contact',
+                f'"{author}" school visits booking contact',
+                f'"{author}" media kit contact',
+                f'"{author}" email "@gmail.com" OR "@yahoo.com" OR "@outlook.com"',
+                f'"{author}" ("agent" OR "agency" OR "represented by") contact',
+                f'"{author}" ("publicist" OR "publicity" OR "press" OR "media") email',
+                f'"{author}" contact page',
+                f'site:linktr.ee OR site:bio.site OR site:carrd.co OR site:beacons.ai "{author}"',
+                f'site:substack.com "{author}" children book',
+                f'"{author}" ("media kit" OR "press kit") author',
+                f'"{author}" author ("email me" OR "reach me" OR "get in touch")',
+                f'"{author}" illustrator author contact booking',
+                f"{pair} author visit booking",
+            ]
+        )
+    )
 
 
 def _placeholder_book_title(title: str | None, asin: str | None = None) -> bool:
@@ -407,7 +508,21 @@ def _recover_missing_author_from_search(book, provider, max_results: int) -> boo
         "Harvester",
         f"Author missing for '{book.title}'. Running title/identifier metadata recovery before contact search.",
     )
-    for query in queries[:4]:
+    planned_queries = queries[:4]
+
+    def _run_recovery_query(query):
+        """Network-only worker; query logging and extraction stay serial."""
+        try:
+            return query, provider.search(query, max_results=max_results), None
+        except Exception as exc:
+            return query, [], exc
+
+    # The bounded metadata queries are independent network waits — run them
+    # concurrently, then process in query order so the highest-priority query
+    # still wins the recovery.
+    recovery_batch = map_parallel(_run_recovery_query, planned_queries)
+
+    for query, results, search_error in recovery_batch:
         raise_if_run_canceled(book.research_run_id)
         log = SearchQueryLog.objects.create(
             research_run=book.research_run,
@@ -415,14 +530,13 @@ def _recover_missing_author_from_search(book, provider, max_results: int) -> boo
             query=query,
             provider=provider.provider_name,
         )
-        try:
-            results = provider.search(query, max_results=max_results)
+        if search_error is None:
             log.result_count = len(results)
             log.status = "success"
-        except Exception as exc:
+        else:
             results = []
             log.status = "failed"
-            log.error_message = str(exc)
+            log.error_message = str(search_error)
         log.save()
 
         matching_results = []
@@ -590,6 +704,56 @@ def _trusted_author_site_url(url: str, book, title: str = "") -> bool:
 
 def _filter_socials_for_identity(socials: dict[str, str], book) -> dict[str, str]:
     return {field: url for field, url in socials.items() if _social_url_matches_identity(url, book)}
+
+
+def _merge_wikidata_profiles(book, profiles: dict, candidate_urls: list[str], socials: dict[str, str]) -> None:
+    """Fold free Wikidata author profiles into discovery evidence (main thread only).
+
+    Identity was already verified by the Wikidata entity-label match, so opaque
+    handles (YouTube channel IDs, Goodreads numeric IDs) are trusted here; the
+    Wikidata entity URL is stored as the auditable source for every value.
+    """
+    if float(profiles.get("confidence") or 0) < 0.6:
+        return
+    entity_url = profiles.get("entity_url") or "https://www.wikidata.org"
+    label = str(profiles.get("entity_label") or "")
+    website = str(profiles.get("canonical_website") or "")
+    if website and is_safe_public_url(website) and not _domain_is_retail_or_social(website):
+        candidate_urls.append(website)
+        Evidence.objects.create(
+            book=book,
+            evidence_type="official_author_site",
+            field_name="wikidata_official_website",
+            field_value=website,
+            source_url=entity_url,
+            source_title=f"Wikidata: {label}"[:500],
+            confidence=float(profiles.get("confidence") or 0.65),
+        )
+    for field in ("instagram_url", "facebook_url", "tiktok_url", "linkedin_url", "youtube_url", "goodreads_url"):
+        url = str(profiles.get(field) or "")
+        if not url or field in socials:
+            continue
+        socials[field] = url
+        Evidence.objects.create(
+            book=book,
+            evidence_type="social_profile",
+            field_name=field,
+            field_value=url,
+            source_url=entity_url,
+            source_title=f"Wikidata: {label}"[:500],
+            confidence=0.6,
+        )
+    wikipedia_url = str(profiles.get("wikipedia_url") or "")
+    if wikipedia_url:
+        Evidence.objects.create(
+            book=book,
+            evidence_type="web_search_result",
+            field_name="wikipedia_url",
+            field_value=wikipedia_url,
+            source_url=wikipedia_url,
+            source_title=f"Wikipedia: {label}"[:500],
+            confidence=0.55,
+        )
 
 
 def _filter_extraction_urls(extraction, book, canonical_url: str):
@@ -772,6 +936,64 @@ def _extract_public_contact_from_search_result(dto, result_class: str, book) -> 
             }
         )
     return contacts
+
+
+def _fetch_with_js_fallback(url):
+    """safe_fetch + opt-in headless re-render for thin JS-built pages."""
+
+    return rerender_if_thin(safe_fetch(url))
+
+
+def _collect_hidden_page_contacts(fetched, book, search_contact_evidence: list[dict]) -> None:
+    """Recover contacts hidden in raw HTML and record on-site contact forms.
+
+    Plain visible-text extraction misses mailto:/tel: links, Cloudflare
+    data-cfemail payloads, JSON-LD email fields, and ``name [at] domain [dot]
+    com`` prose.  Pages reaching this helper are already identity-trusted
+    author sites, so recovered values keep the standard trust checks but earn
+    contact_page confidence.  Contact forms are stored as Evidence so a lead
+    keeps an actionable route even when no email/phone is published.
+    """
+
+    title = extract_page_title(fetched.html)
+    hidden_emails, hidden_phones = extract_hidden_contacts(fetched.html)
+    for email in hidden_emails:
+        if not _email_matches_author_or_trusted_source(email, book, fetched.url, trusted_source=True):
+            continue
+        search_contact_evidence.append(
+            {
+                "field": "public_email",
+                "value": email,
+                "source_url": fetched.url,
+                "source_title": title,
+                "source_snippet": "Recovered from mailto:/obfuscated markup on the author's own site.",
+                "evidence_type": "contact_page",
+                "confidence": 0.7,
+            }
+        )
+    for phone in hidden_phones:
+        search_contact_evidence.append(
+            {
+                "field": "public_phone",
+                "value": phone,
+                "source_url": fetched.url,
+                "source_title": title,
+                "source_snippet": "Recovered from tel:/obfuscated markup on the author's own site.",
+                "evidence_type": "contact_page",
+                "confidence": 0.66,
+            }
+        )
+    for form in detect_contact_forms(fetched.html, fetched.url):
+        Evidence.objects.create(
+            book=book,
+            evidence_type="contact_page",
+            field_name="contact_form_url",
+            field_value=form["url"],
+            source_url=fetched.url,
+            source_title=title[:500],
+            source_snippet=f"On-site {form['kind']} detected (fields: {', '.join(form['fields'][:5])}).",
+            confidence=0.65 if form["kind"] == "contact_form" else 0.5,
+        )
 
 
 def _contact_result_matches_book_or_author(dto, book) -> bool:
@@ -971,6 +1193,25 @@ def process_book(
     if not book.author_name:
         _recover_missing_author_from_search(book, provider, max_results)
 
+    # AUTHOR-ONLY GATE: reject publishers, brands, and corporate "authors"
+    # immediately.  This runs before book classification, every search wave,
+    # video lookup, and AI extraction so a company record spends zero query
+    # or token budget.
+    if book.author_name and is_corporate_author_entity(book.author_name):
+        _set_processing_stage(
+            book,
+            "Rejected: publisher or company",
+            f"'{book.author_name}' is a corporate entity, not an individual author.",
+        )
+        log_agent_thought(
+            book.research_run,
+            "Auditor",
+            f"Rejected '{book.author_name}' for '{book.title}': publisher/company entity — author-only pipeline.",
+        )
+        raise CorporateEntityRejectedError(
+            f"'{book.author_name}' is a publisher or company, not an individual author. Only author leads are kept."
+        )
+
     classification = classify_book(
         {
             "title": book.title,
@@ -1022,44 +1263,99 @@ def process_book(
             )
 
     log_agent_thought(book.research_run, "Harvester", f"Searching for official website and socials for author '{book.author_name}'...")
-    for query in author_discovery_queries(book)[:max_author_queries]:
-        raise_if_run_canceled(book.research_run_id)
-        log = SearchQueryLog.objects.create(research_run=book.research_run, book=book, query=query, provider=provider.provider_name)
+
+    def _has_trusted_search_contact() -> bool:
+        return any(
+            contact.get("evidence_type") == "contact_page" and contact.get("confidence", 0) >= 0.65
+            for contact in search_contact_evidence
+        )
+
+    def _discovery_satisfied() -> bool:
+        """Enough evidence to stop spending search budget: an official site
+        plus either a trusted contact hit or real social presence."""
+
+        return bool(candidate_urls) and (_has_trusted_search_contact() or len(socials) >= 2)
+
+    # Wave 1 is a balanced site/contact/social mix. Wave 2 fires ONLY when
+    # wave 1 left gaps, so easy authors stop costing the full query budget
+    # while hard ones still get the remaining planned queries.
+    wave_one_limit = max(3, (2 * max_author_queries) // 3)
+    wave_one_queries = select_author_discovery_queries(book, wave_one_limit)
+    wave_two_pool = [query for query in author_discovery_queries(book) if query not in set(wave_one_queries)]
+    wikidata_enabled = bool(getattr(settings, "APP_WIKIDATA_AUTHOR_LOOKUP", True)) and bool(book.author_name)
+
+    def _run_discovery_task(task):
+        """Network-only worker: one search query or the Wikidata author lookup."""
+        kind, payload = task
         try:
-            results = provider.search(query, max_results=max_results)
-            log.result_count = len(results)
-            log.status = "success"
+            if kind == "wikidata":
+                return kind, payload, find_author_profiles(book.author_name), None
+            return kind, payload, provider.search(payload, max_results=max_results), None
         except Exception as exc:
-            results = []
-            log.status = "failed"
-            log.error_message = str(exc)
-        log.save()
-        for dto in results:
-            result_class, confidence = classify_result_url(dto.url)
-            matches_identity = _contact_result_matches_book_or_author(dto, book)
-            SearchResult.objects.create(
-                search_query_log=log,
-                title=dto.title[:500],
-                url=dto.url,
-                snippet=dto.snippet or "",
-                rank=dto.rank,
-                provider=dto.provider,
-                classification=result_class,
-                classification_confidence=confidence,
+            return kind, payload, None, exc
+
+    def _run_search_wave(queries: list[str], *, include_wikidata: bool = False) -> None:
+        nonlocal publisher_url
+        # One tagged task list: the free Wikidata author lookup overlaps with
+        # the search queries in the same bounded pool instead of a serial step.
+        tasks: list[tuple[str, str]] = [("search", query) for query in queries]
+        if include_wikidata and wikidata_enabled:
+            tasks.insert(0, ("wikidata", ""))
+        for kind, payload, task_result, task_error in map_parallel(_run_discovery_task, tasks):
+            raise_if_run_canceled(book.research_run_id)
+            if kind == "wikidata":
+                if task_error is None and task_result:
+                    _merge_wikidata_profiles(book, task_result, candidate_urls, socials)
+                continue
+            query = payload
+            results = task_result if task_error is None else []
+            search_error = task_error
+            log = SearchQueryLog.objects.create(research_run=book.research_run, book=book, query=query, provider=provider.provider_name)
+            if search_error is None:
+                log.result_count = len(results)
+                log.status = "success"
+            else:
+                results = []
+                log.status = "failed"
+                log.error_message = str(search_error)
+            log.save()
+            for dto in results:
+                result_class, confidence = classify_result_url(dto.url)
+                matches_identity = _contact_result_matches_book_or_author(dto, book)
+                SearchResult.objects.create(
+                    search_query_log=log,
+                    title=dto.title[:500],
+                    url=dto.url,
+                    snippet=dto.snippet or "",
+                    rank=dto.rank,
+                    provider=dto.provider,
+                    classification=result_class,
+                    classification_confidence=confidence,
+                )
+                if result_class == "publisher_site" and matches_identity and not publisher_url:
+                    publisher_url = dto.url
+                elif (
+                    result_class in {"instagram", "facebook", "tiktok", "linkedin", "youtube", "goodreads"}
+                    and matches_identity
+                    and _social_url_matches_identity(dto.url, book)
+                ):
+                    field = f"{result_class}_url"
+                    socials.setdefault(field, dto.url)
+                elif result_class == "author_site" and matches_identity and _trusted_author_site_url(dto.url, book, dto.title):
+                    candidate_urls.append(dto.url)
+                if matches_identity:
+                    search_contact_evidence.extend(_extract_public_contact_from_search_result(dto, result_class, book))
+
+    _run_search_wave(wave_one_queries, include_wikidata=True)
+    if not _discovery_satisfied() and wave_two_pool:
+        wave_two_limit = min(len(wave_two_pool), max_author_queries - wave_one_limit + max(2, max_author_queries // 3))
+        if wave_two_limit > 0:
+            log_agent_thought(
+                book.research_run,
+                "Harvester",
+                f"First search wave left gaps for '{book.author_name}'; running {wave_two_limit} follow-up queries.",
             )
-            if result_class == "publisher_site" and matches_identity and not publisher_url:
-                publisher_url = dto.url
-            elif (
-                result_class in {"instagram", "facebook", "tiktok", "linkedin", "youtube", "goodreads"}
-                and matches_identity
-                and _social_url_matches_identity(dto.url, book)
-            ):
-                field = f"{result_class}_url"
-                socials.setdefault(field, dto.url)
-            elif result_class == "author_site" and matches_identity and _trusted_author_site_url(dto.url, book, dto.title):
-                candidate_urls.append(dto.url)
-            if matches_identity:
-                search_contact_evidence.extend(_extract_public_contact_from_search_result(dto, result_class, book))
+            _run_search_wave(wave_two_pool[:wave_two_limit])
 
     candidate_urls = list(dict.fromkeys(candidate_urls))
     canonical_url = candidate_urls[0] if candidate_urls else ""
@@ -1070,16 +1366,50 @@ def process_book(
         _set_processing_stage(book, "Reviewing author website", "Collecting public contact evidence from permitted author-owned pages.")
         log_agent_thought(book.research_run, "Harvester", f"Crawling author website {canonical_url} to extract contact links and page content.")
         max_pages = int(getattr(settings, "APP_MAX_AUTHOR_PAGES_TO_CRAWL", 5))
-        for page_url in candidate_author_pages(canonical_url)[:max_pages]:
-            fetched = safe_fetch(page_url)
-            if not fetched or fetched.status_code >= 400:
-                continue
+        first_hop_urls = candidate_author_pages(canonical_url)[:max_pages]
+        crawled_pages = [
+            page for page in map_parallel(_fetch_with_js_fallback, first_hop_urls)
+            if page and page.status_code < 400
+        ]
+
+        # Second hop: follow contact-intent links discovered ON the author's
+        # own pages.  The fixed path list cannot know custom slugs such as
+        # /visit-me or /booking-info, so the crawl reads the site's own
+        # navigation one bounded hop deeper on the same identity-trusted host.
+        second_hop_budget = max(0, min(int(getattr(settings, "APP_MAX_SECOND_HOP_PAGES", 4)), 10))
+        if second_hop_budget and crawled_pages:
+            seen_urls = {page.url.rstrip("/") for page in crawled_pages}
+            seen_urls.update(url.rstrip("/") for url in first_hop_urls)
+            discovered_urls: list[str] = []
+            for page in crawled_pages:
+                for link in discover_contact_links(page.html, page.url):
+                    if link.rstrip("/") in seen_urls:
+                        continue
+                    seen_urls.add(link.rstrip("/"))
+                    discovered_urls.append(link)
+                    if len(discovered_urls) >= second_hop_budget:
+                        break
+                if len(discovered_urls) >= second_hop_budget:
+                    break
+            if discovered_urls:
+                log_agent_thought(
+                    book.research_run,
+                    "Harvester",
+                    f"Following {len(discovered_urls)} contact-intent links one hop deeper inside {(urlparse(canonical_url).hostname or '')}.",
+                )
+                crawled_pages.extend(
+                    page for page in map_parallel(_fetch_with_js_fallback, discovered_urls)
+                    if page and page.status_code < 400
+                )
+
+        for fetched in crawled_pages:
             page_source_url = fetched.url
             title = extract_page_title(fetched.html)
             text = extract_visible_text(fetched.html)
             links = extract_links(fetched.html, fetched.url)
             crawled_text = f"{crawled_text}\n{text}"[: int(getattr(settings, "APP_MAX_GROQ_INPUT_CHARS", 12000))]
             crawled_links.extend(link for link in links if link not in crawled_links)
+            _collect_hidden_page_contacts(fetched, book, search_contact_evidence)
             Evidence.objects.create(
                 book=book,
                 evidence_type="official_author_site",
@@ -1105,11 +1435,7 @@ def process_book(
     extraction = _drop_untrusted_extracted_contacts(extraction, book, page_source_url or canonical_url)
 
     # DEEP TARGETED RE-SEARCH LAYER: If no direct contact is found in first pass, dig deeper!
-    has_trusted_search_contact = any(
-        contact.get("evidence_type") == "contact_page" and contact.get("confidence", 0) >= 0.65
-        for contact in search_contact_evidence
-    )
-    if not extraction.public_email and not extraction.representation_email and not has_trusted_search_contact:
+    if not extraction.public_email and not extraction.representation_email and not _has_trusted_search_contact():
         logger.info(f"Initiating multi-layered Deep Search for author {book.author_name}...")
         log_agent_thought(book.research_run, "Harvester", f"Deep searching additional contact sources for '{book.author_name}'...")
         deep_candidate_urls = []
@@ -1120,59 +1446,100 @@ def process_book(
             len(deep_contact_discovery_queries(book)),
         )
 
-        for query in deep_contact_discovery_queries(book)[:max_deep_queries]:
-            raise_if_run_canceled(book.research_run_id)
-            log = SearchQueryLog.objects.create(research_run=book.research_run, book=book, query=query, provider=provider.provider_name)
+        deep_queries = deep_contact_discovery_queries(book)[:max_deep_queries]
+
+        def _run_deep_query(query):
             try:
-                results = provider.search(query, max_results=max_results)
-                log.result_count = len(results)
-                log.status = "success"
+                return provider.search(query, max_results=max_results), None
             except Exception as exc:
-                results = []
-                log.status = "failed"
-                log.error_message = str(exc)
-            log.save()
-            for dto in results:
-                result_class, confidence = classify_result_url(dto.url)
-                matches_identity = _contact_result_matches_book_or_author(dto, book)
-                SearchResult.objects.create(
-                    search_query_log=log,
-                    title=dto.title[:500],
-                    url=dto.url,
-                    snippet=dto.snippet or "",
-                    rank=dto.rank,
-                    provider=dto.provider,
-                    classification=result_class,
-                    classification_confidence=confidence,
-                )
-                if matches_identity:
-                    search_contact_evidence.extend(_extract_public_contact_from_search_result(dto, result_class, book))
-                    if result_class == "author_site" and _trusted_author_site_url(dto.url, book, dto.title):
-                        deep_candidate_urls.append(dto.url)
-                    elif result_class in {"instagram", "facebook", "tiktok", "linkedin", "youtube", "goodreads"} and _social_url_matches_identity(dto.url, book):
-                        field = f"{result_class}_url"
-                        socials.setdefault(field, dto.url)
-            if any(
-                contact.get("evidence_type") == "contact_page" and contact.get("confidence", 0) >= 0.65
-                for contact in search_contact_evidence
-            ) or len(deep_candidate_urls) >= int(getattr(settings, "APP_MAX_AUTHOR_PAGES_TO_CRAWL", 3)):
+                return [], exc
+
+        def _deep_search_satisfied() -> bool:
+            return _has_trusted_search_contact() or len(deep_candidate_urls) >= int(
+                getattr(settings, "APP_MAX_AUTHOR_PAGES_TO_CRAWL", 3)
+            )
+
+        # Fire deep queries in small waves instead of one big batch: the old
+        # loop spent the whole deep budget upfront, then broke early — the
+        # network cost was already paid. Waves stop paying once a trusted
+        # contact or enough new author pages turn up.
+        deep_wave_size = 3
+        for wave_start in range(0, len(deep_queries), deep_wave_size):
+            wave_queries = deep_queries[wave_start : wave_start + deep_wave_size]
+            deep_batch = map_parallel(_run_deep_query, wave_queries)
+            for query, (results, search_error) in zip(wave_queries, deep_batch):
+                raise_if_run_canceled(book.research_run_id)
+                log = SearchQueryLog.objects.create(research_run=book.research_run, book=book, query=query, provider=provider.provider_name)
+                if search_error is None:
+                    log.result_count = len(results)
+                    log.status = "success"
+                else:
+                    results = []
+                    log.status = "failed"
+                    log.error_message = str(search_error)
+                log.save()
+                for dto in results:
+                    result_class, confidence = classify_result_url(dto.url)
+                    matches_identity = _contact_result_matches_book_or_author(dto, book)
+                    SearchResult.objects.create(
+                        search_query_log=log,
+                        title=dto.title[:500],
+                        url=dto.url,
+                        snippet=dto.snippet or "",
+                        rank=dto.rank,
+                        provider=dto.provider,
+                        classification=result_class,
+                        classification_confidence=confidence,
+                    )
+                    if matches_identity:
+                        search_contact_evidence.extend(_extract_public_contact_from_search_result(dto, result_class, book))
+                        if result_class == "author_site" and _trusted_author_site_url(dto.url, book, dto.title):
+                            deep_candidate_urls.append(dto.url)
+                        elif result_class in {"instagram", "facebook", "tiktok", "linkedin", "youtube", "goodreads"} and _social_url_matches_identity(dto.url, book):
+                            field = f"{result_class}_url"
+                            socials.setdefault(field, dto.url)
+            if _deep_search_satisfied():
                 break
 
         deep_candidate_urls = list(dict.fromkeys(deep_candidate_urls))
         # If we found any new candidate pages in deep search, crawl them to find contact email/phone.
         if deep_candidate_urls:
             max_pages = int(getattr(settings, "APP_MAX_AUTHOR_PAGES_TO_CRAWL", 3))
-            for page_url in deep_candidate_urls[:max_pages]:
-                if page_url == canonical_url:
-                    continue
-                fetched = safe_fetch(page_url)
-                if not fetched or fetched.status_code >= 400:
-                    continue
+            deep_pages = [url for url in deep_candidate_urls[:max_pages] if url != canonical_url]
+            deep_fetched_pages = [
+                page for page in map_parallel(_fetch_with_js_fallback, deep_pages)
+                if page and page.status_code < 400
+            ]
+            # Second hop on deep-search sites too: contact-intent links found
+            # on these identity-trusted pages get one bounded follow.
+            second_hop_budget = max(0, min(int(getattr(settings, "APP_MAX_SECOND_HOP_PAGES", 4)), 10))
+            if second_hop_budget and deep_fetched_pages:
+                seen_urls = {page.url.rstrip("/") for page in deep_fetched_pages}
+                seen_urls.update(url.rstrip("/") for url in deep_pages)
+                seen_urls.add(canonical_url.rstrip("/"))
+                discovered_urls: list[str] = []
+                for page in deep_fetched_pages:
+                    for link in discover_contact_links(page.html, page.url):
+                        if link.rstrip("/") in seen_urls:
+                            continue
+                        seen_urls.add(link.rstrip("/"))
+                        discovered_urls.append(link)
+                        if len(discovered_urls) >= second_hop_budget:
+                            break
+                    if len(discovered_urls) >= second_hop_budget:
+                        break
+                if discovered_urls:
+                    deep_fetched_pages.extend(
+                        page for page in map_parallel(_fetch_with_js_fallback, discovered_urls)
+                        if page and page.status_code < 400
+                    )
+            for fetched in deep_fetched_pages:
                 title = extract_page_title(fetched.html)
                 text = extract_visible_text(fetched.html)
                 links = extract_links(fetched.html, fetched.url)
                 deep_crawled_text = f"{deep_crawled_text}\n{text}"[:3000]
                 deep_crawled_links.extend(link for link in links if link not in deep_crawled_links)
+                _collect_hidden_page_contacts(fetched, book, search_contact_evidence)
                 Evidence.objects.create(
                     book=book,
                     evidence_type="official_author_site",
@@ -1228,48 +1595,65 @@ def process_book(
             extraction.confidence = max(extraction.confidence, deep_extraction.confidence)
 
 
-    author_bio = ""
-    author_image_url = ""
-    other_books = []
-    
     metadata_recovered_author = bool((book.source_raw_json or {}).get("metadata_recovery") and book.author_name)
-    is_corporate_entity = is_corporate_author_entity(book.author_name)
+    # NOTE: bio/image data is not collected yet, so it must not feed confidence.
+    # Corporate entities are already rejected by the early author-only gate;
+    # if one ever slips through, it must never earn a confidence boost here.
     initial_identity_confidence = (
-        0.85
-        if (author_bio or is_corporate_entity)
-        else (0.75 if canonical_url and book.author_name else (0.55 if metadata_recovered_author else (0.35 if book.author_name else 0.1)))
+        0.75 if canonical_url and book.author_name else (0.55 if metadata_recovered_author else (0.35 if book.author_name else 0.1))
     )
-    author_profile = AuthorProfile.objects.create(
-        author_name=book.author_name or "Unknown author",
-        normalized_author_key=normalized_author_key(book.author_name),
-        canonical_website=extraction.canonical_website or canonical_url,
-        contact_page_url=extraction.contact_page_url or "",
-        publisher_url="" if is_catalog_or_platform_source(extraction.publisher_url or publisher_url) else (extraction.publisher_url or publisher_url),
-        instagram_url=extraction.instagram_url or socials.get("instagram_url", ""),
-        facebook_url=extraction.facebook_url or socials.get("facebook_url", ""),
-        tiktok_url=extraction.tiktok_url or socials.get("tiktok_url", ""),
-        youtube_url=extraction.youtube_url or socials.get("youtube_url", ""),
-        linkedin_url=extraction.linkedin_url or socials.get("linkedin_url", ""),
-        goodreads_url=extraction.goodreads_url or socials.get("goodreads_url", ""),
-        amazon_author_url=amazon_author_url,
-        author_bio=author_bio,
-        author_image_url=author_image_url,
-        other_books=other_books,
-        location=extraction.location or "",
-        agent_name=extraction.agent_name or "",
-        representation_email=extraction.representation_email or "",
-        publicist_email=extraction.publicist_email or "",
-        identity_confidence=initial_identity_confidence,
-        identity_reason=(
-            "Corporate/Editorial Team Entity: Contact paths routed to publisher press office & agency."
-            if is_corporate_entity
-            else (
-                "Author recovered from title/identifier search evidence; official contact path still requires manual review."
-                if metadata_recovered_author
-                else "Matched through public catalog and web-search evidence; manual review required by default."
-            )
-        ),
+    identity_reason_text = (
+        "Author recovered from title/identifier search evidence; official contact path still requires manual review."
+        if metadata_recovered_author
+        else "Matched through public catalog and web-search evidence; manual review required by default."
     )
+    # Reuse an existing profile for the same author across runs/books instead
+    # of accumulating one duplicate profile per processed book.
+    profile_field_values = {
+        "canonical_website": extraction.canonical_website or canonical_url,
+        "contact_page_url": extraction.contact_page_url or "",
+        "publisher_url": "" if is_catalog_or_platform_source(extraction.publisher_url or publisher_url) else (extraction.publisher_url or publisher_url),
+        "instagram_url": extraction.instagram_url or socials.get("instagram_url", ""),
+        "facebook_url": extraction.facebook_url or socials.get("facebook_url", ""),
+        "tiktok_url": extraction.tiktok_url or socials.get("tiktok_url", ""),
+        "youtube_url": extraction.youtube_url or socials.get("youtube_url", ""),
+        "linkedin_url": extraction.linkedin_url or socials.get("linkedin_url", ""),
+        "goodreads_url": extraction.goodreads_url or socials.get("goodreads_url", ""),
+        "amazon_author_url": amazon_author_url,
+        "location": extraction.location or "",
+        "agent_name": extraction.agent_name or "",
+        "representation_email": extraction.representation_email or "",
+        "publicist_email": extraction.publicist_email or "",
+    }
+    author_key = normalized_author_key(book.author_name)
+    try:
+        author_profile, profile_created = AuthorProfile.objects.get_or_create(
+            normalized_author_key=author_key,
+            defaults={
+                "author_name": book.author_name or "Unknown author",
+                **profile_field_values,
+                "identity_confidence": initial_identity_confidence,
+                "identity_reason": identity_reason_text,
+            },
+        )
+    except AuthorProfile.MultipleObjectsReturned:
+        # Legacy databases can already hold duplicate keys; reuse the oldest.
+        author_profile = AuthorProfile.objects.filter(normalized_author_key=author_key).order_by("created_at").first()
+        profile_created = False
+    if not profile_created:
+        # Enrich the shared profile: fill blanks, never overwrite sourced data.
+        profile_updates = {
+            field: value
+            for field, value in profile_field_values.items()
+            if value and not getattr(author_profile, field)
+        }
+        if initial_identity_confidence > (author_profile.identity_confidence or 0):
+            profile_updates["identity_confidence"] = initial_identity_confidence
+            profile_updates["identity_reason"] = identity_reason_text
+        if profile_updates:
+            for field, value in profile_updates.items():
+                setattr(author_profile, field, value)
+            author_profile.save(update_fields=[*profile_updates, "updated_at"])
 
 
     lead = Lead.objects.create(
@@ -1432,37 +1816,24 @@ def process_book(
                 is_primary=True,
             )
 
-    _set_processing_stage(book, "Auditing public social profiles", "Only identity-matched public profiles and one-hop bio links are considered.")
-    social_audits = harvest_social_profiles(lead)
-    if social_audits:
-        fetched_socials = sum(1 for audit in social_audits if audit.fetch_status == "fetched")
-        log_agent_thought(
-            book.research_run,
-            "Harvester",
-            f"Inspected {len(social_audits)} public social profiles; {fetched_socials} were accessible.",
-        )
-
-    _clear_unverified_lead_contacts(lead, author_profile)
-    lead.refresh_from_db()
-    author_profile.refresh_from_db()
-
-    _set_processing_stage(book, "Verifying contact evidence", "Checking source quality and selected contact signals.")
-    verify_lead_contacts(lead, check_network=verify_email_mx)
-    lead.refresh_from_db()
-    log_agent_thought(
-        book.research_run,
-        "Auditor",
-        f"Contact verification: {lead.verification_status} ({lead.verification_score}/100).",
-    )
-
+    # Start the video search NOW: its queries only need the book title/author,
+    # so the network wait overlaps social-profile auditing and contact
+    # verification instead of adding a serial stage at the end of the book.
     video_classifications = []
     video_reason = ""
+    video_pool = None
+    video_futures: list = []
     if run_video_search:
         _set_processing_stage(book, "Checking existing video presence", "Looking for public trailer and promotional-video evidence.")
         log_agent_thought(book.research_run, "Harvester", f"Scanning YouTube API / video searches for book '{book.title}' promotional trailers.")
-        for query in video_queries(book):
-            raise_if_run_canceled(book.research_run_id)
-            youtube_results = search_youtube_api(query, max_results=5)
+
+        def _run_video_query(query):
+            """Network-only worker: YouTube API, then web-search fallback, then classify."""
+            entries = []
+            try:
+                youtube_results = search_youtube_api(query, max_results=5)
+            except Exception:
+                youtube_results = []
             for dto in youtube_results:
                 video_data = {
                     "book_title": book.title,
@@ -1474,51 +1845,22 @@ def process_book(
                     "published_at": dto.published_at,
                 }
                 vc = classify_video(video_data, use_ai=run_ai_extraction)
-                video_classifications.append(vc)
-                VideoEvidence.objects.create(
-                    lead=lead,
-                    video_url=dto.url,
-                    title=dto.title[:500],
-                    channel_name=dto.channel_name,
-                    description=dto.snippet or "",
-                    published_at=dto.published_at,
-                    source_provider="youtube_api",
-                    matches_book=vc.matches_book,
-                    matches_author=vc.matches_author,
-                    is_book_trailer=vc.is_book_trailer,
-                    is_animated_video=vc.is_animated_video,
-                    is_read_aloud=vc.is_read_aloud,
-                    is_author_interview=vc.is_author_interview,
-                    classification_confidence=vc.confidence,
-                    classification_reason=vc.reason,
-                )
-                Evidence.objects.create(
-                    lead=lead,
-                    book=book,
-                    evidence_type="youtube_result",
-                    field_name="video_evidence_url",
-                    field_value=dto.url,
-                    source_url=dto.url,
-                    source_title=dto.title[:500],
-                    source_snippet=dto.snippet or "",
-                    confidence=vc.confidence,
-                )
-            if youtube_results:
-                continue
+                entries.append(("youtube_api", dto, vc))
+            if entries:
+                return (entries, None, 0, None)
+
             search_query = query
             if not any(site in query for site in ["site:youtube.com", "site:vimeo.com"]):
                 search_query = f'site:youtube.com OR site:vimeo.com {query}'
-            log = SearchQueryLog.objects.create(
-                research_run=book.research_run,
-                book=book,
-                query=search_query,
-                provider=provider.provider_name,
-            )
-            results = provider.search(search_query, max_results=min(max_results, 5))
-            log.result_count = len(results)
-            log.save()
+            try:
+                results = provider.search(search_query, max_results=min(max_results, 5))
+                search_error = None
+            except Exception as exc:
+                results = []
+                search_error = exc
             for dto in results:
-                if "youtube." not in dto.url.lower() and "youtu.be" not in dto.url.lower() and "vimeo." not in dto.url.lower():
+                lower_url = dto.url.lower()
+                if "youtube." not in lower_url and "youtu.be" not in lower_url and "vimeo." not in lower_url:
                     continue
                 video_data = {
                     "book_title": book.title,
@@ -1528,34 +1870,86 @@ def process_book(
                     "description": dto.snippet or "",
                 }
                 vc = classify_video(video_data, use_ai=run_ai_extraction)
-                video_classifications.append(vc)
+                entries.append(("web_search", dto, vc))
+            return (entries, search_query, len(results), search_error)
+
+        video_pool = ThreadPoolExecutor(max_workers=stage_workers(), thread_name_prefix="video")
+        video_futures = [video_pool.submit(_run_video_query, query) for query in video_queries(book)]
+
+    try:
+        _set_processing_stage(book, "Auditing public social profiles", "Only identity-matched public profiles and one-hop bio links are considered.")
+        social_audits = harvest_social_profiles(lead)
+        if social_audits:
+            fetched_socials = sum(1 for audit in social_audits if audit.fetch_status == "fetched")
+            log_agent_thought(
+                book.research_run,
+                "Harvester",
+                f"Inspected {len(social_audits)} public social profiles; {fetched_socials} were accessible.",
+            )
+
+        _clear_unverified_lead_contacts(lead, author_profile)
+        lead.refresh_from_db()
+        author_profile.refresh_from_db()
+
+        _set_processing_stage(book, "Verifying contact evidence", "Checking source quality and selected contact signals.")
+        verify_lead_contacts(lead, check_network=verify_email_mx)
+        lead.refresh_from_db()
+        log_agent_thought(
+            book.research_run,
+            "Auditor",
+            f"Contact verification: {lead.verification_status} ({lead.verification_score}/100).",
+        )
+        video_batch = [future.result() for future in video_futures]
+    finally:
+        if video_pool is not None:
+            video_pool.shutdown(wait=True)
+
+    for entries, search_query, result_count, search_error in video_batch:
+        raise_if_run_canceled(book.research_run_id)
+        if search_query is not None:
+            log = SearchQueryLog.objects.create(
+                research_run=book.research_run,
+                book=book,
+                query=search_query,
+                provider=provider.provider_name,
+            )
+            log.result_count = result_count
+            if search_error is not None:
+                log.status = "failed"
+                log.error_message = str(search_error)
+            log.save()
+        for source, dto, vc in entries:
+            video_classifications.append(vc)
+            if source == "web_search":
                 video_reason = vc.reason
-                VideoEvidence.objects.create(
-                    lead=lead,
-                    video_url=dto.url,
-                    title=dto.title[:500],
-                    description=dto.snippet or "",
-                    source_provider="web_search",
-                    matches_book=vc.matches_book,
-                    matches_author=vc.matches_author,
-                    is_book_trailer=vc.is_book_trailer,
-                    is_animated_video=vc.is_animated_video,
-                    is_read_aloud=vc.is_read_aloud,
-                    is_author_interview=vc.is_author_interview,
-                    classification_confidence=vc.confidence,
-                    classification_reason=vc.reason,
-                )
-                Evidence.objects.create(
-                    lead=lead,
-                    book=book,
-                    evidence_type="youtube_result" if "youtu" in dto.url.lower() else "vimeo_result",
-                    field_name="video_evidence_url",
-                    field_value=dto.url,
-                    source_url=dto.url,
-                    source_title=dto.title[:500],
-                    source_snippet=dto.snippet or "",
-                    confidence=vc.confidence,
-                )
+            VideoEvidence.objects.create(
+                lead=lead,
+                video_url=dto.url,
+                title=dto.title[:500],
+                channel_name=getattr(dto, "channel_name", "") or "",
+                description=dto.snippet or "",
+                published_at=getattr(dto, "published_at", "") or "",
+                source_provider=source,
+                matches_book=vc.matches_book,
+                matches_author=vc.matches_author,
+                is_book_trailer=vc.is_book_trailer,
+                is_animated_video=vc.is_animated_video,
+                is_read_aloud=vc.is_read_aloud,
+                is_author_interview=vc.is_author_interview,
+                classification_confidence=vc.confidence,
+                classification_reason=vc.reason,
+            )
+            Evidence.objects.create(
+                lead=lead,
+                book=book,
+                evidence_type="vimeo_result" if (source == "web_search" and "vimeo" in dto.url.lower()) else "youtube_result",
+                field_name="video_evidence_url",
+                field_value=dto.url,
+                source_url=dto.url,
+                source_title=dto.title[:500],
+                source_snippet=dto.snippet or "",
+                confidence=vc.confidence,
+            )
     lead.video_status, lead.video_confidence, status_reason = choose_video_status(video_classifications, search_completed=run_video_search)
     log_agent_thought(book.research_run, "Auditor", f"Audited {len(video_classifications)} videos. Classification: '{lead.video_status}' with confidence {lead.video_confidence:.2f}")
     log_agent_thought(book.research_run, "Harvester", f"Harvester phase completed for '{book.title}'. Scraped contacts: email={lead.public_email or 'None'}, representation_email={lead.representation_email or 'None'}")
@@ -1613,6 +2007,11 @@ def process_book(
         lead.warnings_json = warnings
     log_agent_thought(book.research_run, "Coordinator", f"Enforcing anti-spam validation & calculating lead score. Score: {lead.lead_score}, Tier: '{lead.lead_tier}'")
     lead.save()
+
+    if lead.lead_tier == "hot":
+        from leadfinder.services.notify import notify_hot_lead
+
+        notify_hot_lead(lead)
 
     source_links = list(
         Evidence.objects.filter(lead=lead).exclude(source_url="").values_list("source_url", flat=True).distinct()

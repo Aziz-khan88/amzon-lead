@@ -55,6 +55,16 @@ class EmptyHTMLProvider:
         return []
 
 
+class EmptyBingProvider:
+    provider_name = "bing_html"
+
+    def __init__(self, delay=0):
+        self.delay = delay
+
+    def search(self, query, max_results=10):
+        return []
+
+
 class EmptyGoogleBooksProvider:
     def discover_books(self, keyword, max_books=25):
         return []
@@ -77,6 +87,7 @@ def test_keyword_lookup_saves_and_reuses_keyword_folder(tmp_path, monkeypatch):
     FakeDDGSProvider.calls = 0
     monkeypatch.setattr(lookup, "DDGSSearchProvider", FakeDDGSProvider)
     monkeypatch.setattr(lookup, "DDGHTMLSearchProvider", EmptyHTMLProvider)
+    monkeypatch.setattr(lookup, "BingHTMLSearchProvider", EmptyBingProvider)
     monkeypatch.setattr(lookup, "classify_book", lambda *args, **kwargs: FakeClassification())
     monkeypatch.setattr(lookup, "fetch_metadata_from_free_apis", lambda asin: None)
     monkeypatch.setattr(lookup, "search_openlibrary", lambda *args, **kwargs: [])
@@ -337,6 +348,7 @@ def test_keyword_lookup_only_new_excludes_cache(tmp_path, monkeypatch):
     FakeDDGSProvider.calls = 0
     monkeypatch.setattr(lookup, "DDGSSearchProvider", FakeDDGSProvider)
     monkeypatch.setattr(lookup, "DDGHTMLSearchProvider", EmptyHTMLProvider)
+    monkeypatch.setattr(lookup, "BingHTMLSearchProvider", EmptyBingProvider)
     monkeypatch.setattr(lookup, "classify_book", lambda *args, **kwargs: FakeClassification())
     monkeypatch.setattr(lookup, "fetch_metadata_from_free_apis", lambda asin: None)
     monkeypatch.setattr(lookup, "search_openlibrary", lambda *args, **kwargs: [])
@@ -371,6 +383,7 @@ def test_keyword_lookup_falls_through_to_library_of_congress(tmp_path, monkeypat
 
     monkeypatch.setattr(lookup, "DDGSSearchProvider", lambda: EmptyHTMLProvider())
     monkeypatch.setattr(lookup, "DDGHTMLSearchProvider", EmptyHTMLProvider)
+    monkeypatch.setattr(lookup, "BingHTMLSearchProvider", EmptyBingProvider)
     monkeypatch.setattr(lookup, "GoogleBooksProvider", FailingGoogleBooksProvider)
     monkeypatch.setattr(lookup, "search_openlibrary", lambda *args, **kwargs: [])
     monkeypatch.setattr(

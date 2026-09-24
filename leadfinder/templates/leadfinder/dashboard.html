@@ -1,5 +1,21 @@
 {% extends "base.html" %}
 {% block title %}Dashboard - Book Trailer Lead Finder{% endblock %}
+{% block topbar_page_actions %}
+  <div class="topbar-page-actions dashboard-topbar-actions">
+    {% if is_management %}
+      <a class="btn btn-primary" href="{% url 'leadfinder:run_new' %}">
+        <i class="ph-bold ph-plus"></i> New research
+      </a>
+      <a class="btn btn-outline-primary" href="{% url 'leadfinder:import_csv' %}">
+        <i class="ph-bold ph-upload-simple"></i> Import data
+      </a>
+    {% else %}
+      <a class="btn btn-primary" href="{% url 'leadfinder:lead_list' %}?assignment_status=pending">
+        <i class="ph ph-list-checks"></i> Open queue
+      </a>
+    {% endif %}
+  </div>
+{% endblock %}
 {% block content %}
 <div class="modern-dashboard">
   <header class="dashboard-titlebar">
@@ -15,22 +31,22 @@
   </header>
 
   <section class="modern-kpi-grid" aria-label="Lead verification summary">
-    <a class="modern-kpi-card is-featured" href="{% url 'leadfinder:lead_list' %}?valid_only=0">
+    <a class="modern-kpi-card" href="{% url 'leadfinder:lead_list' %}">
       <span class="kpi-topline"><span>Total leads</span><i class="ph-bold ph-trend-up"></i></span>
       <strong>{{ total_leads }}</strong>
       <small><i class="ph-fill ph-database"></i> All discovered records</small>
     </a>
-    <a class="modern-kpi-card" href="{% url 'leadfinder:lead_list' %}?verification_status=verified&valid_only=0">
+    <a class="modern-kpi-card" href="{% url 'leadfinder:lead_list' %}?verification_status=verified">
       <span class="kpi-topline"><span>Verified</span><i class="ph-bold ph-check-circle"></i></span>
       <strong>{{ verified_leads }}</strong>
       <small class="text-success"><i class="ph-fill ph-shield-check"></i> {{ verified_percent }}% passed hard gates</small>
     </a>
-    <a class="modern-kpi-card" href="{% url 'leadfinder:lead_list' %}?verification_status=other&valid_only=0">
+    <a class="modern-kpi-card" href="{% url 'leadfinder:lead_list' %}?verification_status=other">
       <span class="kpi-topline"><span>Other</span><i class="ph-bold ph-clipboard-text"></i></span>
       <strong>{{ other_leads }}</strong>
       <small class="text-warning"><i class="ph-fill ph-clock"></i> {{ other_percent }}% needs more evidence</small>
     </a>
-    <a class="modern-kpi-card" href="{% url 'leadfinder:lead_list' %}?verification_status=not_verified&valid_only=0">
+    <a class="modern-kpi-card" href="{% url 'leadfinder:lead_list' %}?verification_status=not_verified">
       <span class="kpi-topline"><span>Not verified</span><i class="ph-bold ph-x"></i></span>
       <strong>{{ not_verified_leads }}</strong>
       <small class="text-danger"><i class="ph-fill ph-x-circle"></i> {{ not_verified_percent }}% failed checks</small>
@@ -48,7 +64,7 @@
     <section class="modern-card verification-analytics-card">
       <div class="modern-card-heading">
         <div><span class="card-eyebrow">Contact quality</span><h2>Verification analytics</h2></div>
-        <a href="{% url 'leadfinder:lead_list' %}?valid_only=0">View leads <i class="ph ph-arrow-right"></i></a>
+        <a href="{% url 'leadfinder:lead_list' %}">View leads <i class="ph ph-arrow-right"></i></a>
       </div>
       <div class="verification-analytics-body">
         <div class="verification-donut" role="img" aria-label="Verified {{ verified_percent }} percent, other {{ other_percent }} percent, not verified {{ not_verified_percent }} percent" style="--verified: {{ verified_percent }}%; --other: {{ other_percent }}%;">
@@ -80,7 +96,7 @@
       <div class="modern-card-heading"><div><span class="card-eyebrow">Shortcuts</span><h2>Quick actions</h2></div></div>
       <div class="quick-action-list">
         <a href="{% url 'leadfinder:run_new' %}"><span class="quick-action-icon icon-green"><i class="ph-bold ph-magnifying-glass"></i></span><span><strong>Start research</strong><small>Discover new author leads</small></span><i class="ph ph-caret-right"></i></a>
-        <a href="{% url 'leadfinder:lead_list' %}?verification_status=other&valid_only=0"><span class="quick-action-icon icon-amber"><i class="ph-bold ph-shield-warning"></i></span><span><strong>Review other</strong><small>Resolve inconclusive contacts</small></span><i class="ph ph-caret-right"></i></a>
+        <a href="{% url 'leadfinder:lead_list' %}?verification_status=other"><span class="quick-action-icon icon-amber"><i class="ph-bold ph-shield-warning"></i></span><span><strong>Review other</strong><small>Resolve inconclusive contacts</small></span><i class="ph ph-caret-right"></i></a>
         <a href="{% url 'leadfinder:export_leads_xlsx' %}?limit=700"><span class="quick-action-icon icon-blue"><i class="ph-bold ph-file-xls"></i></span><span><strong>Export verified data</strong><small>Download the Excel workbook</small></span><i class="ph ph-caret-right"></i></a>
       </div>
     </section>
@@ -112,13 +128,13 @@
         <span><i class="chart-dot dot-verified"></i>Contact found</span>
         <span><i class="chart-dot dot-muted"></i>Still searching</span>
       </div>
-      <a href="{% url 'leadfinder:lead_list' %}?has_email=1&valid_only=0" class="btn btn-soft w-100">Open contactable leads</a>
+      <a href="{% url 'leadfinder:lead_list' %}?has_email=1" class="btn btn-soft w-100">Open contactable leads</a>
     </section>
 
     <section class="modern-card verification-batches-card">
       <div class="modern-card-heading">
         <div><span class="card-eyebrow">Audit trail</span><h2>Verification batches</h2></div>
-        <a class="btn btn-soft verification-run-button" href="{% url 'leadfinder:lead_list' %}?verification_status=other&valid_only=0">Run verification</a>
+        <a class="btn btn-soft verification-run-button" href="{% url 'leadfinder:lead_list' %}?verification_status=other">Run verification</a>
       </div>
       <div class="batch-list">
         {% for batch in latest_verification_batches|slice:":4" %}

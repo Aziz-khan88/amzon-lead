@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import os
 import re
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from django.conf import settings
+from django.db import close_old_connections, connection
 from django.db.models import Q
 
 from leadfinder.models import Book, Evidence, ResearchRun, SearchQueryLog, SearchResult, AgentThought
@@ -14,6 +17,7 @@ from leadfinder.services.amazon.amazon_url_parser import (
     normalize_amazon_book_url,
 )
 from leadfinder.services.books.google_books_provider import GoogleBooksProvider
+from leadfinder.services.discovery.site_providers import SITE_DISCOVERY_PROVIDERS
 
 def log_agent_thought(run, agent_name: str, message: str) -> None:
     try:
@@ -24,6 +28,8 @@ def log_agent_thought(run, agent_name: str, message: str) -> None:
 from leadfinder.services.pipeline.dedupe import dedupe_book_candidates
 from leadfinder.services.pipeline.cancellation import RunCanceled, raise_if_run_canceled
 from leadfinder.services.pipeline.process_book import process_book
+from leadfinder.services.pipeline.source_audit import is_corporate_author_entity
+from leadfinder.services.parallel import map_parallel
 from leadfinder.services.search import get_search_provider
 from leadfinder.utils.normalize import (
     clean_title_from_search,
@@ -157,8 +163,13 @@ def discovery_queries(keyword: str) -> list[str]:
             '{term}',
         ]
         
-    for term in _keyword_variants(keyword):
-        for pattern in patterns:
+    variants = _keyword_variants(keyword)
+    # Round-robin pattern-major across variants: a bounded query budget then
+    # covers EVERY variant with the highest-yield patterns first, instead of
+    # spending the whole budget exhausting patterns for the first variant
+    # (variant-major order never reached later variants under the cap).
+    for pattern in patterns:
+        for term in variants:
             queries.append(pattern.format(term=term))
     return list(dict.fromkeys(queries))
 
@@ -238,27 +249,64 @@ def guess_title_author(title: str, snippet: str | None) -> tuple[str, str, float
     return cleaned_title[:500] or title[:500], author[:255], confidence
 
 
+def _filter_author_only_candidates(run: ResearchRun, candidates: list[dict]) -> list[dict]:
+    """Drop publisher/company "authors" before they become Book rows.
+
+    The pipeline only sells to individual authors.  Seeding a corporate record
+    would waste every downstream search query, page crawl, and AI token on a
+    lead the quality gate rejects anyway — filter at the Scout stage instead.
+    """
+
+    kept: list[dict] = []
+    dropped = 0
+    for candidate in candidates:
+        author_name = (candidate.get("author_name") or "").strip()
+        if author_name and is_corporate_author_entity(author_name):
+            dropped += 1
+            continue
+        kept.append(candidate)
+    if dropped:
+        log_agent_thought(
+            run,
+            "Scout",
+            f"Skipped {dropped} publisher/company records at seed time — only individual authors are kept.",
+        )
+    return kept
+
+
 def _candidate_batch_for_run(run: ResearchRun, candidates: list[dict]) -> list[dict]:
-    candidates = dedupe_book_candidates(candidates)
+    candidates = _filter_author_only_candidates(run, dedupe_book_candidates(candidates))
     if not run.settings_json.get("only_new_books"):
         return candidates[: run.max_books]
 
+    # Filter against the database directly instead of loading every existing
+    # book key into memory; candidate batches are bounded (<= a few hundred).
     existing_books = Book.objects.exclude(research_run=run)
-    existing_keys = set(existing_books.values_list("normalized_key", flat=True))
+    candidate_keys = [
+        normalized_book_key(
+            candidate["title"],
+            candidate.get("author_name"),
+            str(candidate.get("asin") or "").strip().upper(),
+        )
+        for candidate in candidates
+    ]
+    candidate_asins = {
+        str(candidate.get("asin") or "").strip().upper()
+        for candidate in candidates
+        if candidate.get("asin")
+    }
+    existing_keys = set(
+        existing_books.filter(normalized_key__in=candidate_keys).values_list("normalized_key", flat=True)
+    )
     existing_asins = {
         value.upper()
-        for value in existing_books.exclude(asin="").values_list("asin", flat=True)
+        for value in existing_books.filter(asin__in=candidate_asins).values_list("asin", flat=True)
         if value
     }
     new_candidates: list[dict] = []
     skipped = 0
-    for candidate in candidates:
+    for candidate, key in zip(candidates, candidate_keys):
         asin = str(candidate.get("asin") or "").strip().upper()
-        key = normalized_book_key(
-            candidate["title"],
-            candidate.get("author_name"),
-            asin,
-        )
         if key in existing_keys or (asin and asin in existing_asins):
             skipped += 1
             continue
@@ -318,7 +366,7 @@ def _create_google_books_from_candidates(run: ResearchRun, candidates: list[dict
 
 def _create_booklife_books_from_candidates(run: ResearchRun, candidates: list[dict]) -> list[Book]:
     books: list[Book] = []
-    for candidate in candidates[: run.max_books]:
+    for candidate in _filter_author_only_candidates(run, candidates)[: run.max_books]:
         book = Book.objects.create(
             research_run=run,
             title=candidate["title"],
@@ -441,6 +489,66 @@ def _fallback_to_google_books(run: ResearchRun, reason: str) -> list[Book]:
         log.save()
 
 
+def _discover_site_provider_books(run: ResearchRun) -> list[Book]:
+    """Discovery via specialized site providers (Kickstarter, Goodreads
+    giveaways, SCBWI, Amazon new releases) that search one site's index and
+    parse title/author from the results."""
+
+    site_provider = SITE_DISCOVERY_PROVIDERS[run.source_provider]
+    search_provider = get_search_provider(run.settings_json.get("enrichment_provider") or "ddgs")
+    max_results = min(max(int(getattr(settings, "APP_MAX_SEARCH_RESULTS_PER_QUERY", 5)), 1), 20)
+    log_agent_thought(run, "Scout", f"Running {site_provider.provider_name} discovery for '{run.keyword or 'children\'s picture book'}'.")
+    log = SearchQueryLog.objects.create(
+        research_run=run,
+        query=f"{site_provider.provider_name} site discovery: {run.keyword or 'children\'s picture book'}",
+        provider=site_provider.provider_name,
+    )
+    try:
+        candidates, errors = site_provider.discover(
+            run.keyword,
+            max_books=run.max_books,
+            search_provider=search_provider,
+            max_results=max_results,
+        )
+        log.result_count = len(candidates)
+        log.status = "success"
+        if errors and not candidates:
+            log.status = "failed"
+            log.error_message = " | ".join(errors[:3])[:5000]
+    finally:
+        log.save()
+
+    books: list[Book] = []
+    for candidate in _candidate_batch_for_run(run, dedupe_book_candidates(candidates)):
+        book = Book.objects.create(
+            research_run=run,
+            title=candidate["title"],
+            author_name=candidate.get("author_name", ""),
+            asin=candidate.get("asin", ""),
+            amazon_book_url=candidate.get("amazon_book_url", ""),
+            amazon_source_url=candidate.get("amazon_source_url", ""),
+            amazon_source_title=candidate.get("amazon_source_title", ""),
+            amazon_source_snippet=candidate.get("amazon_source_snippet", ""),
+            normalized_key=normalized_book_key(candidate["title"], candidate.get("author_name"), candidate.get("asin")),
+            book_data_confidence=candidate.get("book_data_confidence", 0.45),
+            source_provider=candidate.get("source_provider", run.source_provider),
+            source_raw_json=candidate.get("source_raw_json", {}),
+        )
+        Evidence.objects.create(
+            book=book,
+            evidence_type="amazon_search_result" if candidate.get("asin") else "web_search_result",
+            field_name="amazon_book_url" if candidate.get("asin") else "discovery_source_url",
+            field_value=book.amazon_book_url or book.amazon_source_url,
+            source_url=book.amazon_source_url or book.amazon_book_url,
+            source_title=book.amazon_source_title,
+            source_snippet=book.amazon_source_snippet,
+            confidence=book.book_data_confidence,
+            is_primary=True,
+        )
+        books.append(book)
+    return books
+
+
 def discover_books_from_keyword(run: ResearchRun) -> list[Book]:
     provider = get_search_provider(run.source_provider)
     candidates: list[dict] = []
@@ -449,19 +557,28 @@ def discover_books_from_keyword(run: ResearchRun) -> list[Book]:
     max_results = min(max(int(getattr(settings, "APP_MAX_SEARCH_RESULTS_PER_QUERY", 5)), 1), 20)
     max_queries = min(max(int(getattr(settings, "APP_MAX_DISCOVERY_QUERIES", 6)), 1), len(queries))
     failures: list[str] = []
-    for query in queries[:max_queries]:
+    active_queries = queries[:max_queries]
+
+    def _run_query(query):
+        """Network-only worker: one discovery search, errors captured as values."""
+        try:
+            return provider.search(query, max_results=max_results), None
+        except Exception as exc:
+            return [], exc
+
+    discovery_batch = map_parallel(_run_query, active_queries)
+    for query, (results, search_error) in zip(active_queries, discovery_batch):
         raise_if_run_canceled(run)
         log_agent_thought(run, "Scout", f"Executing discovery search: '{query}'")
         log = SearchQueryLog.objects.create(research_run=run, query=query, provider=provider.provider_name)
-        try:
-            results = provider.search(query, max_results=max_results)
+        if search_error is None:
             log.result_count = len(results)
             log.status = "success"
-        except Exception as exc:
+        else:
             results = []
             log.status = "failed"
-            log.error_message = str(exc)
-            failures.append(str(exc))
+            log.error_message = str(search_error)
+            failures.append(str(search_error))
         log.save()
         for dto in results:
             confidence = classify_amazon_search_result(dto.title, dto.url, dto.snippet)
@@ -550,7 +667,7 @@ def run_research_pipeline(research_run_id) -> None:
             from leadfinder.services.amazon.amazon_creators_provider import AmazonCreatorsProvider
             candidates = AmazonCreatorsProvider().discover_books(run.keyword, max_books=run.max_books)
             books = []
-            for candidate in candidates:
+            for candidate in _filter_author_only_candidates(run, candidates):
                 book = Book.objects.create(
                     research_run=run,
                     title=candidate["title"],
@@ -580,6 +697,8 @@ def run_research_pipeline(research_run_id) -> None:
         elif run.source_provider == "google_books":
             candidates = GoogleBooksProvider().discover_books(run.keyword, max_books=run.max_books)
             books = _create_google_books_from_candidates(run, candidates)
+        elif run.source_provider in SITE_DISCOVERY_PROVIDERS:
+            books = _discover_site_provider_books(run)
         elif run.source_provider == "booklife":
             from leadfinder.services.booklife import BookLifeProjectProvider, BookLifeRobotsBlocked
 
@@ -623,45 +742,90 @@ def run_research_pipeline(research_run_id) -> None:
         scheduled_requirement = run.settings_json.get("require_contact", "email_or_phone")
         scheduled_verified_count = 0
         processed_books_count = 0
+        verify_mx = bool(run.settings_json.get("verify_email_mx", True))
+        progress_lock = threading.Lock()
+        stop_event = threading.Event()
 
-        for book in books:
-            raise_if_run_canceled(run)
-            if not isinstance(book.source_raw_json, dict):
-                book.source_raw_json = {}
-            book.source_raw_json["processing_status"] = "processing"
-            book.save(update_fields=["source_raw_json", "updated_at"])
-
-            try:
-                lead = process_book(
-                    book,
-                    run_video_search=bool(run.settings_json.get("run_video_search", True)),
-                    run_ai_extraction=bool(run.settings_json.get("run_groq_ai_extraction", True)),
-                    verify_email_mx=bool(run.settings_json.get("verify_email_mx", True)),
+        def _book_has_verified_contact(lead) -> bool:
+            qualification = Q(verification_status="verified")
+            if not verify_mx:
+                qualification |= Q(
+                    channel="email",
+                    verification_status="other",
+                    verification_score__gte=75,
+                    deliverability_status="unknown",
                 )
-                processed_books_count += 1
-                qualification = Q(verification_status="verified")
-                if not bool(run.settings_json.get("verify_email_mx", True)):
-                    qualification |= Q(
-                        channel="email",
-                        verification_status="other",
-                        verification_score__gte=75,
-                        deliverability_status="unknown",
-                    )
-                verified_candidates = lead.contact_candidates.filter(qualification)
-                if scheduled_requirement == "email_only":
-                    verified_candidates = verified_candidates.filter(channel="email")
-                else:
-                    verified_candidates = verified_candidates.filter(channel__in=["email", "phone"])
-                if scheduled_target and verified_candidates.exists():
-                    scheduled_verified_count += 1
-                book.refresh_from_db()
+            verified_candidates = lead.contact_candidates.filter(qualification)
+            if scheduled_requirement == "email_only":
+                verified_candidates = verified_candidates.filter(channel="email")
+            else:
+                verified_candidates = verified_candidates.filter(channel__in=["email", "phone"])
+            return verified_candidates.exists()
+
+        def _process_one_book(book) -> bool:
+            """Process one book; return True when it yielded a verified contactable lead."""
+            if stop_event.is_set():
+                return False
+            close_old_connections()
+            try:
+                raise_if_run_canceled(run)
                 if not isinstance(book.source_raw_json, dict):
                     book.source_raw_json = {}
-                book.source_raw_json["processing_status"] = "completed"
-                book.source_raw_json["processing_stage"] = "Complete"
-                book.source_raw_json["processing_detail"] = "Evidence and review data are ready."
+                book.source_raw_json["processing_status"] = "processing"
                 book.save(update_fields=["source_raw_json", "updated_at"])
 
+                try:
+                    lead = process_book(
+                        book,
+                        run_video_search=bool(run.settings_json.get("run_video_search", True)),
+                        run_ai_extraction=bool(run.settings_json.get("run_groq_ai_extraction", True)),
+                        verify_email_mx=verify_mx,
+                    )
+                    hit = _book_has_verified_contact(lead)
+                    book.refresh_from_db()
+                    if not isinstance(book.source_raw_json, dict):
+                        book.source_raw_json = {}
+                    book.source_raw_json["processing_status"] = "completed"
+                    book.source_raw_json["processing_stage"] = "Complete"
+                    book.source_raw_json["processing_detail"] = "Evidence and review data are ready."
+                    book.save(update_fields=["source_raw_json", "updated_at"])
+                    return hit
+                except RunCanceled:
+                    try:
+                        book.refresh_from_db()
+                        if not isinstance(book.source_raw_json, dict):
+                            book.source_raw_json = {}
+                        book.source_raw_json["processing_status"] = "failed"
+                        book.source_raw_json["processing_stage"] = "Canceled"
+                        book.source_raw_json["processing_detail"] = "The runner was stopped before this item completed."
+                        book.save(update_fields=["source_raw_json", "updated_at"])
+                    except Exception:
+                        pass
+                    raise
+                except Exception as exc:
+                    try:
+                        book.refresh_from_db()
+                    except Exception:
+                        pass
+                    if not isinstance(book.source_raw_json, dict):
+                        book.source_raw_json = {}
+                    book.source_raw_json["processing_status"] = "failed"
+                    book.source_raw_json["processing_stage"] = "Needs a valid evidence match"
+                    book.source_raw_json["processing_detail"] = str(exc)[:5000]
+                    warnings = book.source_raw_json
+                    warnings.setdefault("book_processing_errors", []).append(str(exc))
+                    book.source_raw_json = warnings
+                    book.save(update_fields=["source_raw_json", "updated_at"])
+                    return False
+            finally:
+                close_old_connections()
+
+        def _record_result(hit: bool) -> None:
+            nonlocal processed_books_count, scheduled_verified_count
+            with progress_lock:
+                processed_books_count += 1
+                if hit:
+                    scheduled_verified_count += 1
                 if scheduled_target:
                     progress = dict(run.settings_json or {})
                     progress["scheduled_verified_count"] = scheduled_verified_count
@@ -669,43 +833,64 @@ def run_research_pipeline(research_run_id) -> None:
                     progress["scheduled_target_reached"] = scheduled_verified_count >= scheduled_target
                     run.settings_json = progress
                     run.save(update_fields=["settings_json", "updated_at"])
-            except RunCanceled:
-                try:
-                    book.refresh_from_db()
-                    if not isinstance(book.source_raw_json, dict):
-                        book.source_raw_json = {}
-                    book.source_raw_json["processing_status"] = "failed"
-                    book.source_raw_json["processing_stage"] = "Canceled"
-                    book.source_raw_json["processing_detail"] = "The runner was stopped before this item completed."
-                    book.save(update_fields=["source_raw_json", "updated_at"])
-                except Exception:
-                    pass
-                raise
-            except Exception as exc:
-                processed_books_count += 1
-                try:
-                    book.refresh_from_db()
-                except Exception:
-                    pass
-                if not isinstance(book.source_raw_json, dict):
-                    book.source_raw_json = {}
-                book.source_raw_json["processing_status"] = "failed"
-                book.source_raw_json["processing_stage"] = "Needs a valid evidence match"
-                book.source_raw_json["processing_detail"] = str(exc)[:5000]
-                warnings = book.source_raw_json
-                warnings.setdefault("book_processing_errors", []).append(str(exc))
-                book.source_raw_json = warnings
-                book.save(update_fields=["source_raw_json", "updated_at"])
-            raise_if_run_canceled(run)
-            if scheduled_target and scheduled_verified_count >= scheduled_target:
-                log_agent_thought(
-                    run,
-                    "Coordinator",
-                    f"Scheduled target reached: {scheduled_verified_count} verified contactable leads.",
-                )
-                break
+                if scheduled_target and scheduled_verified_count >= scheduled_target:
+                    stop_event.set()
+
+        workers = max(1, min(int(getattr(settings, "APP_PIPELINE_WORKERS", 1) or 1), 8, max(1, len(books))))
+        # In-memory SQLite (test runs) serializes writers with table locks that
+        # busy-timeout cannot wait out; keep those runs strictly sequential.
+        db_name = str(connection.settings_dict.get("NAME") or "")
+        if ":memory:" in db_name or "mode=memory" in db_name:
+            workers = 1
+        if workers > 1:
+            log_agent_thought(run, "Harvester", f"Processing books with {workers} parallel workers.")
+        canceled = None
+        try:
+            if workers == 1:
+                # Sequential path: same thread/connection — required for tests
+                # and in-memory SQLite, which lock out secondary connections.
+                for book in books:
+                    hit = _process_one_book(book)
+                    _record_result(hit)
+                    raise_if_run_canceled(run)
+                    if stop_event.is_set():
+                        log_agent_thought(
+                            run,
+                            "Coordinator",
+                            f"Scheduled target reached: {scheduled_verified_count} verified contactable leads.",
+                        )
+                        break
+            else:
+                with ThreadPoolExecutor(max_workers=workers, thread_name_prefix=f"pipeline-run-{run.id}") as pool:
+                    futures = {pool.submit(_process_one_book, book): book for book in books}
+                    for future in as_completed(futures):
+                        try:
+                            hit = future.result()
+                        except RunCanceled as exc:
+                            canceled = exc
+                            stop_event.set()
+                            for pending in futures:
+                                pending.cancel()
+                            break
+                        _record_result(hit)
+                        raise_if_run_canceled(run)
+                        if stop_event.is_set():
+                            log_agent_thought(
+                                run,
+                                "Coordinator",
+                                f"Scheduled target reached: {scheduled_verified_count} verified contactable leads.",
+                            )
+                            for pending in futures:
+                                pending.cancel()
+                            break
+        finally:
+            if canceled is not None:
+                raise canceled
         log_agent_thought(run, "Coordinator", f"Pipeline run completed successfully. Finalized and compiled leads database.")
         run.mark_completed()
+        from leadfinder.services.notify import notify_run_completed
+
+        notify_run_completed(run)
     except RunCanceled:
         run.mark_canceled()
     except Exception as exc:

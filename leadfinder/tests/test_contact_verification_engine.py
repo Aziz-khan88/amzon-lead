@@ -60,6 +60,17 @@ def test_deliverable_first_party_email_becomes_verified(mock_delivery, verificat
     assert verification_lead.contact_candidates.filter(is_primary=True).count() == 1
 
 
+def test_source_trusted_email_verifies_without_network(verification_lead):
+    """Port 25 is blocked on most hosts; trusted-source evidence alone must suffice."""
+    _email_evidence(verification_lead)
+
+    verify_lead_contacts(verification_lead, check_network=False)
+    verification_lead.refresh_from_db()
+
+    assert verification_lead.verification_status == "verified"
+    assert verification_lead.primary_contact.deliverability_status == "unknown"
+
+
 @patch("leadfinder.services.verification.contact_verifier.check_deliverability")
 def test_catch_all_email_stays_other(mock_delivery, verification_lead):
     mock_delivery.return_value = {"status": "catch_all", "message": "all recipients accepted", "mx_hosts": ["mx.example"]}
@@ -206,5 +217,7 @@ def test_batch_command_records_complete_counts(verification_lead):
     assert batch.status == "completed"
     assert batch.total_count == 1
     assert batch.processed_count == 1
-    assert batch.other_count == 1
+    # Source-trusted, identity-aligned email verifies without a port-25 probe.
+    assert batch.verified_count == 1
+    assert batch.other_count == 0
     assert batch.error_count == 0

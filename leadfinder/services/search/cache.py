@@ -15,6 +15,7 @@ from .base import SearchProvider, SearchResultDTO
 _LOCK = threading.RLock()
 _MEMORY_CACHE: dict[str, tuple[float, list[SearchResultDTO]]] = {}
 _DISK_CACHE: dict[str, dict] | None = None
+MAX_DISK_ENTRIES = 5000
 
 
 def _cache_path() -> Path:
@@ -46,9 +47,22 @@ def _load_disk_cache() -> dict[str, dict]:
 
 
 def _save_disk_cache(cache: dict[str, dict]) -> None:
+    # Prune expired entries and cap the file at the newest MAX_DISK_ENTRIES so
+    # long-running installs never grow an unbounded, slow-to-rewrite cache file.
+    ttl = _cache_seconds()
+    now = time.time()
+    pruned = {key: item for key, item in cache.items() if now - float(item.get("created_at", 0)) <= ttl}
+    if len(pruned) > MAX_DISK_ENTRIES:
+        pruned = dict(
+            sorted(pruned.items(), key=lambda kv: float(kv[1].get("created_at", 0)))[-MAX_DISK_ENTRIES:]
+        )
+    cache.clear()
+    cache.update(pruned)
     path = _cache_path()
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(cache, ensure_ascii=True), encoding="utf-8")
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(cache, ensure_ascii=True), encoding="utf-8")
+    tmp.replace(path)
 
 
 def _dto_from_dict(item: dict) -> SearchResultDTO:
@@ -90,6 +104,9 @@ class CachedSearchProvider(SearchProvider):
 
         with _LOCK:
             _MEMORY_CACHE[key] = (now, list(results))
+            if len(_MEMORY_CACHE) > MAX_DISK_ENTRIES:
+                for old_key, _ in sorted(_MEMORY_CACHE.items(), key=lambda kv: kv[1][0])[: len(_MEMORY_CACHE) - MAX_DISK_ENTRIES]:
+                    _MEMORY_CACHE.pop(old_key, None)
             disk = _load_disk_cache()
             disk[key] = {
                 "created_at": now,

@@ -1,0 +1,1127 @@
+/* ==========================================================================
+   UX Polish Layer — motion, micro-interactions & clarity
+   Same light "green workspace" theme. Scoped to body.modern-app and loaded
+   last so it only refines the existing design system.
+   ========================================================================== */
+
+body.modern-app {
+  --ux-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --ux-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ux-green: #176f49;
+  --ux-green-bright: #1c8357;
+  --ux-green-soft: #e8f4ed;
+  --ux-amber: #d59a32;
+  --ux-red: #c85b5b;
+  --ux-shadow-lift: 0 14px 34px rgba(21, 53, 36, 0.12), 0 3px 10px rgba(21, 53, 36, 0.06);
+}
+
+/* ── 1. Gentle page fade-in so navigation never feels abrupt ─────────────── */
+body.modern-app main.page-wrap {
+  animation: ux-page-in 0.38s var(--ux-ease) both;
+}
+@keyframes ux-page-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ── 2. Staggered card entrances ─────────────────────────────────────────── */
+body.modern-app .ux-stagger > * {
+  opacity: 0;
+  transform: translateY(16px) scale(0.985);
+  animation: ux-rise 0.55s var(--ux-ease) forwards;
+  animation-delay: calc(var(--ux-i, 0) * 65ms);
+}
+@keyframes ux-rise {
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ── 3. KPI / stat cards: lift, accent sweep & icon pop ──────────────────── */
+body.modern-app .modern-kpi-card,
+body.modern-app .role-kpi-grid a,
+body.modern-app .metric,
+body.modern-app .lead-stat-card,
+body.modern-app .run-stat-card,
+body.modern-app .modern-card,
+body.modern-app .tool-card,
+body.modern-app .command-item,
+body.modern-app .flow-step {
+  transition: transform 0.32s var(--ux-ease), box-shadow 0.32s var(--ux-ease),
+    border-color 0.25s ease, background-color 0.25s ease;
+  will-change: transform;
+}
+
+body.modern-app .modern-kpi-card {
+  position: relative;
+  overflow: hidden;
+}
+body.modern-app .modern-kpi-card::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: linear-gradient(180deg, var(--ux-green-bright), #4cc48f);
+  opacity: 0;
+  transform: scaleY(0.3);
+  transform-origin: top;
+  transition: opacity 0.25s ease, transform 0.35s var(--ux-ease);
+}
+body.modern-app .modern-kpi-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--ux-shadow-lift);
+  border-color: #c9ddcf;
+}
+body.modern-app .modern-kpi-card:hover::after {
+  opacity: 1;
+  transform: scaleY(1);
+}
+body.modern-app .modern-kpi-card .kpi-topline i {
+  transition: transform 0.3s var(--ux-ease-spring), color 0.2s ease;
+}
+body.modern-app .modern-kpi-card:hover .kpi-topline i {
+  transform: scale(1.18) rotate(-6deg);
+  color: var(--ux-green-bright);
+}
+body.modern-app .modern-kpi-card strong.ux-counted {
+  animation: ux-count-pop 0.4s var(--ux-ease-spring);
+}
+@keyframes ux-count-pop {
+  0% { transform: scale(0.92); }
+  60% { transform: scale(1.04); }
+  100% { transform: scale(1); }
+}
+
+body.modern-app .role-kpi-grid a:hover,
+body.modern-app .lead-stat-card:hover,
+body.modern-app .run-stat-card:hover,
+body.modern-app .metric:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--ux-shadow-lift);
+}
+
+/* Modern cards get a softer hover lift instead of a hard jump */
+body.modern-app .modern-card:hover {
+  box-shadow: 0 10px 28px rgba(21, 53, 36, 0.09), 0 2px 8px rgba(21, 53, 36, 0.05);
+}
+
+/* ── 4. Quick actions & list rows: gliding caret ─────────────────────────── */
+body.modern-app .quick-action-list a,
+body.modern-app .recent-run-item,
+body.modern-app .batch-row {
+  transition: background-color 0.22s ease, transform 0.28s var(--ux-ease), box-shadow 0.28s var(--ux-ease);
+}
+body.modern-app .quick-action-list a:hover,
+body.modern-app .recent-run-item:hover {
+  transform: translateX(4px);
+}
+body.modern-app .quick-action-list a > i:last-child,
+body.modern-app .modern-card-heading a i {
+  transition: transform 0.28s var(--ux-ease);
+}
+body.modern-app .quick-action-list a:hover > i:last-child,
+body.modern-app .modern-card-heading a:hover i {
+  transform: translateX(4px);
+}
+body.modern-app .quick-action-icon {
+  transition: transform 0.3s var(--ux-ease-spring), box-shadow 0.3s ease;
+}
+body.modern-app .quick-action-list a:hover .quick-action-icon {
+  transform: scale(1.1);
+}
+
+/* ── 5. Buttons: ripple + springy press ──────────────────────────────────── */
+body.modern-app .btn {
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.22s var(--ux-ease), box-shadow 0.25s ease,
+    background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+body.modern-app .btn:active {
+  transform: translateY(0) scale(0.97);
+}
+.ux-ripple {
+  position: absolute;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.22;
+  transform: scale(0);
+  animation: ux-ripple 0.55s var(--ux-ease) forwards;
+  pointer-events: none;
+}
+@keyframes ux-ripple {
+  to { transform: scale(2.6); opacity: 0; }
+}
+
+/* Primary button gets a soft glow on hover */
+body.modern-app .btn-primary:hover {
+  box-shadow: 0 8px 22px rgba(23, 111, 73, 0.28);
+}
+
+/* ── 6. Navigation: icon nudge, sliding active pill ──────────────────────── */
+body.modern-app .nav-links a {
+  transition: background-color 0.22s ease, color 0.22s ease, transform 0.26s var(--ux-ease);
+}
+body.modern-app .nav-links a:hover i {
+  transform: translateX(0) scale(1.12);
+  color: var(--ux-green-bright);
+}
+body.modern-app .nav-links a i {
+  transition: transform 0.26s var(--ux-ease-spring), color 0.2s ease;
+}
+body.modern-app .nav-links a.active i {
+  color: var(--ux-green);
+}
+/* Active indicator grows in from the left edge */
+body.modern-app .nav-links a.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 22%;
+  height: 56%;
+  width: 3px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--ux-green-bright), #0d603d);
+  animation: ux-nav-pill 0.32s var(--ux-ease) both;
+}
+@keyframes ux-nav-pill {
+  from { transform: scaleY(0); opacity: 0; }
+  to { transform: scaleY(1); opacity: 1; }
+}
+
+/* Brand mark gentle pulse on hover */
+body.modern-app .brand-mark {
+  transition: transform 0.3s var(--ux-ease-spring), box-shadow 0.3s ease;
+}
+body.modern-app .brand:hover .brand-mark {
+  transform: scale(1.08) rotate(-6deg);
+  box-shadow: 0 6px 16px rgba(28, 131, 87, 0.28);
+}
+
+/* ── 7. Topbar search: expands and glows on focus ────────────────────────── */
+body.modern-app .topbar-search {
+  transition: box-shadow 0.25s ease, border-color 0.25s ease, transform 0.25s var(--ux-ease);
+}
+body.modern-app .topbar-search:focus-within {
+  border-color: var(--ux-green-bright);
+  box-shadow: 0 0 0 4px rgba(28, 131, 87, 0.12), 0 6px 18px rgba(21, 53, 36, 0.08);
+  transform: translateY(-1px);
+}
+body.modern-app .topbar-search:focus-within > i {
+  color: var(--ux-green);
+}
+body.modern-app .topbar-search kbd {
+  transition: opacity 0.2s ease;
+}
+body.modern-app .topbar-search:focus-within kbd {
+  opacity: 0.4;
+}
+
+/* Bell icon subtle ring on hover */
+body.modern-app .topbar-icon {
+  transition: transform 0.25s var(--ux-ease-spring), background-color 0.2s ease, color 0.2s ease;
+}
+body.modern-app .topbar-icon:hover {
+  transform: translateY(-2px);
+}
+body.modern-app .topbar-icon:hover i {
+  animation: ux-bell 0.5s var(--ux-ease-spring);
+}
+@keyframes ux-bell {
+  0%, 100% { transform: rotate(0); }
+  25% { transform: rotate(12deg); }
+  60% { transform: rotate(-9deg); }
+}
+
+/* ── 8. Tables: row entrance & warmer hover ──────────────────────────────── */
+body.modern-app .table tbody tr {
+  transition: background-color 0.18s ease, box-shadow 0.2s ease;
+}
+body.modern-app .table-responsive .table tbody tr,
+body.modern-app .panel .table tbody tr {
+  animation: ux-row-in 0.4s var(--ux-ease) both;
+  animation-delay: calc(var(--ux-row, 0) * 28ms);
+}
+@keyframes ux-row-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+body.modern-app .table tbody tr:hover {
+  background: #f2f8f4 !important;
+  box-shadow: inset 3px 0 0 var(--ux-green-bright);
+}
+
+/* ── 9. Status pills: pulse for in-progress work ─────────────────────────── */
+body.modern-app .status-running,
+body.modern-app .modern-status.status-running,
+body.modern-app .modern-status.status-pending {
+  position: relative;
+}
+body.modern-app .status-running::before,
+body.modern-app .modern-status.status-running::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: ux-pulse-dot 1.4s ease-in-out infinite;
+}
+@keyframes ux-pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(0.8); }
+}
+
+/* ── 10. Toast-style alerts: slide in, auto-dismiss with progress ────────── */
+.ux-toast-stack {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  z-index: 1080;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: min(380px, calc(100vw - 32px));
+  pointer-events: none;
+}
+.ux-toast-stack .alert,
+.ux-toast {
+  pointer-events: auto;
+  position: relative;
+  overflow: hidden;
+  border-radius: 12px;
+  padding-right: 2.4rem;
+  box-shadow: 0 16px 40px rgba(21, 53, 36, 0.16), 0 4px 12px rgba(21, 53, 36, 0.08);
+  animation: ux-toast-in 0.45s var(--ux-ease-spring) both;
+  margin-bottom: 0;
+}
+.ux-toast.ux-leaving,
+.ux-toast-stack .alert.ux-leaving {
+  animation: ux-toast-out 0.3s ease-in both;
+}
+@keyframes ux-toast-in {
+  from { opacity: 0; transform: translateX(30px) scale(0.96); }
+  to { opacity: 1; transform: translateX(0) scale(1); }
+}
+@keyframes ux-toast-out {
+  to { opacity: 0; transform: translateX(40px) scale(0.95); }
+}
+.ux-toast-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  opacity: 0.55;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  line-height: 1;
+  transition: opacity 0.15s ease, background-color 0.15s ease;
+}
+.ux-toast-close:hover { opacity: 1; background: rgba(0, 0, 0, 0.06); }
+.ux-toast-progress {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 3px;
+  width: 100%;
+  transform-origin: left;
+  background: currentColor;
+  opacity: 0.35;
+  animation: ux-toast-bar linear forwards;
+}
+@keyframes ux-toast-bar {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+
+/* ── 11. Pure-CSS tooltips: add data-tip="…" to any element ──────────────── */
+body.modern-app [data-tip] {
+  position: relative;
+}
+body.modern-app [data-tip]::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  transform: translateX(-50%) translateY(4px);
+  background: #17251e;
+  color: #f2f7f4;
+  font-size: 0.72rem;
+  font-weight: 600;
+  font-family: var(--font-body);
+  padding: 0.35rem 0.6rem;
+  border-radius: 7px;
+  white-space: nowrap;
+  box-shadow: 0 8px 20px rgba(15, 30, 22, 0.25);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.22s var(--ux-ease);
+  z-index: 1090;
+}
+body.modern-app [data-tip]:hover::after,
+body.modern-app [data-tip]:focus-visible::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ── 12. Copy-to-clipboard affordance on contact links ───────────────────── */
+.ux-copy-btn {
+  border: 1px solid #d8e4dc;
+  background: #fff;
+  color: #5c6b61;
+  border-radius: 7px;
+  padding: 2px 7px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  margin-left: 6px;
+  line-height: 1.5;
+  transition: all 0.18s ease;
+  vertical-align: middle;
+}
+.ux-copy-btn:hover {
+  background: var(--ux-green-soft);
+  border-color: var(--ux-green-bright);
+  color: var(--ux-green);
+}
+.ux-copy-btn.ux-copied {
+  background: var(--ux-green);
+  border-color: var(--ux-green);
+  color: #fff;
+}
+
+/* ── 13. Donut & gauge breathe when values settle ────────────────────────── */
+body.modern-app .verification-donut,
+body.modern-app .coverage-gauge {
+  transition: transform 0.35s var(--ux-ease), box-shadow 0.35s ease;
+}
+body.modern-app .verification-donut:hover,
+body.modern-app .coverage-gauge:hover {
+  transform: scale(1.04);
+  box-shadow: 0 12px 30px rgba(21, 53, 36, 0.14);
+}
+body.modern-app .verification-donut > div strong,
+body.modern-app .coverage-gauge > div strong {
+  transition: color 0.2s ease;
+}
+
+/* ── 14. Form controls: friendlier focus ─────────────────────────────────── */
+body.modern-app input:focus,
+body.modern-app select:focus,
+body.modern-app textarea:focus,
+body.modern-app .form-control:focus,
+body.modern-app .form-select:focus {
+  border-color: var(--ux-green-bright) !important;
+  box-shadow: 0 0 0 4px rgba(28, 131, 87, 0.13) !important;
+}
+body.modern-app input,
+body.modern-app select,
+body.modern-app textarea,
+body.modern-app .form-control,
+body.modern-app .form-select {
+  transition: border-color 0.2s ease, box-shadow 0.24s ease, background-color 0.2s ease;
+}
+body.modern-app input:hover,
+body.modern-app select:hover,
+body.modern-app textarea:hover {
+  border-color: #b9cbc0;
+}
+
+/* Checkboxes & switches bounce a touch when toggled */
+body.modern-app input[type="checkbox"]:checked,
+body.modern-app .form-check-input:checked {
+  accent-color: var(--ux-green);
+  animation: ux-check-pop 0.25s var(--ux-ease-spring);
+}
+@keyframes ux-check-pop {
+  0% { transform: scale(0.8); }
+  60% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+
+/* ── 15. Pagination & chips: springy feedback ────────────────────────────── */
+body.modern-app .pagination .page-link {
+  transition: all 0.2s var(--ux-ease);
+}
+body.modern-app .pagination .page-link:hover {
+  transform: translateY(-1px);
+}
+body.modern-app .pagination .active .page-link {
+  background: var(--ux-green);
+  border-color: var(--ux-green);
+}
+body.modern-app .chip,
+body.modern-app .filter-chip,
+body.modern-app .quick-chip {
+  transition: all 0.2s var(--ux-ease);
+}
+body.modern-app .chip:hover,
+body.modern-app .filter-chip:hover,
+body.modern-app .quick-chip:hover {
+  transform: translateY(-1px);
+}
+
+/* ── 16. Back-to-top floating button ─────────────────────────────────────── */
+.ux-backtop,
+body.modern-app .ux-backtop,
+body.modern-app [data-tip].ux-backtop {
+  position: fixed !important;
+  right: 24px !important;
+  bottom: 24px !important;
+  left: auto !important;
+  top: auto !important;
+  z-index: 9999 !important;
+  width: 46px !important;
+  height: 46px !important;
+  border-radius: 50% !important;
+  border: 1px solid #cfe0d5 !important;
+  background: #ffffff !important;
+  color: var(--ux-green) !important;
+  font-size: 1.15rem !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  box-shadow: 0 10px 26px rgba(21, 53, 36, 0.18) !important;
+  opacity: 0;
+  transform: translateY(14px) scale(0.9);
+  pointer-events: none;
+  transition: opacity 0.25s ease, transform 0.3s var(--ux-ease-spring), background-color 0.2s ease;
+}
+.ux-backtop.ux-show,
+body.modern-app .ux-backtop.ux-show {
+  opacity: 1 !important;
+  transform: translateY(0) scale(1) !important;
+  pointer-events: auto !important;
+}
+.ux-backtop:hover,
+body.modern-app .ux-backtop:hover {
+  background: var(--ux-green-soft) !important;
+  transform: translateY(-3px) scale(1.05) !important;
+}
+@media (max-width: 991.98px) {
+  .ux-backtop,
+  body.modern-app .ux-backtop {
+    right: 16px !important;
+    bottom: 18px !important;
+    width: 42px !important;
+    height: 42px !important;
+    font-size: 1.05rem !important;
+  }
+}
+
+/* ── 17. Light-theme scrollbar ───────────────────────────────────────────── */
+body.modern-app ::-webkit-scrollbar { width: 10px; height: 10px; }
+body.modern-app ::-webkit-scrollbar-track { background: #edf1ef; }
+body.modern-app ::-webkit-scrollbar-thumb {
+  background: #c3d2c8;
+  border-radius: 999px;
+  border: 2px solid #edf1ef;
+}
+body.modern-app ::-webkit-scrollbar-thumb:hover { background: #9fb8a8; }
+body.modern-app {
+  scrollbar-color: #c3d2c8 #edf1ef;
+}
+
+/* ── 18. Skeleton shimmer utility (add .ux-skeleton while loading) ───────── */
+.ux-skeleton {
+  position: relative;
+  overflow: hidden;
+  background: #e7ede9;
+  border-radius: 8px;
+  min-height: 1em;
+  color: transparent !important;
+}
+.ux-skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.7), transparent);
+  animation: ux-shimmer 1.4s infinite;
+}
+@keyframes ux-shimmer {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
+}
+
+/* ── 19. Focus visibility in theme color ─────────────────────────────────── */
+body.modern-app :where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 3px solid rgba(28, 131, 87, 0.4) !important;
+  outline-offset: 2px;
+}
+body.modern-app ::selection {
+  background: rgba(28, 131, 87, 0.22);
+  color: #10241a;
+}
+
+/* ── 20. Filter bar & panels: subtle settle-in on hover ──────────────────── */
+body.modern-app .panel,
+body.modern-app .filter-bar,
+body.modern-app .narrow-form {
+  transition: box-shadow 0.3s var(--ux-ease), border-color 0.25s ease, transform 0.3s var(--ux-ease);
+}
+body.modern-app .filter-bar:hover {
+  box-shadow: 0 8px 24px rgba(21, 53, 36, 0.07);
+}
+
+/* ── 21. 1440x900 Enhanced Visual Polish & Interactive Engagement ────────── */
+body.modern-app .modern-card {
+  transition: transform 0.22s var(--ux-ease), box-shadow 0.25s var(--ux-ease), border-color 0.2s ease !important;
+}
+body.modern-app .modern-card:hover {
+  border-color: #d1ded7 !important;
+  box-shadow: 0 8px 24px rgba(21, 53, 36, 0.06) !important;
+}
+
+body.modern-app .quick-action-list a {
+  transition: transform 0.2s var(--ux-ease), background-color 0.18s ease, border-color 0.18s ease !important;
+}
+body.modern-app .quick-action-list a:hover {
+  transform: translateX(3px) !important;
+  background-color: #f2f7f4 !important;
+}
+
+body.modern-app .recent-run-item {
+  transition: transform 0.2s var(--ux-ease), background-color 0.18s ease !important;
+}
+body.modern-app .recent-run-item:hover {
+  transform: translateX(3px) !important;
+  background-color: #f2f7f4 !important;
+}
+
+body.modern-app .leads-table .clickable-row {
+  transition: background-color 0.15s ease !important;
+  cursor: pointer !important;
+}
+body.modern-app .leads-table .clickable-row:hover td {
+  background-color: #f4f8f5 !important;
+}
+
+body.modern-app .btn-primary {
+  transition: transform 0.18s var(--ux-ease), box-shadow 0.2s ease, background-color 0.18s ease !important;
+}
+body.modern-app .btn-primary:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 14px rgba(12, 141, 88, 0.28) !important;
+}
+
+body.modern-app .btn-outline-primary {
+  transition: transform 0.18s var(--ux-ease), box-shadow 0.2s ease, background-color 0.18s ease, border-color 0.18s ease !important;
+}
+body.modern-app .btn-outline-primary:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(12, 141, 88, 0.12) !important;
+}
+
+/* 21.1 Selected Table Row Tactile Feedback */
+body.modern-app .leads-table tr.selected td,
+body.modern-app .table tbody tr.selected td {
+  background: #eaf5ee !important;
+  color: #0f3d26 !important;
+}
+body.modern-app .leads-table tr.selected td:first-child,
+body.modern-app .table tbody tr.selected td:first-child {
+  box-shadow: inset 4px 0 0 #0c8d58 !important;
+}
+
+/* 21.2 Social & Channel Badges Micro-Interactions */
+body.modern-app .leads-reference-table .icon-link,
+body.modern-app .channel-actions .icon-link {
+  background: #f0f5f2 !important;
+  border: 1px solid #d8e5de !important;
+  border-radius: 50% !important;
+  color: #3b5246 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 25px !important;
+  width: 25px !important;
+  font-size: 0.8rem !important;
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+}
+body.modern-app .leads-reference-table .icon-link:hover,
+body.modern-app .channel-actions .icon-link:hover {
+  background: #0c8d58 !important;
+  color: #ffffff !important;
+  border-color: #0c8d58 !important;
+  transform: translateY(-2px) scale(1.15) !important;
+  box-shadow: 0 4px 10px rgba(12, 141, 88, 0.28) !important;
+}
+body.modern-app .leads-reference-table a.icon-link[title*="Amazon"]:hover,
+body.modern-app .channel-actions a.icon-link[title*="Amazon"]:hover {
+  background: #ff9900 !important;
+  border-color: #ff9900 !important;
+  color: #111111 !important;
+  box-shadow: 0 4px 10px rgba(255, 153, 0, 0.35) !important;
+}
+body.modern-app .leads-reference-table a.icon-link[title*="website"]:hover,
+body.modern-app .channel-actions a.icon-link[title*="website"]:hover {
+  background: #0284c7 !important;
+  border-color: #0284c7 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 10px rgba(2, 132, 199, 0.35) !important;
+}
+
+/* 21.3 Quick Filter Chips Polish */
+body.modern-app .leads-chip-row .quick-filter {
+  transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1) !important;
+  border: 1px solid #dce5e0 !important;
+}
+body.modern-app .leads-chip-row .quick-filter:hover {
+  background: #f0f7f3 !important;
+  border-color: #b3d1c2 !important;
+  transform: translateY(-1px) !important;
+}
+body.modern-app .leads-chip-row .quick-filter:is(.active, .is-active) {
+  background: linear-gradient(135deg, #0c8d58 0%, #097246 100%) !important;
+  border-color: #0c8d58 !important;
+  box-shadow: 0 3px 10px rgba(12, 141, 88, 0.25) !important;
+  color: #ffffff !important;
+}
+body.modern-app .leads-chip-row .quick-filter:is(.active, .is-active) i {
+  color: #ffffff !important;
+}
+body.modern-app .leads-chip-row .quick-filter:is(.active, .is-active) strong {
+  background: rgba(255, 255, 255, 0.24) !important;
+  color: #ffffff !important;
+}
+
+/* 21.4 Bulk Actions Bar & Selection Count */
+body.modern-app .bulk-actions-bar.show {
+  align-items: center !important;
+  display: inline-flex !important;
+  gap: 0.5rem !important;
+  padding: 0.28rem 0.7rem !important;
+  background: #eef7f2 !important;
+  border: 1px solid #b7dbcb !important;
+  border-radius: 9px !important;
+  box-shadow: 0 2px 8px rgba(12, 141, 88, 0.08) !important;
+}
+body.modern-app .selection-count {
+  font-size: 0.74rem !important;
+  font-weight: 700 !important;
+  color: #0c8d58 !important;
+  background: #ffffff !important;
+  padding: 0.18rem 0.55rem !important;
+  border-radius: 6px !important;
+  border: 1px solid #cfe0d5 !important;
+}
+
+/* 21.5 Form Controls & Focus Ring Polish */
+body.modern-app .form-control:focus,
+body.modern-app .form-select:focus,
+body.modern-app select:focus,
+body.modern-app input[type="text"]:focus,
+body.modern-app input[type="search"]:focus,
+body.modern-app textarea:focus {
+  border-color: #0c8d58 !important;
+  box-shadow: 0 0 0 3px rgba(12, 141, 88, 0.14) !important;
+  outline: none !important;
+}
+
+/* 21.6 Book Cover Mini Micro-Zoom */
+body.modern-app .book-cover-mini {
+  transition: transform 0.22s var(--ux-ease), box-shadow 0.22s ease !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08) !important;
+}
+body.modern-app .clickable-row:hover .book-cover-mini {
+  transform: scale(1.06) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.14) !important;
+}
+
+/* 21.7 Custom Checkbox in Green Workspace */
+body.modern-app .form-check-input:checked {
+  background-color: #0c8d58 !important;
+  border-color: #0c8d58 !important;
+}
+body.modern-app .form-check-input:focus {
+  border-color: #0c8d58 !important;
+  box-shadow: 0 0 0 3px rgba(12, 141, 88, 0.15) !important;
+}
+
+/* ==========================================================================
+   22. Research Runs & Runner Pages Polish (1440x900 & Multi-device)
+   ========================================================================== */
+
+/* 22.1 Floating Button Bottom Clearance */
+body.modern-app .runs-page,
+body.modern-app .leads-page,
+body.modern-app .dashboard-page,
+body.modern-app .run-detail-page,
+body.modern-app .new-run-page {
+  padding-bottom: 6rem !important;
+}
+
+body.modern-app .runs-table-panel {
+  margin-bottom: 3rem !important;
+}
+
+/* 22.2 Runs Table Dimensions & Layout */
+body.modern-app .runs-table-wrap {
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+
+body.modern-app .runs-table,
+body.modern-app .runs-reference-table {
+  width: 100% !important;
+  min-width: 100% !important;
+  table-layout: fixed !important;
+  margin-bottom: 0 !important;
+}
+
+body.modern-app .runs-reference-table th:nth-child(1),
+body.modern-app .runs-reference-table td:nth-child(1) {
+  width: 38px !important;
+  min-width: 38px !important;
+  max-width: 38px !important;
+  text-align: center !important;
+}
+
+body.modern-app .runs-reference-table th:nth-child(2),
+body.modern-app .runs-reference-table td:nth-child(2) {
+  width: 31% !important;
+}
+
+body.modern-app .runs-reference-table th:nth-child(3),
+body.modern-app .runs-reference-table td:nth-child(3) {
+  width: 12% !important;
+}
+
+body.modern-app .runs-reference-table th:nth-child(4),
+body.modern-app .runs-reference-table td:nth-child(4) {
+  width: 12% !important;
+}
+
+body.modern-app .runs-reference-table th:nth-child(5),
+body.modern-app .runs-reference-table td:nth-child(5) {
+  width: 13% !important;
+}
+
+body.modern-app .runs-reference-table th:nth-child(6),
+body.modern-app .runs-reference-table td:nth-child(6),
+body.modern-app .runs-reference-table th:nth-child(7),
+body.modern-app .runs-reference-table td:nth-child(7) {
+  width: 6.5% !important;
+  text-align: center !important;
+}
+
+/* Actions Column: Exactly fits review btn + dots */
+body.modern-app .runs-reference-table th:nth-child(8),
+body.modern-app .runs-reference-table td:nth-child(8) {
+  width: 19% !important;
+  text-align: right !important;
+  white-space: nowrap !important;
+  vertical-align: middle !important;
+}
+
+@media (max-width: 1024px) {
+  body.modern-app .runs-table,
+  body.modern-app .runs-reference-table {
+    min-width: 960px !important;
+    table-layout: auto !important;
+  }
+}
+
+/* 22.3 Action Buttons Flex Alignment */
+body.modern-app .run-actions-wrap {
+  display: inline-flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 0.35rem !important;
+  white-space: nowrap !important;
+  width: auto !important;
+}
+
+body.modern-app .run-actions-wrap .dropdown {
+  display: inline-flex !important;
+  align-items: center !important;
+  flex-shrink: 0 !important;
+}
+
+body.modern-app .run-review-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.32rem !important;
+  font-weight: 650 !important;
+  font-size: 0.77rem !important;
+  height: 30px !important;
+  min-height: 30px !important;
+  padding: 0 0.65rem !important;
+  border-radius: 7px !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+  background-color: #0c8d58 !important;
+  border-color: #0c8d58 !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 6px rgba(12, 141, 88, 0.16) !important;
+  transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1) !important;
+  text-decoration: none !important;
+}
+
+body.modern-app .run-review-btn:hover {
+  background-color: #097549 !important;
+  border-color: #097549 !important;
+  color: #ffffff !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(12, 141, 88, 0.26) !important;
+}
+
+body.modern-app .action-dots-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 30px !important;
+  min-width: 30px !important;
+  max-width: 30px !important;
+  height: 30px !important;
+  min-height: 30px !important;
+  padding: 0 !important;
+  border-radius: 7px !important;
+  background: #ffffff !important;
+  border: 1px solid #d8e2dc !important;
+  color: #3e5647 !important;
+  flex-shrink: 0 !important;
+  transition: all 0.2s ease !important;
+}
+
+body.modern-app .action-dots-btn:hover,
+body.modern-app .action-dots-btn:focus {
+  background: #eef5f1 !important;
+  color: #0c8d58 !important;
+  border-color: #b7d6c4 !important;
+  box-shadow: 0 2px 8px rgba(12, 141, 88, 0.12) !important;
+}
+
+body.modern-app .action-dropdown-menu {
+  border: 1px solid #dbe6df !important;
+  border-radius: 10px !important;
+  box-shadow: 0 10px 28px rgba(21, 53, 36, 0.12) !important;
+  padding: 0.35rem !important;
+}
+
+body.modern-app .action-dropdown-item {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+  font-size: 0.81rem !important;
+  font-weight: 600 !important;
+  padding: 0.45rem 0.75rem !important;
+  border-radius: 6px !important;
+  color: #2b3d32 !important;
+}
+
+body.modern-app .action-dropdown-item:hover {
+  background: #eef6f1 !important;
+  color: #0c8d58 !important;
+}
+
+/* 22.4 Run Name & Typographic Polish */
+body.modern-app .runs-reference-table .run-name-cell {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0.18rem !important;
+}
+
+body.modern-app .runs-reference-table .run-name-cell .row-link {
+  color: #14241a !important;
+  font-family: 'Outfit', sans-serif !important;
+  font-size: 0.88rem !important;
+  font-weight: 700 !important;
+  line-height: 1.3 !important;
+  text-decoration: none !important;
+  transition: color 0.18s ease !important;
+  display: inline-block !important;
+  max-width: 360px !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+body.modern-app .runs-reference-table .run-name-cell .row-link:hover {
+  color: #0c8d58 !important;
+  text-decoration: underline !important;
+}
+
+body.modern-app .runs-reference-table .run-name-cell span {
+  color: #63776b !important;
+  font-size: 0.75rem !important;
+  font-weight: 500 !important;
+}
+
+/* 22.5 Run Provider & Status Badges */
+body.modern-app .run-provider-pill {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.3rem !important;
+  background: #f0f5f2 !important;
+  color: #2b4936 !important;
+  border: 1px solid #d8e4dc !important;
+  border-radius: 6px !important;
+  font-size: 0.74rem !important;
+  font-weight: 650 !important;
+  padding: 0.22rem 0.55rem !important;
+  white-space: nowrap !important;
+  min-height: 26px !important;
+}
+
+body.modern-app .run-provider-pill i {
+  color: #0c8d58 !important;
+  font-size: 0.82rem !important;
+}
+
+body.modern-app .run-status-pill {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.35rem !important;
+  border-radius: 6px !important;
+  font-size: 0.74rem !important;
+  font-weight: 700 !important;
+  padding: 0.22rem 0.55rem !important;
+  white-space: nowrap !important;
+  min-height: 26px !important;
+}
+
+body.modern-app .run-status-completed {
+  background: #e6f6ee !important;
+  color: #0c8d58 !important;
+  border: 1px solid #bce6cf !important;
+}
+
+body.modern-app .run-status-running,
+body.modern-app .run-status-pending {
+  background: #e8f4fc !important;
+  color: #0c75b6 !important;
+  border: 1px solid #bce0f8 !important;
+}
+
+body.modern-app .run-status-failed {
+  background: #fdeeee !important;
+  color: #d32f2f !important;
+  border: 1px solid #f8c8c8 !important;
+}
+
+body.modern-app .run-status-canceled {
+  background: #f3f5f7 !important;
+  color: #5a6678 !important;
+  border: 1px solid #dce1e7 !important;
+}
+
+/* 22.6 Metric Pills (Records & Results) */
+body.modern-app .run-metric-pill {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-width: 32px !important;
+  height: 26px !important;
+  padding: 0 0.5rem !important;
+  border-radius: 6px !important;
+  font-size: 0.8rem !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.01em !important;
+}
+
+body.modern-app .records-pill {
+  background: #f1f5f3 !important;
+  color: #3b5043 !important;
+  border: 1px solid #dce6e0 !important;
+}
+
+body.modern-app .results-pill {
+  background: #f1f5f3 !important;
+  color: #3b5043 !important;
+  border: 1px solid #dce6e0 !important;
+}
+
+body.modern-app .results-pill.has-leads {
+  background: #e8f6ef !important;
+  color: #0c8d58 !important;
+  border: 1px solid #bce6cf !important;
+  font-weight: 800 !important;
+}
+
+/* ==========================================================================
+   23. Dashboard KPI Cards & Contrast Polish
+   ========================================================================== */
+body.modern-app .modern-kpi-card,
+body.modern-app .modern-kpi-card.is-featured {
+  background: #ffffff !important;
+  border: 1px solid #e2ebe5 !important;
+  color: #14241a !important;
+  display: flex !important;
+  flex-direction: column !important;
+  text-decoration: none !important;
+}
+
+body.modern-app .modern-kpi-card .kpi-topline,
+body.modern-app .modern-kpi-card.is-featured .kpi-topline {
+  color: #51665a !important;
+  font-size: 0.73rem !important;
+  font-weight: 700 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  width: 100% !important;
+}
+
+body.modern-app .modern-kpi-card .kpi-topline span,
+body.modern-app .modern-kpi-card.is-featured .kpi-topline span {
+  color: #51665a !important;
+  font-size: 0.73rem !important;
+  font-weight: 700 !important;
+}
+
+body.modern-app .modern-kpi-card > strong,
+body.modern-app .modern-kpi-card.is-featured > strong {
+  color: #112017 !important;
+  font-family: 'Outfit', sans-serif !important;
+  font-size: 1.85rem !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.03em !important;
+  line-height: 1 !important;
+  margin: 0.35rem 0 0.15rem !important;
+}
+
+body.modern-app .modern-kpi-card > small,
+body.modern-app .modern-kpi-card.is-featured > small {
+  color: #617367 !important;
+  font-size: 0.7rem !important;
+  font-weight: 500 !important;
+  margin-top: auto !important;
+}
+
+body.modern-app .modern-kpi-card:hover,
+body.modern-app .modern-kpi-card.is-featured:hover {
+  color: #14241a !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 10px 24px rgba(21, 53, 36, 0.08) !important;
+}
+
+body.modern-app .is-featured .kpi-topline > i,
+body.modern-app .modern-kpi-card:first-child .kpi-topline > i {
+  background: #e8f6ef !important;
+  border-color: #bce6cf !important;
+  color: #0c8d58 !important;
+}
+
+/* ── Respect reduced motion ──────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  body.modern-app *,
+  body.modern-app *::before,
+  body.modern-app *::after,
+  .ux-toast-stack *,
+  .ux-backtop {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+  body.modern-app .ux-stagger > * {
+    opacity: 1;
+    transform: none;
+  }
+}

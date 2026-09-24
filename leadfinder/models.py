@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import base64
+import hashlib
 import uuid
 import django.core.signing
 from datetime import time
@@ -7,6 +9,34 @@ from datetime import time
 from django.conf import settings
 from django.db import models
 from django.utils import timezone
+
+
+def _credential_cipher():
+    """Fernet cipher keyed from SECRET_KEY for at-rest credential encryption."""
+    from cryptography.fernet import Fernet
+
+    digest = hashlib.sha256(settings.SECRET_KEY.encode("utf-8")).digest()
+    return Fernet(base64.urlsafe_b64encode(digest))
+
+
+def _encrypt_credential(raw: str) -> str:
+    return "fernet:" + _credential_cipher().encrypt(raw.encode("utf-8")).decode("ascii")
+
+
+def _decrypt_credential(stored: str) -> str:
+    if not stored:
+        return ""
+    if stored.startswith("fernet:"):
+        try:
+            return _credential_cipher().decrypt(stored[len("fernet:"):].encode("ascii")).decode("utf-8")
+        except Exception:
+            return ""
+    # Legacy rows were only *signed* (not encrypted); read them once so they
+    # transparently upgrade on next save.
+    try:
+        return django.core.signing.loads(stored)
+    except Exception:
+        return ""
 
 
 class TimestampedModel(models.Model):
@@ -131,6 +161,10 @@ class ResearchRun(TimestampedModel):
         ("amazon_creators", "Amazon Creators"),
         ("google_books", "Google Books"),
         ("booklife", "BookLife"),
+        ("kickstarter", "Kickstarter campaigns"),
+        ("goodreads_giveaways", "Goodreads giveaways"),
+        ("scbwi", "SCBWI directory"),
+        ("amazon_new_releases", "Amazon new releases"),
         ("manual", "Manual"),
     ]
 
@@ -290,6 +324,8 @@ class Lead(TimestampedModel):
     verification_reasons_json = models.JSONField(default=list, blank=True)
     verification_version = models.CharField(max_length=32, blank=True)
     verified_at = models.DateTimeField(null=True, blank=True)
+    contacts_stale = models.BooleanField(default=False, db_index=True)
+    contacts_flagged_stale_at = models.DateTimeField(null=True, blank=True)
     uploader_attested = models.BooleanField(default=False, db_index=True)
     uploader_attested_at = models.DateTimeField(null=True, blank=True)
     primary_contact = models.ForeignKey(
@@ -562,6 +598,7 @@ class SocialProfileAudit(TimestampedModel):
     profile_name = models.CharField(max_length=500, blank=True)
     biography = models.TextField(blank=True)
     location = models.CharField(max_length=255, blank=True)
+    follower_count = models.PositiveIntegerField(null=True, blank=True)
     external_urls_json = models.JSONField(default=list, blank=True)
     extracted_contacts_json = models.JSONField(default=list, blank=True)
     identity_score = models.PositiveSmallIntegerField(default=0)
@@ -746,26 +783,16 @@ class EmailSender(TimestampedModel):
         return self.is_active and (self.sent_today < self.daily_limit)
 
     def set_smtp_password(self, raw_password: str) -> None:
-        self.smtp_password_encrypted = django.core.signing.dumps(raw_password)
+        self.smtp_password_encrypted = _encrypt_credential(raw_password)
 
     def get_smtp_password(self) -> str:
-        if not self.smtp_password_encrypted:
-            return ""
-        try:
-            return django.core.signing.loads(self.smtp_password_encrypted)
-        except Exception:
-            return ""
+        return _decrypt_credential(self.smtp_password_encrypted)
 
     def set_imap_password(self, raw_password: str) -> None:
-        self.imap_password_encrypted = django.core.signing.dumps(raw_password)
+        self.imap_password_encrypted = _encrypt_credential(raw_password)
 
     def get_imap_password(self) -> str:
-        if not self.imap_password_encrypted:
-            return ""
-        try:
-            return django.core.signing.loads(self.imap_password_encrypted)
-        except Exception:
-            return ""
+        return _decrypt_credential(self.imap_password_encrypted)
 
     def __str__(self) -> str:
         return f"{self.name} ({self.smtp_username})"

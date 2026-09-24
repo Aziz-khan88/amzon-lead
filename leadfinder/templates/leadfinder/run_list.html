@@ -1,5 +1,15 @@
 {% extends "base.html" %}
 {% block title %}Research Runs - Book Trailer Lead Finder{% endblock %}
+{% block topbar_page_actions %}
+  <div class="topbar-page-actions run-list-topbar-actions">
+    <a class="btn btn-primary" href="{% url 'leadfinder:run_new' %}">
+      <i class="ph-bold ph-plus"></i> New Run
+    </a>
+    <a class="btn btn-outline-primary" href="{% url 'leadfinder:isbn_search' %}">
+      <i class="ph-bold ph-barcode"></i> Batch ISBN
+    </a>
+  </div>
+{% endblock %}
 {% block content %}
 <div class="runs-page">
   <div class="runs-command">
@@ -139,21 +149,20 @@
             </td>
             <td data-label="Provider">
               <span class="run-provider-pill">
+                <i class="ph-bold ph-database me-1"></i>
                 {% if run.source_provider == "booklife" %}BookLife{% elif run.source_provider == "csv" %}Open Library{% elif run.source_provider == "manual" %}Open Library{% else %}{{ run.source_provider|title }}{% endif %}
               </span>
             </td>
             <td data-label="Status">
               <span class="run-status-pill run-status-{{ run.status }}">
                 {% if run.status == "completed" %}
-                  Completed
-                {% elif run.status == "running" %}
-                  Processing <i class="ph ph-circle-notch" style="display:inline-block;animation:ph-spin 1s linear infinite"></i>
-                {% elif run.status == "pending" %}
-                  Processing <i class="ph ph-circle-notch" style="display:inline-block;animation:ph-spin 1s linear infinite"></i>
+                  <i class="ph-fill ph-check-circle"></i> Completed
+                {% elif run.status == "running" or run.status == "pending" %}
+                  <i class="ph ph-circle-notch" style="display:inline-block;animation:ph-spin 1s linear infinite"></i> Processing
                 {% elif run.status == "failed" %}
-                  Failed
+                  <i class="ph-fill ph-x-circle"></i> Failed
                 {% elif run.status == "canceled" %}
-                  Cancelled
+                  <i class="ph-bold ph-prohibit"></i> Cancelled
                 {% else %}
                   {{ run.status|title }}
                 {% endif %}
@@ -163,55 +172,65 @@
               <span class="run-date">{{ run.created_at|date:"M d, Y" }}</span>
               <small>{{ run.created_at|date:"h:i A" }}</small>
             </td>
-            <td data-label="Records"><strong>{{ run.total_books }}</strong></td>
-            <td data-label="Results">
+            <td data-label="Records" class="text-center">
+              <span class="run-metric-pill records-pill">{{ run.total_books }}</span>
+            </td>
+            <td data-label="Results" class="text-center">
               {% if run.status == "running" or run.status == "pending" %}
                 <span class="muted">-</span>
               {% else %}
-                <strong>{{ run.total_leads }}</strong>
+                <span class="run-metric-pill results-pill {% if run.total_leads > 0 %}has-leads{% endif %}">
+                  {{ run.total_leads }}
+                </span>
               {% endif %}
             </td>
             <td data-label="Actions" class="text-end">
-              {% if run.status == "completed" %}
-                <a class="btn btn-primary btn-sm" href="{% url 'leadfinder:run_detail' run.id %}#run-leads">
-                  Review {{ run.total_leads }} lead{{ run.total_leads|pluralize }}
-                </a>
-              {% elif run.status == "failed" or run.status == "canceled" %}
-                <a class="btn btn-outline-danger btn-sm" href="{% url 'leadfinder:run_detail' run.id %}">View failure</a>
-              {% else %}
-                <a class="btn btn-outline-primary btn-sm" href="{% url 'leadfinder:run_detail' run.id %}">Open live workspace</a>
-              {% endif %}
-              <div class="dropdown d-inline-block">
-                <button class="btn btn-secondary btn-sm action-dots-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Actions" aria-label="Actions">
-                  <i class="ph-bold ph-dots-three-vertical"></i>
-                </button>
-                <ul class="dropdown-menu dropdown-menu-end action-dropdown-menu">
-                  <li>
-                    <a class="dropdown-item action-dropdown-item" href="{% url 'leadfinder:run_detail' run.id %}">
-                      <i class="ph-bold ph-folder-open text-teal"></i> <span>Open Run Details</span>
-                    </a>
-                  </li>
-                  {% if run.status == "pending" or run.status == "running" %}
+              <div class="run-actions-wrap">
+                {% if run.status == "completed" %}
+                  <a class="btn btn-primary btn-sm run-review-btn" href="{% url 'leadfinder:run_detail' run.id %}#run-leads">
+                    <i class="ph-bold ph-users-three"></i> Review {{ run.total_leads }} lead{{ run.total_leads|pluralize }}
+                  </a>
+                {% elif run.status == "failed" or run.status == "canceled" %}
+                  <a class="btn btn-outline-danger btn-sm run-review-btn" href="{% url 'leadfinder:run_detail' run.id %}">
+                    <i class="ph-bold ph-warning-circle"></i> View failure
+                  </a>
+                {% else %}
+                  <a class="btn btn-outline-primary btn-sm run-review-btn" href="{% url 'leadfinder:run_detail' run.id %}">
+                    <i class="ph-bold ph-play"></i> Open live workspace
+                  </a>
+                {% endif %}
+                <div class="dropdown d-inline-block">
+                  <button class="btn btn-secondary btn-sm action-dots-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Actions" aria-label="Actions">
+                    <i class="ph-bold ph-dots-three-vertical"></i>
+                  </button>
+                  <ul class="dropdown-menu dropdown-menu-end action-dropdown-menu">
                     <li>
-                      <form method="post" action="{% url 'leadfinder:run_stop' run.id %}" class="d-inline">
-                        {% csrf_token %}
-                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                        <button class="dropdown-item action-dropdown-item text-danger w-100 border-0 bg-transparent" type="submit" onclick="return confirm('Stop this research run? Work already saved will remain.');">
-                          <i class="ph-fill ph-stop-circle"></i> <span>Stop Run</span>
-                        </button>
-                      </form>
+                      <a class="dropdown-item action-dropdown-item" href="{% url 'leadfinder:run_detail' run.id %}">
+                        <i class="ph-bold ph-folder-open text-teal"></i> <span>Open Run Details</span>
+                      </a>
                     </li>
-                  {% elif run.status == "canceled" or run.status == "failed" %}
-                    <li>
-                      <form method="post" action="{% url 'leadfinder:run_retry' run.id %}" class="d-inline">
-                        {% csrf_token %}
-                        <button class="dropdown-item action-dropdown-item text-primary w-100 border-0 bg-transparent" type="submit">
-                          <i class="ph-bold ph-arrow-clockwise"></i> <span>Retry Run</span>
-                        </button>
-                      </form>
-                    </li>
-                  {% endif %}
-                </ul>
+                    {% if run.status == "pending" or run.status == "running" %}
+                      <li>
+                        <form method="post" action="{% url 'leadfinder:run_stop' run.id %}" class="d-inline">
+                          {% csrf_token %}
+                          <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                          <button class="dropdown-item action-dropdown-item text-danger w-100 border-0 bg-transparent" type="submit" onclick="return confirm('Stop this research run? Work already saved will remain.');">
+                            <i class="ph-fill ph-stop-circle"></i> <span>Stop Run</span>
+                          </button>
+                        </form>
+                      </li>
+                    {% elif run.status == "canceled" or run.status == "failed" %}
+                      <li>
+                        <form method="post" action="{% url 'leadfinder:run_retry' run.id %}" class="d-inline">
+                          {% csrf_token %}
+                          <button class="dropdown-item action-dropdown-item text-primary w-100 border-0 bg-transparent" type="submit">
+                            <i class="ph-bold ph-arrow-clockwise"></i> <span>Retry Run</span>
+                          </button>
+                        </form>
+                      </li>
+                    {% endif %}
+                  </ul>
+                </div>
               </div>
             </td>
           </tr>

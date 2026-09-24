@@ -28,11 +28,14 @@ class AmazonCreatorsProvider:
         
         # Build search queries to discover Amazon product links
         queries = [
-            f'site:amazon.com/dp "{keyword}" "by"',
+            f'amazon.com/dp "{keyword}" "by"',
             f'site:amazon.com "{keyword}" "paperback" "by"',
+            f'amazon "{keyword}" "children\'s book" "by"',
             f'site:amazon.com "{keyword}" "picture book" "by"',
+            f'amazon "{keyword}" "picture book" "author"',
             f'site:amazon.com "{keyword}" "illustrator" "by"',
         ]
+
         
         candidates = []
         seen_asins = set()

@@ -292,10 +292,12 @@ def test_broad_discovery_queries_start_with_non_exact_amazon_searches():
     queries = discovery_queries("Children books")
 
     assert queries[0] == "amazon.com/dp children picture book by"
-    assert 'site:amazon.com "children picture book" "by"' in queries[:4]
-    assert 'site:amazon.com/dp "children picture book"' in queries[:4]
-    assert "amazon.com/dp kids picture book by" in queries
+    # Round-robin across keyword variants: every expanded variant gets the
+    # highest-yield pattern before any single variant burns a second pattern.
+    assert "amazon.com/dp kids picture book by" in queries[:6]
     assert "amazon.com/dp Children books by" in queries
+    assert 'site:amazon.com "children picture book" "by"' in queries
+    assert 'site:amazon.com/dp "children picture book"' in queries
     assert "Children book" in " ".join(queries)
     assert "children picture book" in " ".join(queries)
 

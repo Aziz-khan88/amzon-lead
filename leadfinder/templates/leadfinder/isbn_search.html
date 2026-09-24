@@ -1,5 +1,15 @@
 {% extends "base.html" %}
 {% block title %}Instant Book Search - Book Trailer Lead Finder{% endblock %}
+{% block topbar_page_actions %}
+  <div class="topbar-page-actions isbn-search-topbar-actions">
+    <a class="btn btn-primary" href="{% url 'leadfinder:run_new' %}">
+      <i class="ph-bold ph-plus"></i> New Research
+    </a>
+    <a class="btn btn-outline-primary" href="{% url 'leadfinder:import_csv' %}">
+      <i class="ph-bold ph-upload-simple"></i> Import CSV
+    </a>
+  </div>
+{% endblock %}
 {% block content %}
 <div class="isbn-search-page{% if active_run and active_run.source_provider == 'manual' %} has-active-direct-run{% endif %}">
 <div class="isbn-search-command">
@@ -1299,6 +1309,17 @@
           badge.className = "badge lookup-source-badge";
           badge.textContent = String(book.source);
           title.appendChild(badge);
+        }
+        if (book.catalog_verified) {
+          const verified = document.createElement("span");
+          verified.className = "badge lookup-source-badge";
+          verified.style.cssText = "background:#0b8c56 !important;border-color:#0b8c56;color:#fff !important;";
+          const sourceCount = parseInt(book.metadata_source_count) || 0;
+          verified.textContent = sourceCount >= 2 ? `✓ verified ×${sourceCount}` : "✓ verified";
+          verified.title = book.metadata_providers
+            ? `Matched in public catalogs: ${book.metadata_providers}`
+            : "Matched in a public catalog record.";
+          title.appendChild(verified);
         }
         const author = document.createElement("div");
         author.className = "lookup-result-meta";

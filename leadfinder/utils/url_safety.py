@@ -40,6 +40,7 @@ def _host_resolves_private(host: str) -> bool:
     try:
         infos = socket.getaddrinfo(host, None)
     except OSError:
+        # Unresolvable hosts cannot be fetched anyway; the request layer fails.
         return False
     for info in infos:
         address = info[4][0]

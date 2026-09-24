@@ -230,24 +230,106 @@ CORPORATE_AUTHOR_PATTERNS = [
     r"\beditorial\b",
     r"\bstaff\b",
     r"\bdisney\b",
+    r"\bpublishers?\b",
     r"\bpublishing\b",
     r"\bpress\b",
+    r"\bimprint\b",
     r"\binc\.?\b",
     r"\bllc\.?\b",
+    r"\bltd\.?\b",
+    r"\bllp\.?\b",
+    r"\bcorp\.?\b",
+    r"\bcorporation\b",
+    r"\bcompany\b",
+    r"\bco\.",
+    r"\bgmbh\b",
     r"\bstudios?\b",
+    r"\bproductions?\b",
     r"\bpublications?\b",
+    r"\bmedia\b",
+    r"\bgroup\b",
+    r"\bcollective\b",
+    r"\benterprises?\b",
+    r"\bpartners\b",
+    r"\bassociates\b",
+    r"\bfoundation\b",
+    r"\bministries\b",
+    r"\binstitute\b",
+    r"\bacademy\b",
+    r"\bnetwork\b",
     r"\bteam\b",
     r"\bmagazine\b",
+    r"\bjournal\b",
+    r"\breview\b",
+    r"\bstore\b",
+    r"\bshop\b",
+    r"\bofficial\b",
+    r"\bbrand\b",
+    r"\bbooks\b",
+    r"\bbook club\b",
+    r"\bhouse\b",
+    r"\blibrary\b",
+    r"\bsociety\b",
+    r"\bassociation\b",
+    r"\borganization\b",
+    r"\bcommittee\b",
+    r"\bdepartment\b",
+    r"\buniversity\b",
+    r"\bcollege\b",
+    r"\bschool\b",
+    r"\bministry\b",
+    r"\bgovernment\b",
+    r"\bmuseum\b",
+    r"\bgallery\b",
+    # Known publishing houses and book brands seen as "author" in catalogs.
     r"\bnational geographic\b",
     r"\bsports illustrated\b",
     r"\bscholastic\b",
+    r"\bpenguin\b",
+    r"\brandom house\b",
+    r"\bharper\s?collins\b",
+    r"\bsimon\s?(?:and|&)\s?schuster\b",
+    r"\bhachette\b",
+    r"\bmacmillan\b",
+    r"\bbloomsbury\b",
+    r"\bcandlewick\b",
+    r"\busborne\b",
+    r"\bchronicle books\b",
+    r"\bworkman\b",
+    r"\bsterling\b",
+    r"\bsourcebooks\b",
+    r"\blerner\b",
+    r"\bcapstone\b",
+    r"\bdk\b",
+    r"\bwiley\b",
+    r"\btaschen\b",
+    r"\bphaidon\b",
+    r"\babrams\b",
+    r"\bquarto\b",
+    r"\bhallmark\b",
+    r"\blego\b",
+    r"\bmarvel\b",
+    r"\bwarner bros\b",
+    r"\bpixar\b",
+    r"\bnickelodeon\b",
+    r"\bpbs kids\b",
+    r"\bsesame\b",
 ]
+
+# Author names built like "The Editors of X", "X Staff", "X Team" are
+# corporate by construction even when no keyword above matched.
+CORPORATE_NAME_CONSTRUCTION_RE = re.compile(
+    r"^(?:the\s+)?(?:editors?|staff|team|writers?|contributors?|authors?)\s+(?:of|at|for)\b",
+    re.I,
+)
 
 
 def is_corporate_author_entity(author_name: str) -> bool:
     name = (author_name or "").lower().strip()
     if not name:
         return False
+    if CORPORATE_NAME_CONSTRUCTION_RE.search(name):
+        return True
     return any(re.search(pattern, name) for pattern in CORPORATE_AUTHOR_PATTERNS)
 
 
@@ -368,6 +450,26 @@ def looks_like_publisher_or_agency_site(url: str, *values: str | None) -> bool:
     return bool(PUBLISHER_DOMAIN_HINT_RE.search(text))
 
 
+AUTHOR_CONTACT_HANDLES = {
+    "contact",
+    "hello",
+    "info",
+    "author",
+    "books",
+    "press",
+    "media",
+    "booking",
+    "bookings",
+    "inquiry",
+    "inquiries",
+    "writer",
+    "illustrator",
+    "studio",
+    "mail",
+    "team",
+}
+
+
 def evidence_source_is_trusted_for_contact(
     *,
     author_name: str | None,
@@ -422,19 +524,24 @@ def evidence_source_is_trusted_for_contact(
         source_domain_text = compact(registered_domain_from_url(source_url))
         domain_mentions_author = any(token in source_domain_text for token in tokens if len(token) >= 4)
         local_mentions_author = bool(tokens and (''.join(tokens) in local or tokens[-1] in local))
+        is_author_handle = local in AUTHOR_CONTACT_HANDLES
         if email_domain_matches_source(field_value, source_url) and (
             identity_match
             or domain_mentions_author
+            or local_mentions_author
+            or is_author_handle
+            or evidence_type in {"contact_page", "official_author_site", "groq_extraction"}
             or field_name in {"representation_email", "publicist_email"}
         ):
             return True
         if field_name == "public_email":
-            return identity_match or local_mentions_author
+            return identity_match or local_mentions_author or (is_author_handle and evidence_type in {"contact_page", "official_author_site", "groq_extraction"})
         return (
             identity_match
             or source_has_contact_role_hint(source_title, source_snippet)
             or looks_like_publisher_or_agency_site(source_url, source_title, source_snippet)
         )
+
 
     if field_name == "public_phone":
         return identity_match or source_has_contact_role_hint(source_url, source_title, source_snippet)

@@ -28,7 +28,8 @@ def default_search_provider() -> str:
 
 def default_web_search_provider() -> str:
     selected = default_search_provider()
-    return selected if selected in {"ddgs", "tavily", "brave", "google"} else "ddgs"
+    allowed = {"ddgs", "ddgs_html", "bing_html", "fallback", "tavily", "brave", "google"}
+    return selected if selected in allowed else "ddgs"
 
 
 class ResearchRunForm(forms.Form):
@@ -49,6 +50,10 @@ class ResearchRunForm(forms.Form):
             ("amazon_creators", "Amazon Creators"),
             ("google_books", "Google Books"),
             ("booklife", "BookLife"),
+            ("kickstarter", "Kickstarter campaigns"),
+            ("goodreads_giveaways", "Goodreads giveaways"),
+            ("scbwi", "SCBWI directory"),
+            ("amazon_new_releases", "Amazon new releases"),
         ],
         initial=default_search_provider,
     )
@@ -185,13 +190,16 @@ class BookLifeRunForm(forms.Form):
     enrichment_provider = forms.ChoiceField(
         label="Enrichment source",
         choices=[
+            ("fallback", "Auto (free fallback chain)"),
             ("ddgs", "DDGS"),
+            ("ddgs_html", "DuckDuckGo HTML (free)"),
+            ("bing_html", "Bing HTML (free)"),
             ("tavily", "Tavily"),
             ("brave", "Brave"),
             ("google", "Google"),
         ],
         initial=default_web_search_provider,
-        help_text="Used after BookLife discovery to find official author sites, public social profiles, contact pages, and video evidence.",
+        help_text="Used after BookLife discovery to find official author sites, public social profiles, contact pages, and video evidence. 'Auto' tries each free engine in turn until one answers.",
     )
     require_public_email = forms.BooleanField(required=False, initial=False, label="Require direct public email")
     include_social_only_leads = forms.BooleanField(required=False, initial=True, label="Save social-only leads")
@@ -221,6 +229,22 @@ class CSVImportForm(forms.Form):
         if file.size > 25 * 1024 * 1024:
             raise forms.ValidationError("Upload a file smaller than 25 MB.")
         return file
+
+
+class QueryCheckboxInput(forms.CheckboxInput):
+    """Checkbox widget that correctly treats '0', 'false', 'off', and 'null' as False."""
+
+    def value_from_datadict(self, data, files, name):
+        val = data.get(name)
+        if val in (False, "0", 0, "false", "False", "off", "null", None):
+            return False
+        return super().value_from_datadict(data, files, name)
+
+
+class QueryBooleanField(forms.BooleanField):
+    """BooleanField that works cleanly with URL query parameters like ?valid_only=0 and ?has_email=1."""
+
+    widget = QueryCheckboxInput
 
 
 class LeadFilterForm(forms.Form):
@@ -253,7 +277,7 @@ class LeadFilterForm(forms.Form):
             ("0.9", ">= 90%"),
         ],
     )
-    valid_only = forms.BooleanField(required=False, initial=False, label="Verified-ready only")
+    valid_only = QueryBooleanField(required=False, initial=False, label="Verified-ready only")
     verification_status = forms.ChoiceField(
         required=False,
         choices=[
@@ -277,13 +301,13 @@ class LeadFilterForm(forms.Form):
     )
     score_min = forms.IntegerField(required=False, min_value=0, max_value=100)
     score_max = forms.IntegerField(required=False, min_value=0, max_value=100)
-    has_email = forms.BooleanField(required=False)
-    has_phone = forms.BooleanField(required=False)
-    verified_email = forms.BooleanField(required=False, label="Verified email")
-    verified_phone = forms.BooleanField(required=False, label="Verified phone")
-    has_amazon_url = forms.BooleanField(required=False)
-    has_website = forms.BooleanField(required=False)
-    do_not_contact = forms.BooleanField(required=False)
+    has_email = QueryBooleanField(required=False)
+    has_phone = QueryBooleanField(required=False)
+    verified_email = QueryBooleanField(required=False, label="Verified email")
+    verified_phone = QueryBooleanField(required=False, label="Verified phone")
+    has_amazon_url = QueryBooleanField(required=False)
+    has_website = QueryBooleanField(required=False)
+    do_not_contact = QueryBooleanField(required=False)
     pub_year_start = forms.IntegerField(required=False, label="Publish Start Year")
     pub_year_end = forms.IntegerField(required=False, label="Publish End Year")
     assignment_status = forms.ChoiceField(

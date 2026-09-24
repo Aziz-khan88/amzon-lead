@@ -28,28 +28,28 @@
   </div>
 
   <div class="lead-stat-grid">
-    <a class="lead-stat-card stat-total" href="{% url 'leadfinder:lead_list' %}?valid_only=0">
+    <a class="lead-stat-card stat-total" href="{% url 'leadfinder:lead_list' %}">
       <span class="lead-stat-icon"><i class="ph-bold ph-globe"></i></span>
       <span class="lead-stat-label">Total Crawled</span>
       <strong>{{ stats.total }}</strong>
       <small class="lead-stat-delta"><i class="ph-bold ph-arrow-up-right"></i> 12% vs last run</small>
       <span class="lead-stat-spark spark-total" aria-hidden="true"></span>
     </a>
-    <a class="lead-stat-card stat-hot" href="{% url 'leadfinder:lead_list' %}?verification_status=verified&valid_only=0">
+    <a class="lead-stat-card stat-hot" href="{% url 'leadfinder:lead_list' %}?verification_status=verified">
       <span class="lead-stat-icon"><i class="ph-fill ph-seal-check"></i></span>
       <span class="lead-stat-label">Verified</span>
       <strong>{{ stats.verified }}</strong>
       <small class="lead-stat-delta is-flat"><i class="ph-bold ph-minus"></i> 0% vs last run</small>
       <span class="lead-stat-spark spark-hot" aria-hidden="true"></span>
     </a>
-    <a class="lead-stat-card stat-pending" href="{% url 'leadfinder:lead_list' %}?verification_status=other&valid_only=0">
+    <a class="lead-stat-card stat-pending" href="{% url 'leadfinder:lead_list' %}?verification_status=other">
       <span class="lead-stat-icon"><i class="ph ph-question"></i></span>
       <span class="lead-stat-label">Other</span>
       <strong>{{ stats.other }}</strong>
       <small class="lead-stat-delta"><i class="ph-bold ph-arrow-up-right"></i> 8% vs last run</small>
       <span class="lead-stat-spark spark-pending" aria-hidden="true"></span>
     </a>
-    <a class="lead-stat-card stat-contactable" href="{% url 'leadfinder:lead_list' %}?has_email=1&valid_only=0">
+    <a class="lead-stat-card stat-contactable" href="{% url 'leadfinder:lead_list' %}?has_email=1">
       <span class="lead-stat-icon"><i class="ph ph-envelope"></i></span>
       <span class="lead-stat-label">Contactable</span>
       <strong>{{ stats.email }}</strong>
@@ -89,10 +89,10 @@
       {% if request.GET %}<span class="active-filter-indicator"><i class="ph-fill ph-funnel"></i> Filters active</span>{% endif %}
     </div>
     <div class="quick-filter-row leads-chip-row" aria-label="Quick filters">
-      <a href="{% url 'leadfinder:lead_list' %}" class="quick-filter chip-all {% if not request.GET %}is-active{% endif %}" {% if not request.GET %}aria-current="page"{% endif %}>
+      <a href="{% url 'leadfinder:lead_list' %}" class="quick-filter chip-all {% if not request.GET or not request.GET.verification_status and not request.GET.valid_only and not request.GET.q and not request.GET.verified_email and not request.GET.verified_phone and not request.GET.video_status and not request.GET.has_email and not request.GET.min_confidence and not request.GET.assignment_status %}is-active{% endif %}" {% if not request.GET %}aria-current="page"{% endif %}>
         <i class="ph-bold ph-users-three"></i><span>All leads</span><strong>{{ stats.total }}</strong>
       </a>
-      <a href="{% url 'leadfinder:lead_list' %}?valid_only=1" class="quick-filter chip-verified {% if request.GET.valid_only == '1' %}is-active{% endif %}" {% if request.GET.valid_only == '1' %}aria-current="page"{% endif %}>
+      <a href="{% url 'leadfinder:lead_list' %}?verification_status=verified" class="quick-filter chip-verified {% if request.GET.valid_only == '1' or request.GET.verification_status == 'verified' %}is-active{% endif %}" {% if request.GET.valid_only == '1' or request.GET.verification_status == 'verified' %}aria-current="page"{% endif %}>
         <i class="ph-fill ph-shield-check"></i><span>Verified ready</span><strong>{{ stats.verified }}</strong>
       </a>
       <a href="{% url 'leadfinder:lead_list' %}?verified_email=1" class="quick-filter chip-email {% if request.GET.verified_email == '1' %}is-active{% endif %}" {% if request.GET.verified_email == '1' %}aria-current="page"{% endif %}>

@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import io
 import importlib.util
+import logging
 import os
 import re
 import threading
@@ -20,6 +21,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_GET, require_POST
 from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme
 
 from .forms import (
     BookLifeRunForm,
@@ -57,6 +59,9 @@ from .services.pipeline.manual_import_checks import build_imported_sales_brief, 
 from .services.social import harvest_social_profiles
 from .services.verification import verify_lead_contacts
 from .utils.normalize import normalized_author_key, normalized_book_key, normalize_text
+
+
+logger = logging.getLogger(__name__)
 
 
 
@@ -110,6 +115,15 @@ CONTACTABLE_Q = (
 )
 
 
+def _is_safe_redirect_url(request, url: str) -> bool:
+    """Only allow same-host redirects; block open-redirect abuse of next/REFERER."""
+    return bool(url) and url_has_allowed_host_and_scheme(
+        url,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    )
+
+
 def _contactable_queryset(queryset):
     return queryset.filter(CONTACTABLE_Q)
 
@@ -120,7 +134,13 @@ def _start_research_pipeline(research_run_id) -> None:
         try:
             run_research_pipeline(research_run_id)
         except Exception:
-            pass
+            logger.exception("Research pipeline thread crashed for run %s", research_run_id)
+            try:
+                run = ResearchRun.objects.get(pk=research_run_id)
+                if run.status in {"pending", "running"}:
+                    run.mark_failed("Background runner crashed; see server logs for details.")
+            except Exception:
+                logger.exception("Could not mark run %s as failed", research_run_id)
         finally:
             close_old_connections()
 
@@ -169,6 +189,7 @@ def _start_manual_import_checks(research_run_id) -> None:
                 batch.save(update_fields=["status", "completed_at", "updated_at"])
             run.mark_completed()
         except Exception as exc:
+            logger.exception("Manual import checks thread crashed for run %s", research_run_id)
             if run:
                 run.mark_failed(str(exc))
         finally:
@@ -292,17 +313,19 @@ def parse_import_file(uploaded_file) -> tuple[list[dict[str, str]], str]:
 
 
 def _int_or_none(value: str):
+    """Parse integer fields tolerating locale thousands separators.
+
+    "1,234" and "1.234" both mean 1234; a plain decimal like "4.5" is
+    truncated to 4 rather than misread as 45 or 4500.
+    """
     try:
-        cleaned = str(value).replace(",", "").strip()
+        cleaned = str(value).strip()
         if not cleaned:
             return None
-        if "." in cleaned:
-            whole, fraction = cleaned.split(".", 1)
-            significant_fraction = fraction.rstrip("0")
-            if whole.isdigit() and len(significant_fraction) >= 3:
-                return int(round(float(cleaned) * 1000))
-        return int(float(cleaned))
-    except ValueError:
+        if re.fullmatch(r"\d{1,3}([.,]\d{3})+", cleaned):
+            return int(re.sub(r"[.,]", "", cleaned))
+        return int(float(cleaned.replace(",", "")))
+    except (ValueError, TypeError):
         return None
 
 
@@ -351,7 +374,9 @@ def _source_url(row: dict, preferred_field: str, fallback: str = "") -> str:
     return value if value.startswith(("https://", "http://")) else ""
 
 
+@transaction.atomic
 def import_books_from_rows(rows: list[dict], run: ResearchRun, source_label: str = "uploaded_file/manual") -> int:
+    """Import rows atomically so a mid-file failure never leaves a half-imported run."""
     count = 0
     is_manual_import = run.source_provider == "manual"
     for raw in rows:
@@ -397,24 +422,57 @@ def import_books_from_rows(rows: list[dict], run: ResearchRun, source_label: str
             )
         website = _source_url(row, "author_website")
         contact_page_url = _source_url(row, "contact_page_url", website)
-        author_profile = AuthorProfile.objects.create(
-            author_name=author_name or "Unknown author",
-            normalized_author_key=normalized_author_key(author_name),
-            canonical_website=website,
-            contact_page_url=contact_page_url,
-            publisher_url=_source_url(row, "publisher_url"),
-            instagram_url=_source_url(row, "instagram_url"),
-            facebook_url=_source_url(row, "facebook_url"),
-            tiktok_url=_source_url(row, "tiktok_url"),
-            youtube_url=_source_url(row, "youtube_url"),
-            linkedin_url=_source_url(row, "linkedin_url"),
-            location=_value(row, "location"),
-            agent_name=_value(row, "agent_name"),
-            representation_email=_value(row, "representation_email"),
-            publicist_email=_value(row, "publicist_email"),
-            identity_confidence=0.7 if author_name else 0.1,
-            identity_reason="Manually imported from a client-supplied lead file; source-backed contact verification is optional.",
-        )
+        # Reuse an existing profile for the same author instead of creating a
+        # duplicate profile for every row; only fill still-blank fields.
+        profile_defaults = {
+            "author_name": author_name or "Unknown author",
+            "canonical_website": website,
+            "contact_page_url": contact_page_url,
+            "publisher_url": _source_url(row, "publisher_url"),
+            "instagram_url": _source_url(row, "instagram_url"),
+            "facebook_url": _source_url(row, "facebook_url"),
+            "tiktok_url": _source_url(row, "tiktok_url"),
+            "youtube_url": _source_url(row, "youtube_url"),
+            "linkedin_url": _source_url(row, "linkedin_url"),
+            "location": _value(row, "location"),
+            "agent_name": _value(row, "agent_name"),
+            "representation_email": _value(row, "representation_email"),
+            "publicist_email": _value(row, "publicist_email"),
+            "identity_confidence": 0.7 if author_name else 0.1,
+            "identity_reason": "Manually imported from a client-supplied lead file; source-backed contact verification is optional.",
+        }
+        author_key = normalized_author_key(author_name)
+        try:
+            author_profile, profile_created = AuthorProfile.objects.get_or_create(
+                normalized_author_key=author_key,
+                defaults=profile_defaults,
+            )
+        except AuthorProfile.MultipleObjectsReturned:
+            # Legacy databases can already hold duplicate keys; reuse the oldest.
+            author_profile = AuthorProfile.objects.filter(normalized_author_key=author_key).order_by("created_at").first()
+            profile_created = False
+        if not profile_created:
+            profile_updates = {}
+            for field, new_value in {
+                "canonical_website": website,
+                "contact_page_url": contact_page_url,
+                "publisher_url": _source_url(row, "publisher_url"),
+                "instagram_url": _source_url(row, "instagram_url"),
+                "facebook_url": _source_url(row, "facebook_url"),
+                "tiktok_url": _source_url(row, "tiktok_url"),
+                "youtube_url": _source_url(row, "youtube_url"),
+                "linkedin_url": _source_url(row, "linkedin_url"),
+                "location": _value(row, "location"),
+                "agent_name": _value(row, "agent_name"),
+                "representation_email": _value(row, "representation_email"),
+                "publicist_email": _value(row, "publicist_email"),
+            }.items():
+                if new_value and not getattr(author_profile, field):
+                    profile_updates[field] = new_value
+            if profile_updates:
+                for field, new_value in profile_updates.items():
+                    setattr(author_profile, field, new_value)
+                author_profile.save(update_fields=[*profile_updates, "updated_at"])
         imported_verification_score = min(100, _int_or_none(_value(row, "verification_score")) or 0)
         if is_manual_import:
             # An upload records who attested to a value; it is never evidence
@@ -561,6 +619,7 @@ def dashboard(request):
     return render(request, "leadfinder/dashboard.html", context)
 
 
+@roles_required("super_admin", "admin")
 @require_POST
 def delete_rejected_leads(request):
     deleted_count, _ = Lead.objects.filter(
@@ -579,7 +638,14 @@ def _start_scheduled_task(task_id) -> bool:
         try:
             execute_scheduled_lead_task(task_id, force=True, preclaimed=True)
         except Exception:
-            pass
+            logger.exception("Scheduled lead task thread crashed for task %s", task_id)
+            try:
+                ScheduledLeadTask.objects.filter(pk=task_id, execution_status="running").update(
+                    execution_status="failed",
+                    last_error="Background runner crashed; see server logs for details.",
+                )
+            except Exception:
+                logger.exception("Could not mark scheduled task %s as failed", task_id)
         finally:
             close_old_connections()
 
@@ -587,6 +653,7 @@ def _start_scheduled_task(task_id) -> bool:
     return True
 
 
+@roles_required("super_admin", "admin")
 def scheduled_task_list(request):
     latest_runs = ResearchRun.objects.filter(scheduled_task=OuterRef("pk")).order_by("-created_at")
     tasks = ScheduledLeadTask.objects.annotate(
@@ -610,6 +677,7 @@ def scheduled_task_list(request):
     )
 
 
+@roles_required("super_admin", "admin")
 def scheduled_task_create(request):
     if request.method == "POST":
         form = ScheduledLeadTaskForm(request.POST)
@@ -628,6 +696,7 @@ def scheduled_task_create(request):
     )
 
 
+@roles_required("super_admin", "admin")
 def scheduled_task_edit(request, pk):
     task = get_object_or_404(ScheduledLeadTask, pk=pk)
     if request.method == "POST":
@@ -652,6 +721,7 @@ def scheduled_task_edit(request, pk):
     )
 
 
+@roles_required("super_admin", "admin")
 @require_POST
 def scheduled_task_toggle(request, pk):
     task = get_object_or_404(ScheduledLeadTask, pk=pk)
@@ -667,6 +737,7 @@ def scheduled_task_toggle(request, pk):
     return redirect("leadfinder:scheduled_task_list")
 
 
+@roles_required("super_admin", "admin")
 @require_POST
 def scheduled_task_run_now(request, pk):
     task = get_object_or_404(ScheduledLeadTask, pk=pk)
@@ -681,6 +752,7 @@ def scheduled_task_run_now(request, pk):
     return redirect("leadfinder:scheduled_task_list")
 
 
+@roles_required("super_admin", "admin")
 @require_POST
 def scheduled_task_delete(request, pk):
     task = get_object_or_404(ScheduledLeadTask, pk=pk)
@@ -694,6 +766,7 @@ def scheduled_task_delete(request, pk):
 
 
 
+@roles_required("super_admin", "admin")
 def run_new(request):
     if request.method == "POST":
         form = ResearchRunForm(request.POST)
@@ -724,6 +797,7 @@ def run_new(request):
     return render(request, "leadfinder/run_new.html", {"form": form, "keyword_suggestions": keyword_suggestions()})
 
 
+@roles_required("super_admin", "admin")
 def booklife_run(request):
     category_labels = {category.slug or "all": category.label for category in BOOKLIFE_CATEGORIES}
     if request.method == "POST":
@@ -767,6 +841,7 @@ def booklife_run(request):
     )
 
 
+@roles_required("super_admin", "admin")
 def run_list(request):
     base_runs = ResearchRun.objects.annotate(
         total_books=Count("books", distinct=True),
@@ -823,10 +898,15 @@ def run_list(request):
     )
 
 
+@roles_required("super_admin", "admin")
 def run_detail(request, pk):
     run = get_object_or_404(ResearchRun, pk=pk)
-    books = list(run.books.prefetch_related("leads").all())
-    leads = list(Lead.objects.filter(book__research_run=run).select_related("book", "author_profile", "brief"))
+    books = list(run.books.prefetch_related("leads", "evidence").all())
+    leads = list(
+        Lead.objects.filter(book__research_run=run)
+        .select_related("book", "author_profile", "brief")
+        .prefetch_related("evidence", "contact_candidates")
+    )
     search_logs = list(run.search_logs.annotate(
         total_results=Count("results"),
         amazon_results=Count("results", filter=Q(results__classification="amazon_book")),
@@ -895,6 +975,7 @@ def run_detail(request, pk):
     )
 
 
+@roles_required("super_admin", "admin")
 def run_agent_status(request, pk):
     run = get_object_or_404(ResearchRun, pk=pk)
     books = run.books.all()
@@ -947,6 +1028,7 @@ def run_agent_status(request, pk):
     })
 
 
+@roles_required("super_admin", "admin")
 def import_csv(request):
     preview = []
     import_summary = None
@@ -1487,6 +1569,7 @@ def lead_detail(request, pk):
     )
 
 
+@roles_required("super_admin", "admin")
 @require_POST
 def run_stop(request, pk):
     run = get_object_or_404(ResearchRun, pk=pk)
@@ -1497,14 +1580,18 @@ def run_stop(request, pk):
         messages.info(request, f"Run is already {run.status}.")
     
     redirect_url = request.POST.get("next") or request.GET.get("next") or request.META.get("HTTP_REFERER")
-    if redirect_url:
+    if redirect_url and _is_safe_redirect_url(request, redirect_url):
         return redirect(redirect_url)
     return redirect("leadfinder:run_detail", pk=run.id)
 
 
+@roles_required("super_admin", "admin")
 @require_POST
 def run_retry(request, pk):
     old_run = get_object_or_404(ResearchRun, pk=pk)
+    if old_run.status in {"pending", "running"}:
+        messages.warning(request, "This run is still in progress. Stop it before starting a retry.")
+        return redirect("leadfinder:run_detail", pk=old_run.id)
     new_settings = dict(old_run.settings_json or {})
     if old_run.source_provider == "ddgs":
         new_settings.setdefault("google_books_fallback", True)
@@ -1573,6 +1660,8 @@ def lead_bulk_action(request):
     lead_ids = request.POST.getlist("lead_ids")
     action = request.POST.get("action")
     redirect_url = request.POST.get("next") or request.META.get("HTTP_REFERER") or "leadfinder:lead_list"
+    if not _is_safe_redirect_url(request, redirect_url):
+        redirect_url = "leadfinder:lead_list"
     
     if not lead_ids:
         messages.warning(request, "No leads were selected.")
@@ -1797,8 +1886,15 @@ def team_member_role_update(request, pk):
     return redirect("leadfinder:team_list")
 
 
+_env_file_lock = threading.Lock()
+
+
 def save_env_settings(updates: dict[str, str]) -> None:
-    """Persist approved settings without exposing or corrupting secret values."""
+    """Persist approved settings without exposing or corrupting secret values.
+
+    Note: os.environ changes apply to this process only; the scheduler loop
+    process picks up new keys on its next restart.
+    """
     env_path = os.path.join(settings.BASE_DIR, ".env")
     for k, v in updates.items():
         if "\n" in v or "\r" in v:
@@ -1807,41 +1903,46 @@ def save_env_settings(updates: dict[str, str]) -> None:
             os.environ[k] = v
         else:
             os.environ.pop(k, None)
-        
-    lines = []
-    if os.path.exists(env_path):
-        with open(env_path, "r", encoding="utf-8") as f:
-            lines = f.readlines()
 
-    updated_keys = set()
-    new_lines = []
-    
-    for line in lines:
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#"):
-            new_lines.append(line)
-            continue
-            
-        if "=" in stripped:
-            k = stripped.split("=", 1)[0].strip()
-            if k in updates:
-                escaped_value = updates[k].replace("\\", "\\\\").replace('"', '\\"')
-                new_lines.append(f'{k}="{escaped_value}"\n')
-                updated_keys.add(k)
+    with _env_file_lock:
+        lines = []
+        if os.path.exists(env_path):
+            with open(env_path, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+
+        updated_keys = set()
+        new_lines = []
+
+        for line in lines:
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#"):
+                new_lines.append(line)
+                continue
+
+            if "=" in stripped:
+                k = stripped.split("=", 1)[0].strip()
+                if k in updates:
+                    escaped_value = updates[k].replace("\\", "\\\\").replace('"', '\\"')
+                    new_lines.append(f'{k}="{escaped_value}"\n')
+                    updated_keys.add(k)
+                else:
+                    new_lines.append(line)
             else:
                 new_lines.append(line)
-        else:
-            new_lines.append(line)
-            
-    for k, v in updates.items():
-        if k not in updated_keys:
-            escaped_value = v.replace("\\", "\\\\").replace('"', '\\"')
-            new_lines.append(f'{k}="{escaped_value}"\n')
-            
-    with open(env_path, "w", encoding="utf-8") as f:
-        f.writelines(new_lines)
+
+        for k, v in updates.items():
+            if k not in updated_keys:
+                escaped_value = v.replace("\\", "\\\\").replace('"', '\\"')
+                new_lines.append(f'{k}="{escaped_value}"\n')
+
+        # Write via a temp file + atomic replace so a crash never truncates .env.
+        tmp_path = env_path + ".tmp"
+        with open(tmp_path, "w", encoding="utf-8") as f:
+            f.writelines(new_lines)
+        os.replace(tmp_path, env_path)
 
 
+@roles_required("super_admin", "admin")
 def settings_help(request):
     api_key_names = [
         "SEARCH_PROVIDER",
@@ -1921,7 +2022,7 @@ def settings_help(request):
     current_env = {key: os.getenv(key, "") for key in ("SEARCH_PROVIDER", "GROQ_MODEL")}
 
     context = {
-        "search_provider": os.getenv("SEARCH_PROVIDER", "tavily"),
+        "search_provider": os.getenv("SEARCH_PROVIDER", "ddgs"),
         "current_env": current_env,
         "keys": {
             "GOOGLE_API_KEY": configured("GOOGLE_API_KEY"),
@@ -1999,6 +2100,7 @@ def settings_help(request):
     return render(request, "leadfinder/settings_help.html", context)
 
 
+@roles_required("super_admin", "admin")
 def isbn_search(request):
     run_id = request.GET.get("run_id")
     active_run = None
@@ -2096,10 +2198,11 @@ def isbn_search(request):
     return render(request, "leadfinder/isbn_search.html", {
         "form": form,
         "active_run": active_run,
-        "isbn_stack": ["isbnlib", "pyisbn", "Google Books", "Open Library", "Library of Congress", "python-barcode"],
+        "isbn_stack": ["isbnlib", "pyisbn", "Google Books", "Open Library", "Library of Congress", "Crossref", "Internet Archive", "python-barcode"],
     })
 
 
+@roles_required("super_admin", "admin")
 @require_GET
 def isbn_analyze(request):
     analysis = analyze_identifier(request.GET.get("identifier", ""))
@@ -2109,6 +2212,7 @@ def isbn_analyze(request):
     return JsonResponse(payload, status=200 if analysis.valid else 422)
 
 
+@roles_required("super_admin", "admin")
 @require_GET
 def isbn_barcode(request, identifier):
     try:
@@ -2122,6 +2226,7 @@ def isbn_barcode(request, identifier):
     return response
 
 
+@roles_required("super_admin", "admin")
 def isbn_search_status(request, run_id):
     run = get_object_or_404(ResearchRun, id=run_id)
     books = run.books.all().order_by("created_at")
@@ -2220,248 +2325,7 @@ def isbn_search_status(request, run_id):
     })
 
 
-def _legacy_isbn_lookup_tavily_stream(request):
-    keyword = request.GET.get("keyword", "").strip()
-    pub_year_start = request.GET.get("pub_year_start", "").strip()
-    pub_year_end = request.GET.get("pub_year_end", "").strip()
-    try:
-        max_results = int(request.GET.get("max_results", "50"))
-        max_results = max(1, min(max_results, 1000))
-    except ValueError:
-        max_results = 50
-    if not keyword:
-        return JsonResponse({"error": "Keyword is required."}, status=400)
-
-    import logging
-    logger = logging.getLogger(__name__)
-
-    def event_stream():
-        import json
-        import re
-        import time
-        from leadfinder.services.amazon.amazon_url_parser import extract_asin, is_amazon_url
-        from leadfinder.services.pipeline.run_research import guess_title_author
-
-        yield json.dumps({"status": "starting", "message": "Initiating deep search..."}) + "\n"
-
-        books_yielded = 0
-        seen_ids: set = set()
-
-        # Parse year filters
-        start: int | None = None
-        end: int | None = None
-        if pub_year_start:
-            try:
-                start = int(pub_year_start)
-            except ValueError:
-                pass
-        if pub_year_end:
-            try:
-                end = int(pub_year_end)
-            except ValueError:
-                pass
-
-        def year_ok(year_val) -> bool:
-            if year_val is None or year_val == "":
-                return True
-            try:
-                y = int(year_val)
-            except (TypeError, ValueError):
-                return True
-            if start and y < start:
-                return False
-            if end and y > end:
-                return False
-            return True
-
-        def emit_book(book: dict) -> str:
-            """Yield a single book as a progress event."""
-            nonlocal books_yielded
-            books_yielded += 1
-            return json.dumps({
-                "status": "progress",
-                "books": [book],
-                "count": books_yielded,
-            }) + "\n"
-
-        def process_search_results(results, source_name: str):
-            """Extract books from search results and yield them one by one."""
-            for dto in results:
-                if books_yielded >= max_results:
-                    return
-                asin = extract_asin(dto.url)
-                if not (is_amazon_url(dto.url) and asin):
-                    continue
-                if asin in seen_ids:
-                    continue
-                year_match = re.search(
-                    r"\b(19\d{2}|20\d{2})\b",
-                    f"{dto.title} {dto.snippet or ''}"
-                )
-                pub_year = year_match.group(0) if year_match else ""
-                if not year_ok(pub_year if pub_year else None):
-                    continue
-                seen_ids.add(asin)
-                title, author, _ = guess_title_author(dto.title, dto.snippet or "")
-
-                # Enrich author/cover/date via Google Books & Open Library if missing
-                cover_image_url = ""
-                final_pub_date = pub_year
-                if not author:
-                    try:
-                        from leadfinder.services.amazon.amazon_scraper import fetch_metadata_from_free_apis
-                        api_data = fetch_metadata_from_free_apis(asin)
-                        if api_data:
-                            api_authors = api_data.get("authors", [])
-                            if api_authors:
-                                first = api_authors[0]
-                                author = first.get("name", "") if isinstance(first, dict) else str(first)
-                            if not pub_year and api_data.get("publication_date"):
-                                raw_date = str(api_data["publication_date"])
-                                y_match = re.search(r"\b(19\d{2}|20\d{2})\b", raw_date)
-                                if y_match:
-                                    final_pub_date = y_match.group(0)
-                            if api_data.get("cover_image_url"):
-                                cover_image_url = api_data["cover_image_url"]
-                            if not title and api_data.get("title"):
-                                title = api_data["title"]
-                    except Exception as enrich_err:
-                        logger.debug("Author enrichment via API failed for %s: %s", asin, enrich_err)
-
-                yield emit_book({
-                    "title": title or dto.title,
-                    "author_name": author,
-                    "asin": asin,
-                    "publication_date": final_pub_date,
-                    "cover_image_url": cover_image_url,
-                    "source": source_name,
-                })
-
-        # Build year-specific query variants
-        years = []
-        if start and end:
-            years = list(range(start, end + 1))
-        elif start:
-            years = [start]
-        elif end:
-            years = [end]
-
-        year_str = " ".join(str(y) for y in years) if years else ""
-
-        # ── Build diverse queries (plain text — no site:, no quotes) ───────────
-        queries: list[str] = []
-
-        if years:
-            for y in years:
-                queries += [
-                    f"amazon {keyword} {y}",
-                    f"{keyword} amazon {y} book",
-                    f"amazon {keyword} {y} paperback",
-                    f"amazon {keyword} {y} picture book",
-                    f"amazon {keyword} {y} new release",
-                    f"{keyword} {y} buy amazon",
-                    f"amazon {keyword} {y} hardcover",
-                    f"amazon {keyword} {y} children",
-                    f"{keyword} {y} ISBN book",
-                    f"amazon {keyword} {y} illustrated",
-                    f"{keyword} {y} book author amazon",
-                    f"amazon new books {keyword} {y}",
-                    f"{keyword} {y} book isbn amazon bestseller",
-                    f"amazon {keyword} {y} ages kids",
-                    f"{keyword} published {y} amazon",
-                ]
-        else:
-            queries += [
-                f"amazon {keyword} book",
-                f"{keyword} amazon paperback",
-                f"{keyword} amazon children book",
-                f"amazon {keyword} picture book",
-                f"{keyword} amazon new release",
-                f"amazon {keyword} illustrated",
-                f"{keyword} amazon hardcover",
-                f"{keyword} book ISBN",
-            ]
-
-        # Add broad year-range queries
-        if year_str:
-            queries += [
-                f"amazon {keyword} {year_str}",
-                f"{keyword} {year_str} amazon books",
-                f"new {keyword} {year_str} amazon",
-                f"best {keyword} {year_str} amazon",
-                f"{keyword} award {year_str} amazon",
-            ]
-
-        # Deduplicate
-        seen_q: set = set()
-        unique_queries = []
-        for q in queries:
-            if q not in seen_q:
-                seen_q.add(q)
-                unique_queries.append(q)
-
-        # ── SOURCE: Tavily search (confirmed working) ───────────────────────────
-        try:
-            from leadfinder.services.search.tavily_provider import TavilySearchProvider
-            tavily = TavilySearchProvider()
-
-            for i, query in enumerate(unique_queries):
-                if books_yielded >= max_results:
-                    break
-
-                yield json.dumps({
-                    "status": "searching",
-                    "message": f"[{i+1}/{len(unique_queries)}] Scanning: {query}",
-                    "count": books_yielded,
-                }) + "\n"
-
-                try:
-                    results = tavily.search(query, max_results=10)
-                    for event in process_search_results(results, "tavily"):
-                        yield event
-                        if books_yielded >= max_results:
-                            break
-                except Exception as ex:
-                    logger.warning("Tavily query '%s' failed: %s", query, ex)
-
-                time.sleep(0.2)
-
-        except Exception as e:
-            logger.error("Tavily search block failed: %s", e)
-
-        # ── FALLBACK: DDG HTML (if Tavily found nothing) ────────────────────────
-        if books_yielded == 0:
-            try:
-                from leadfinder.services.search.ddgs_html_provider import DDGHTMLSearchProvider
-                ddg = DDGHTMLSearchProvider(delay=0.5)
-                fallback_queries = unique_queries[:5]  # Try first 5 only
-                for query in fallback_queries:
-                    if books_yielded >= max_results:
-                        break
-                    yield json.dumps({
-                        "status": "searching",
-                        "message": f"Fallback search: {query}",
-                        "count": books_yielded,
-                    }) + "\n"
-                    try:
-                        results = ddg.search(query, max_results=15)
-                        for event in process_search_results(results, "ddg"):
-                            yield event
-                    except Exception as ex:
-                        logger.warning("DDG fallback query '%s' failed: %s", query, ex)
-                    time.sleep(0.5)
-            except Exception as e:
-                logger.warning("DDG fallback failed: %s", e)
-
-        yield json.dumps({"status": "done", "count": books_yielded}) + "\n"
-
-    from django.http import StreamingHttpResponse
-    response = StreamingHttpResponse(event_stream(), content_type="application/x-ndjson")
-    response["X-Accel-Buffering"] = "no"
-    response["Cache-Control"] = "no-cache"
-    return response
-
-
+@roles_required("super_admin", "admin")
 def isbn_lookup(request):
     keyword = request.GET.get("keyword", "").strip()
     pub_year_start = request.GET.get("pub_year_start", "").strip()
@@ -2485,205 +2349,6 @@ def isbn_lookup(request):
 
     from django.http import StreamingHttpResponse
 
-    response = StreamingHttpResponse(event_stream(), content_type="application/x-ndjson")
-    response["X-Accel-Buffering"] = "no"
-    response["Cache-Control"] = "no-cache"
-    return response
-
-
-    keyword = request.GET.get("keyword", "").strip()
-    pub_year_start = request.GET.get("pub_year_start", "").strip()
-    pub_year_end = request.GET.get("pub_year_end", "").strip()
-    try:
-        max_results = int(request.GET.get("max_results", "50"))
-        max_results = max(1, min(max_results, 1000))
-    except ValueError:
-        max_results = 50
-    if not keyword:
-        return JsonResponse({"error": "Keyword is required."}, status=400)
-
-    import logging
-    logger = logging.getLogger(__name__)
-
-    def event_stream():
-        import json
-        import re
-        import time
-        from leadfinder.services.amazon.amazon_url_parser import extract_asin, is_amazon_url
-        from leadfinder.services.pipeline.run_research import guess_title_author
-
-        yield json.dumps({"status": "starting", "message": "Initiating search..."}) + "\n"
-
-        books_yielded = 0
-        seen_ids: set = set()   # tracks isbn/asin to avoid duplicates
-
-        # Parse year filters
-        start: int | None = None
-        end: int | None = None
-        if pub_year_start:
-            try:
-                start = int(pub_year_start)
-            except ValueError:
-                pass
-        if pub_year_end:
-            try:
-                end = int(pub_year_end)
-            except ValueError:
-                pass
-
-        def year_ok(year_val) -> bool:
-            """True if the year is within the requested range (None = unknown → pass through)."""
-            if year_val is None:
-                return True   # unknown year — allow
-            try:
-                y = int(year_val)
-            except (TypeError, ValueError):
-                return True
-            if start and y < start:
-                return False
-            if end and y > end:
-                return False
-            return True
-
-        # ── SOURCE 1: Open Library (most reliable, direct ISBNs) ──────────────
-        yield json.dumps({"status": "searching",
-                          "message": "Searching Open Library for ISBNs...",
-                          "count": books_yielded}) + "\n"
-        try:
-            from leadfinder.services.books.open_library_provider import search_openlibrary
-            ol_books = search_openlibrary(
-                keyword=keyword,
-                year_start=start,
-                year_end=end,
-                max_books=min(max_results, 200),
-            )
-            ol_batch = []
-            for b in ol_books:
-                bid = b.get("isbn") or b.get("asin") or ""
-                if bid and bid not in seen_ids:
-                    seen_ids.add(bid)
-                    ol_batch.append(b)
-                    books_yielded += 1
-                    if books_yielded >= max_results:
-                        break
-            if ol_batch:
-                yield json.dumps({
-                    "status": "progress",
-                    "books": ol_batch,
-                    "count": books_yielded
-                }) + "\n"
-        except Exception as e:
-            logger.warning("Open Library search failed: %s", e)
-
-        # ── SOURCE 2: DDG HTML scraping of Amazon URLs ─────────────────────────
-        if books_yielded < max_results:
-            try:
-                from leadfinder.services.search.ddgs_html_provider import DDGHTMLSearchProvider
-                ddg = DDGHTMLSearchProvider(delay=0.4)
-
-                years = []
-                if start and end:
-                    years = list(range(start, end + 1))
-                elif start:
-                    years = [start]
-                elif end:
-                    years = [end]
-
-                # Build targeted queries
-                queries: list[str] = []
-
-                for y in years:
-                    queries += [
-                        f"site:amazon.com {keyword} {y}",
-                        f"amazon {keyword} {y} paperback",
-                        f"amazon {keyword} {y} hardcover",
-                        f"amazon.com {keyword} {y} children book",
-                        f"amazon {keyword} {y} picture book",
-                        f"site:amazon.com {keyword} {y} illustrated",
-                        f"buy {keyword} {y} amazon",
-                        f"{keyword} {y} ISBN amazon",
-                        f"amazon {keyword} {y} new book",
-                        f"site:amazon.com {keyword} {y} kids",
-                    ]
-
-                # Broad queries (no year)
-                queries += [
-                    f"site:amazon.com {keyword} paperback",
-                    f"amazon.com {keyword} book",
-                    f"site:amazon.com {keyword} children",
-                    f"{keyword} amazon books ISBN",
-                    f"amazon {keyword} picture book",
-                ]
-
-                # De-duplicate queries
-                seen_q: set = set()
-                unique_q = []
-                for q in queries:
-                    if q not in seen_q:
-                        seen_q.add(q)
-                        unique_q.append(q)
-
-                for query in unique_q:
-                    if books_yielded >= max_results:
-                        break
-
-                    yield json.dumps({
-                        "status": "searching",
-                        "message": f"Searching: {query}...",
-                        "count": books_yielded
-                    }) + "\n"
-
-                    try:
-                        results = ddg.search(query, max_results=20)
-                        new_books = []
-                        for dto in results:
-                            if books_yielded >= max_results:
-                                break
-                            asin = extract_asin(dto.url)
-                            if not (is_amazon_url(dto.url) and asin):
-                                continue
-                            if asin in seen_ids:
-                                continue
-
-                            # Extract pub year from title/snippet
-                            year_match = re.search(
-                                r"\b(19\d{2}|20\d{2})\b",
-                                f"{dto.title} {dto.snippet or ''}"
-                            )
-                            pub_year = year_match.group(0) if year_match else ""
-
-                            if not year_ok(pub_year if pub_year else None):
-                                continue
-
-                            seen_ids.add(asin)
-                            title, author, _ = guess_title_author(dto.title, dto.snippet or "")
-                            new_books.append({
-                                "title": title,
-                                "author_name": author,
-                                "asin": asin,
-                                "publication_date": pub_year,
-                                "cover_image_url": "",
-                                "source": "ddg_html",
-                            })
-                            books_yielded += 1
-
-                        if new_books:
-                            yield json.dumps({
-                                "status": "progress",
-                                "books": new_books,
-                                "count": books_yielded
-                            }) + "\n"
-
-                    except Exception as ex:
-                        logger.warning("DDG HTML query '%s' failed: %s", query, ex)
-                    time.sleep(0.3)
-
-            except Exception as e:
-                logger.error("DDG HTML search block failed: %s", e)
-
-        yield json.dumps({"status": "done", "count": books_yielded}) + "\n"
-
-    from django.http import StreamingHttpResponse
     response = StreamingHttpResponse(event_stream(), content_type="application/x-ndjson")
     response["X-Accel-Buffering"] = "no"
     response["Cache-Control"] = "no-cache"

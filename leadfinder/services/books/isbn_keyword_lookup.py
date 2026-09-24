@@ -12,6 +12,7 @@ from hashlib import sha256
 from pathlib import Path
 from typing import Iterable
 
+import requests
 from django.conf import settings
 from django.utils import timezone
 
@@ -19,12 +20,18 @@ from leadfinder.services.ai.classify_book import classify_book
 from leadfinder.services.ai.groq_client import GroqJSONClient
 from leadfinder.services.amazon.amazon_scraper import fetch_metadata_from_free_apis
 from leadfinder.services.amazon.amazon_url_parser import extract_asin, is_amazon_url
+from leadfinder.services.books.free_catalogs import (
+    crossref_keyword_search,
+    internet_archive_keyword_search,
+)
 from leadfinder.services.books.google_books_provider import GoogleBooksProvider
 from leadfinder.services.books.isbn_intelligence import analyze_identifier
 from leadfinder.services.books.library_of_congress_provider import search_library_of_congress
 from leadfinder.services.books.open_library_provider import search_openlibrary
+from leadfinder.services.parallel import map_parallel
 from leadfinder.services.pipeline.run_research import guess_title_author
 from leadfinder.services.search.base import SearchResultDTO
+from leadfinder.services.search.bing_html_provider import BingHTMLSearchProvider
 from leadfinder.services.search.ddgs_html_provider import DDGHTMLSearchProvider
 from leadfinder.services.search.ddgs_provider import DDGSSearchProvider
 
@@ -53,9 +60,12 @@ TRUSTED_SOURCE_SCORE = {
     "open_library": 0.24,
     "google_books": 0.24,
     "library_of_congress": 0.22,
+    "crossref": 0.22,
     "amazon": 0.22,
+    "internet_archive": 0.18,
     "ddgs": 0.14,
     "ddgs_html": 0.12,
+    "bing_html": 0.12,
 }
 
 
@@ -262,6 +272,13 @@ def professional_validation(book: dict, source: str) -> dict:
     layers.append(f"source_{source}")
     score += source_score
 
+    if book.get("catalog_verified"):
+        layers.append("catalog_record_verified")
+        score += 0.05
+    if int(book.get("metadata_source_count") or 0) >= 2:
+        layers.append("multi_source_agreement")
+        score += 0.05
+
     ai_confidence = float(book.get("book_classification_confidence") or 0)
     if book.get("is_childrens_book") is True:
         layers.append("ai_childrens_match")
@@ -365,61 +382,127 @@ def dedupe_books(books: Iterable[dict]) -> list[dict]:
     return deduped
 
 
+# Discovery query families. ``{k}`` is the keyword, ``{y}`` an optional
+# publication year. The families deliberately attack many different indexes
+# (Amazon stores, book catalogs, retailers, review trades, publisher catalogs)
+# and many different intents (formats, age bands, self-pub angles) so the same
+# keyword keeps surfacing fresh ISBN/ASIN evidence across providers.
+_QUERY_TEMPLATES: tuple[str, ...] = (
+    # Amazon store angles.
+    "site:amazon.com/dp {k} {y} children book",
+    "site:amazon.com {k} {y} ISBN",
+    "amazon {k} {y} picture book",
+    "{k} {y} ISBN amazon",
+    "amazon {k} {y} illustrated",
+    "{k} {y} book author amazon",
+    "amazon {k} {y} paperback",
+    "amazon {k} {y} hardcover",
+    'site:amazon.com "{k}" "ages 4-8" {y}',
+    'site:amazon.com "{k}" "ages 3-5" {y}',
+    'site:amazon.com "{k}" "ages 0-3" {y}',
+    'site:amazon.com "{k}" "ages 6-9" {y}',
+    'site:amazon.com "{k}" "board book" {y}',
+    'site:amazon.com "{k}" "kindle edition" kids {y}',
+    '"{k}" {y} kindle kids book author',
+    # Amazon international stores.
+    "site:amazon.co.uk {k} {y} picture book ISBN",
+    "site:amazon.ca {k} {y} children book ISBN",
+    "site:amazon.com.au {k} {y} picture book ISBN",
+    # Book catalog & metadata sites.
+    "site:isbnsearch.org {k} {y} children book",
+    "site:worldcat.org {k} {y} juvenile ISBN",
+    'site:worldcat.org "{k}" {y} picture book',
+    "site:goodreads.com {k} {y} ISBN children",
+    'site:goodreads.com/book/show "{k}" {y} picture book',
+    "site:barnesandnoble.com/w {k} {y} ISBN",
+    "site:bookshop.org {k} {y} ISBN children",
+    "site:indiebound.org {k} {y} picture book ISBN",
+    "site:powells.com {k} {y} children book ISBN",
+    "site:booksamillion.com {k} {y} kids book ISBN",
+    "site:thriftbooks.com {k} {y} picture book",
+    "site:abebooks.com {k} {y} children book ISBN",
+    "site:alibris.com {k} {y} picture book ISBN",
+    "site:betterworldbooks.com {k} {y} children book",
+    "site:waterstones.com {k} {y} picture book ISBN",
+    "site:target.com {k} {y} picture book ISBN",
+    "site:walmart.com {k} {y} children book ISBN",
+    "site:books.google.com {k} {y} juvenile fiction",
+    "site:openlibrary.org {k} {y} ISBN juvenile",
+    "site:openlibrary.org/books {k} {y} picture book",
+    "site:books.apple.com {k} {y} children book",
+    "site:kobo.com {k} {y} kids book ISBN",
+    # Trade review & discovery sites.
+    "site:publishersweekly.com {k} {y} picture book",
+    "site:kirkusreviews.com {k} {y} picture book",
+    "site:booklife.com {k} {y} children book",
+    "site:booklife.com {k} {y} ISBN picture book",
+    "site:schoollibraryjournal.com {k} {y} picture book",
+    # Publisher catalogs (pages usually carry ISBN + author bylines).
+    "site:penguinrandomhouse.com {k} {y} picture book ISBN",
+    "site:harpercollins.com {k} {y} children book ISBN",
+    "site:simonandschuster.com {k} {y} picture book ISBN",
+    "site:hachettebookgroup.com {k} {y} children book ISBN",
+    "site:sourcebooks.com {k} {y} children book ISBN",
+    # Phrase & intent angles.
+    '"{k}" {y} "ISBN-13" picture book',
+    '"{k}" {y} "ISBN-10" children book',
+    '"{k}" {y} "read aloud" picture book ISBN',
+    '"{k}" {y} board book ISBN amazon',
+    '"{k}" {y} storytime children book author',
+    '"{k}" debut picture book {y} amazon',
+    '"{k}" {y} picture book "hardcover" author ISBN',
+    '"{k}" {y} self published children book ISBN',
+    '"{k}" {y} indie author picture book ISBN',
+    '"{k}" {y} "early reader" book ISBN',
+    '"{k}" {y} "chapter book" ISBN children',
+    '"{k}" {y} bedtime story book ISBN',
+    '"{k}" {y} "illustrated by" picture book ISBN',
+    '"{k}" {y} juvenile fiction "ISBN-13"',
+    '"{k}" {y} children\'s picture book "paperback" ISBN',
+    '"{k}" {y} toddler board book amazon',
+    '"{k}" {y} preschool picture book author',
+    '"{k}" {y} "ages 4-8" picture book ISBN',
+    '"{k}" {y} "ages 3-5" children book ISBN',
+    '"{k}" {y} "ages 2-6" picture book ISBN',
+    '"{k}" {y} read along kids book ISBN',
+    # Generic keyword + identifier angles.
+    "{k} {y} picture book ISBN author",
+    "{k} {y} juvenile fiction ISBN",
+    "{k} {y} ASIN picture book author",
+    "{k} {y} publisher ISBN children book",
+)
+
+# Extra angles that only make sense with a concrete publication year.
+_YEAR_ONLY_TEMPLATES: tuple[str, ...] = (
+    "{k} published {y} amazon",
+    "{k} {y} new release children book amazon",
+    '"{k}" {y} "new children\'s books" ISBN',
+)
+
+
+def _render_query(template: str, keyword: str, year: int | None) -> str:
+    rendered = template.replace("{k}", keyword).replace("{y}", str(year) if year else "")
+    return " ".join(rendered.split())
+
+
 def build_queries(keyword: str, year_start: int | None, year_end: int | None) -> list[str]:
-    years: list[int] = []
+    years: list[int | None]
     if year_start and year_end:
         years = list(range(year_start, year_end + 1))
     elif year_start:
         years = [year_start]
     elif year_end:
         years = [year_end]
+    else:
+        years = [None]
 
     queries: list[str] = []
-    if years:
-        for year in years:
-            queries.extend(
-                [
-                    f"site:amazon.com/dp {keyword} {year} children book",
-                    f"site:amazon.com {keyword} {year} ISBN",
-                    f"amazon {keyword} {year} picture book",
-                    f"{keyword} {year} ISBN amazon",
-                    f"amazon {keyword} {year} illustrated",
-                    f"{keyword} {year} book author amazon",
-                    f"amazon {keyword} {year} paperback",
-                    f"amazon {keyword} {year} hardcover",
-                    f"{keyword} published {year} amazon",
-                    f"site:isbnsearch.org {keyword} {year} children book",
-                    f"site:worldcat.org {keyword} {year} juvenile ISBN",
-                    f"{keyword} {year} picture book ISBN author",
-                    f"{keyword} {year} ASIN picture book author",
-                    f"site:goodreads.com {keyword} {year} ISBN children",
-                    f"site:barnesandnoble.com/w {keyword} {year} ISBN",
-                    f"site:bookshop.org {keyword} {year} ISBN children",
-                    f"{keyword} {year} publisher ISBN children book",
-                ]
-            )
-    else:
-        queries.extend(
-            [
-                f"site:amazon.com/dp {keyword} children book",
-                f"site:amazon.com {keyword} ISBN children",
-                f"amazon {keyword} picture book",
-                f"{keyword} amazon books ISBN",
-                f"amazon {keyword} illustrated",
-                f"{keyword} book author amazon",
-                f"amazon {keyword} paperback",
-                f"amazon {keyword} hardcover",
-                f"site:isbnsearch.org {keyword} children book",
-                f"site:worldcat.org {keyword} juvenile ISBN",
-                f"{keyword} picture book ISBN author",
-                f"{keyword} juvenile fiction ISBN",
-                f"{keyword} ASIN picture book author",
-                f"site:goodreads.com {keyword} ISBN children",
-                f"site:barnesandnoble.com/w {keyword} ISBN",
-                f"site:bookshop.org {keyword} ISBN children",
-                f"{keyword} publisher ISBN children book",
-            ]
-        )
+    for year in years:
+        for template in _QUERY_TEMPLATES:
+            queries.append(_render_query(template, keyword, year))
+        if year:
+            for template in _YEAR_ONLY_TEMPLATES:
+                queries.append(_render_query(template, keyword, year))
     return list(dict.fromkeys(q for q in queries if q.strip()))
 
 
@@ -473,6 +556,15 @@ def build_book_record(
             api_year = re.search(r"\b(19\d{2}|20\d{2})\b", raw_date)
             publication_date = api_year.group(0) if api_year else raw_date[:100]
 
+    metadata_sources = (api_data or {}).get("metadata_sources") or []
+    metadata_providers = sorted(
+        {
+            str(entry.get("provider") or "")
+            for entry in metadata_sources
+            if isinstance(entry, dict) and entry.get("provider")
+        }
+    )
+
     book = {
         "title": title[:500],
         "author_name": (author_name or "").strip()[:255],
@@ -493,8 +585,21 @@ def build_book_record(
         "source_title": source_title,
         "source_snippet": source_snippet,
         "book_data_confidence": book_data_confidence,
+        "catalog_verified": bool(api_data),
+        "metadata_confidence": (api_data or {}).get("metadata_confidence") if api_data else None,
+        "metadata_source_count": len(metadata_sources),
+        "metadata_providers": ", ".join(metadata_providers),
     }
-    book = refine_metadata_with_ai(book)
+    # Catalog-verified books already carry reconciled titles/authors from
+    # trusted sources, so the optional Groq refinement is reserved for
+    # web-snippet books where noisy metadata actually needs AI validation.
+    # This halves paid-model token use and removes a serial per-book wait.
+    if api_data:
+        book["ai_metadata_attempted"] = False
+        book["ai_metadata_completed"] = False
+        book["ai_metadata_skipped"] = "catalog_verified_metadata_trusted"
+    else:
+        book = refine_metadata_with_ai(book)
     if book.get("ai_metadata_rejected"):
         return None
     if (year_start or year_end) and not book.get("publication_date"):
@@ -531,12 +636,18 @@ def build_book_record(
     return book
 
 
-def candidate_from_search_result(
+def _prepare_search_candidate(
     dto: SearchResultDTO,
     source_name: str,
     year_start: int | None,
     year_end: int | None,
 ) -> dict | None:
+    """Cheap, network-free candidate extraction.
+
+    Heavy enrichment (public-catalog reconciliation, AI classification) runs
+    later inside ``build_book_record`` so candidates can be enriched in
+    parallel worker threads.
+    """
     asin = extract_asin(dto.url)
     code = normalize_book_code(asin) if asin and is_amazon_url(dto.url) else ""
     if not code:
@@ -553,19 +664,68 @@ def candidate_from_search_result(
         return None
 
     title, author, confidence = guess_title_author(dto.title, dto.snippet or "")
-    return build_book_record(
-        code=code,
-        title=title or dto.title,
-        author_name=author,
-        publication_date=publication_date,
-        source=source_name,
-        source_url=dto.url,
-        source_title=dto.title,
-        source_snippet=dto.snippet or "",
-        book_data_confidence=confidence,
-        year_start=year_start,
-        year_end=year_end,
-    )
+    return {
+        "code": code,
+        "title": title or dto.title,
+        "author_name": author,
+        "publication_date": publication_date,
+        "source": source_name,
+        "source_url": dto.url,
+        "source_title": dto.title,
+        "source_snippet": dto.snippet or "",
+        "book_data_confidence": confidence,
+        "year_start": year_start,
+        "year_end": year_end,
+    }
+
+
+def candidate_from_search_result(
+    dto: SearchResultDTO,
+    source_name: str,
+    year_start: int | None,
+    year_end: int | None,
+) -> dict | None:
+    prepared = _prepare_search_candidate(dto, source_name, year_start, year_end)
+    if not prepared:
+        return None
+    return build_book_record(**prepared)
+
+
+def _prepare_catalog_candidate(
+    raw: dict,
+    source_name: str,
+    year_start: int | None = None,
+    year_end: int | None = None,
+) -> dict | None:
+    """Cheap, network-free catalog row normalization (kwargs for build_book_record)."""
+    code = normalize_book_code(raw.get("asin") or raw.get("isbn"))
+    if not code:
+        return None
+    raw_date = str(raw.get("publication_date") or "")
+    # A present-but-out-of-range date can never be repaired downstream.
+    if raw_date and not year_ok(raw_date, year_start, year_end):
+        return None
+    source_raw = raw.get("source_raw_json") or {}
+    source_url = raw.get("source_url") or raw.get("amazon_source_url") or source_raw.get("info_link") or ""
+    source_title = raw.get("source_title") or raw.get("amazon_source_title") or raw.get("title") or ""
+    source_snippet = raw.get("source_snippet") or raw.get("amazon_source_snippet") or source_raw.get("description") or ""
+    return {
+        "code": code,
+        "title": raw.get("title") or source_title,
+        "author_name": raw.get("author_name") or "",
+        "publication_date": raw_date,
+        "cover_image_url": raw.get("cover_image_url") or "",
+        "publisher": raw.get("publisher") or "",
+        "category": raw.get("category") or "",
+        "source": source_name,
+        "source_url": source_url,
+        "source_title": source_title,
+        "source_snippet": source_snippet,
+        "book_data_confidence": float(raw.get("book_data_confidence") or 0.65),
+        "require_childrens_signal": False,
+        "year_start": year_start,
+        "year_end": year_end,
+    }
 
 
 def candidate_from_catalog_result(
@@ -574,55 +734,10 @@ def candidate_from_catalog_result(
     year_start: int | None = None,
     year_end: int | None = None,
 ) -> dict | None:
-    code = normalize_book_code(raw.get("asin") or raw.get("isbn"))
-    source_raw = raw.get("source_raw_json") or {}
-    source_url = raw.get("source_url") or raw.get("amazon_source_url") or source_raw.get("info_link") or ""
-    source_title = raw.get("source_title") or raw.get("amazon_source_title") or raw.get("title") or ""
-    source_snippet = raw.get("source_snippet") or raw.get("amazon_source_snippet") or source_raw.get("description") or ""
-    return build_book_record(
-        code=code,
-        title=raw.get("title") or source_title,
-        author_name=raw.get("author_name") or "",
-        publication_date=str(raw.get("publication_date") or ""),
-        cover_image_url=raw.get("cover_image_url") or "",
-        publisher=raw.get("publisher") or "",
-        category=raw.get("category") or "",
-        source=source_name,
-        source_url=source_url,
-        source_title=source_title,
-        source_snippet=source_snippet,
-        book_data_confidence=float(raw.get("book_data_confidence") or 0.65),
-        require_childrens_signal=False,
-        year_start=year_start,
-        year_end=year_end,
-    )
-
-
-def append_new_books(
-    *,
-    candidates: Iterable[dict | None],
-    all_books: list[dict],
-    seen_ids: set[str],
-    max_results: int,
-    books_yielded: int = 0,
-    only_new: bool = False,
-) -> list[dict]:
-    batch: list[dict] = []
-    for candidate in candidates:
-        limit_check = books_yielded if only_new else len(all_books)
-        if limit_check >= max_results:
-            break
-        if not candidate:
-            continue
-        code = str(candidate.get("asin") or candidate.get("isbn") or "").upper()
-        dedupe_key = canonical_book_key(code)
-        if not code or not dedupe_key or dedupe_key in seen_ids:
-            continue
-        seen_ids.add(dedupe_key)
-        all_books.append(candidate)
-        batch.append(candidate)
-        books_yielded += 1
-    return batch
+    prepared = _prepare_catalog_candidate(raw, source_name, year_start, year_end)
+    if not prepared:
+        return None
+    return build_book_record(**prepared)
 
 
 def stream_keyword_lookup(keyword: str, pub_year_start: str, pub_year_end: str, max_results: int, only_new: bool = False):
@@ -637,10 +752,11 @@ def stream_keyword_lookup(keyword: str, pub_year_start: str, pub_year_end: str, 
     seen_ids.discard("")
     books_yielded = 0
     queries_run: list[str] = []
+    workers = max(1, int(getattr(settings, "APP_ISBN_LOOKUP_WORKERS", 8) or 8))
 
     yield {
         "status": "starting",
-        "message": "Checking saved keyword folder before DDGS search...",
+        "message": f"Checking saved keyword folder before parallel public search ({workers} workers)...",
         "cache_path": str(cache_paths(keyword, year_start, year_end)["folder"]),
     }
 
@@ -664,195 +780,247 @@ def stream_keyword_lookup(keyword: str, pub_year_start: str, pub_year_end: str, 
         }
         return
 
+    def _select_pending(prepared: Iterable[dict | None], remaining: int) -> list[dict]:
+        """Dedupe against seen ids and cap selection in the calling thread."""
+        selected: list[dict] = []
+        for candidate_kwargs in prepared:
+            if not candidate_kwargs:
+                continue
+            if len(selected) >= remaining:
+                break
+            code = str(candidate_kwargs.get("code") or "").upper()
+            dedupe_key = canonical_book_key(code)
+            if not code or not dedupe_key or dedupe_key in seen_ids:
+                continue
+            seen_ids.add(dedupe_key)
+            selected.append(candidate_kwargs)
+        return selected
+
+    def _build_candidate(candidate_kwargs: dict) -> dict | None:
+        """Network-bound enrichment worker; never raises into the pool."""
+        try:
+            return build_book_record(**candidate_kwargs)
+        except Exception as exc:
+            logger.debug("Book record build failed for %s: %s", candidate_kwargs.get("code"), exc)
+            return None
+
+    def _commit_batch(batch: list[dict]) -> Path:
+        nonlocal books_yielded
+        all_books.extend(batch)
+        if only_new:
+            books_yielded += len(batch)
+        else:
+            books_yielded = min(len(all_books), max_results)
+        return save_cached_books(keyword, year_start, year_end, all_books, queries_run)
+
+    def _enrich_and_commit(prepared: Iterable[dict | None], remaining: int) -> list[dict] | None:
+        """Select, enrich in parallel, commit, and return the saved batch."""
+        if remaining <= 0:
+            return None
+        selected = _select_pending(prepared, remaining)
+        if not selected:
+            return None
+        built = map_parallel(_build_candidate, selected, max_workers=workers)
+        batch = [book for book in built if book]
+        if not batch:
+            return None
+        _commit_batch(batch)
+        return batch
+
     queries = build_queries(keyword, year_start, year_end)
-    deep_query_limit = int(getattr(settings, "APP_ISBN_LOOKUP_DEEP_QUERY_LIMIT", max(24, min(len(queries), max_results))))
+    # The query families are much larger now; keep the floor high enough that
+    # even small hunts sample a diverse slice of them before giving up.
+    deep_query_limit = int(getattr(settings, "APP_ISBN_LOOKUP_DEEP_QUERY_LIMIT", max(48, min(len(queries), max_results))))
     queries = queries[: max(1, min(len(queries), deep_query_limit))]
     providers = [
         ("ddgs", DDGSSearchProvider(), 30),
         ("ddgs_html", DDGHTMLSearchProvider(delay=0.4), 30),
+        ("bing_html", BingHTMLSearchProvider(delay=0.4), 30),
     ]
-    total_steps = len(queries) * len(providers)
-    step = 0
+    search_tasks = [
+        (provider_name, provider, query, result_limit)
+        for provider_name, provider, result_limit in providers
+        for query in queries
+    ]
+    total_steps = len(search_tasks)
     # Web snippets are useful for Amazon URL discovery, but they must not crowd
     # authoritative catalogs out of the result budget on normal-sized runs.
     catalog_reserve = max(1, round(max_results * 0.4)) if max_results >= 5 else 0
     web_result_cap = max_results - catalog_reserve
 
-    for provider_name, provider, result_limit in providers:
-        layer_label = "Layer 2/7" if provider_name == "ddgs" else "Layer 3/7"
-        for query in queries:
-            if books_yielded >= web_result_cap:
+    def _run_search_task(task) -> tuple[str, str, list]:
+        provider_name, provider, query, result_limit = task
+        try:
+            return provider_name, query, provider.search(query, max_results=result_limit) or []
+        except Exception as exc:
+            logger.warning("%s ISBN keyword query failed for %r: %s", provider_name, query, exc)
+            return provider_name, query, []
+
+    # Web search layers (2-4/10) run concurrently in chunks: each chunk's
+    # queries are searched in parallel, then new candidates are enriched in
+    # parallel and saved before the next chunk starts.
+    chunk_size = max(4, workers * 2)
+    for chunk_start in range(0, len(search_tasks), chunk_size):
+        if books_yielded >= web_result_cap:
+            break
+        chunk = search_tasks[chunk_start:chunk_start + chunk_size]
+        queries_run.extend(f"{name}: {query}" for name, _, query, _ in chunk)
+        yield {
+            "status": "searching",
+            "message": (
+                f"[{min(chunk_start + len(chunk), total_steps)}/{total_steps}] "
+                f"Layers 2-4/10: parallel web scan ({workers} workers): {chunk[0][2]}"
+            ),
+            "count": books_yielded,
+            "cache_hit": bool(cached_books),
+        }
+        outcomes = map_parallel(_run_search_task, chunk, max_workers=workers)
+        prepared = (
+            _prepare_search_candidate(dto, provider_name, year_start, year_end)
+            for provider_name, _query, results in outcomes
+            for dto in results
+        )
+        batch = _enrich_and_commit(prepared, web_result_cap - books_yielded)
+        if batch:
+            yield {
+                "status": "progress",
+                "message": f"Saved {len(batch)} new books to keyword folder.",
+                "books": batch,
+                "count": books_yielded,
+                "cache_updated": True,
+                "cache_path": str(cache_paths(keyword, year_start, year_end)["json"]),
+            }
+        time.sleep(0.1)
+
+    def _fetch_catalog(task) -> tuple[str, list, str]:
+        """Catalog fetch worker; provider failures degrade to empty results."""
+        name, fetcher = task
+        try:
+            return name, fetcher() or [], ""
+        except Exception as exc:
+            logger.warning("%s ISBN keyword lookup failed: %s", name, exc)
+            return name, [], str(exc)
+
+    def _run_catalog_phase(tasks_with_meta) -> Iterable[dict]:
+        """Fetch catalog layers concurrently, then commit them in trust order."""
+        nonlocal books_yielded
+        outcomes = map_parallel(_fetch_catalog, [(name, fetcher) for name, fetcher, _label, _layer in tasks_with_meta], max_workers=len(tasks_with_meta))
+        for (name, raw_results, _error), (_name, _fetcher, label, layer_label) in zip(outcomes, tasks_with_meta):
+            if books_yielded >= max_results:
                 break
-            step += 1
-            queries_run.append(f"{provider_name}: {query}")
+            queries_run.append(f"{name}: {keyword}")
             yield {
                 "status": "searching",
-                "message": f"[{step}/{total_steps}] {layer_label}: {provider_name.upper()} scanning: {query}",
+                "message": f"{layer_label}: {label} lookup for: {keyword}",
                 "count": books_yielded,
                 "cache_hit": bool(cached_books),
             }
-            try:
-                results = provider.search(query, max_results=result_limit)
-            except Exception as exc:
-                logger.warning("%s ISBN keyword query failed for %r: %s", provider_name, query, exc)
+            if not raw_results:
                 continue
-
-            batch = append_new_books(
-                candidates=(
-                    candidate_from_search_result(dto, provider_name, year_start, year_end)
-                    for dto in results
-                ),
-                all_books=all_books,
-                seen_ids=seen_ids,
-                max_results=web_result_cap,
-                books_yielded=books_yielded,
-                only_new=only_new,
+            prepared = (
+                _prepare_catalog_candidate(raw, name, year_start, year_end)
+                for raw in raw_results
             )
-            
-            if only_new:
-                books_yielded += len(batch)
-            else:
-                books_yielded = min(len(all_books), max_results)
-
+            batch = _enrich_and_commit(prepared, max_results - books_yielded)
             if batch:
-                cache_path = save_cached_books(keyword, year_start, year_end, all_books, queries_run)
                 yield {
                     "status": "progress",
-                    "message": f"Saved {len(batch)} new books to keyword folder.",
+                    "message": f"Saved {len(batch)} new books from {label} to keyword folder.",
                     "books": batch,
                     "count": books_yielded,
                     "cache_updated": True,
-                    "cache_path": str(cache_path),
+                    "cache_path": str(cache_paths(keyword, year_start, year_end)["json"]),
                 }
-            time.sleep(0.1)
 
-    # Google Books Fallback Layer
+    # Trusted catalog layers (5-7/10): Google Books, Open Library, and the
+    # Library of Congress are fetched concurrently, then committed in order.
     if books_yielded < max_results:
+        remaining = max_results - books_yielded
+        gb = GoogleBooksProvider()
         yield {
             "status": "searching",
-            "message": f"Layer 4/7: Google Books API lookup for: {keyword}",
+            "message": "Layers 5-7/10: querying Google Books, Open Library, and the Library of Congress in parallel...",
             "count": books_yielded,
             "cache_hit": bool(cached_books),
         }
-        try:
-            gb = GoogleBooksProvider()
-            gb_results = gb.discover_books(keyword, max_books=max_results - books_yielded)
-            batch = append_new_books(
-                candidates=(
-                    candidate_from_catalog_result(raw, "google_books", year_start, year_end)
-                    for raw in gb_results
+        yield from _run_catalog_phase(
+            [
+                (
+                    "google_books",
+                    lambda: gb.discover_books(
+                        keyword,
+                        max_books=remaining,
+                        order_by="newest" if (year_start or year_end) else "relevance",
+                    ),
+                    "Google Books API",
+                    "Layer 5/10",
                 ),
-                all_books=all_books,
-                seen_ids=seen_ids,
-                max_results=max_results,
-                books_yielded=books_yielded,
-                only_new=only_new,
-            )
-            if only_new:
-                books_yielded += len(batch)
-            else:
-                books_yielded = min(len(all_books), max_results)
+                (
+                    "open_library",
+                    lambda: search_openlibrary(
+                        keyword,
+                        year_start=year_start,
+                        year_end=year_end,
+                        max_books=remaining,
+                        sort_new=bool(year_start or year_end),
+                    ),
+                    "Open Library API",
+                    "Layer 6/10",
+                ),
+                (
+                    "library_of_congress",
+                    lambda: search_library_of_congress(
+                        keyword,
+                        year_start=year_start,
+                        year_end=year_end,
+                        max_books=remaining,
+                    ),
+                    "Library of Congress",
+                    "Layer 7/10",
+                ),
+            ]
+        )
 
-            if batch:
-                cache_path = save_cached_books(keyword, year_start, year_end, all_books, queries_run)
-                yield {
-                    "status": "progress",
-                    "message": f"Saved {len(batch)} new books from Google Books to keyword folder.",
-                    "books": batch,
-                    "count": books_yielded,
-                    "cache_updated": True,
-                    "cache_path": str(cache_path),
-                }
-        except Exception as exc:
-            logger.warning("Google Books fallback lookup failed: %s", exc)
-
-    # Open Library Fallback Layer
-    if books_yielded < max_results:
+    # Extra free, no-key harvest layers (8-9/10): Crossref publisher deposits
+    # (freshest metadata) and the Internet Archive scanned-book catalog. These
+    # only run while budget remains so polite fallbacks stay bounded.
+    extra_catalogs_enabled = bool(getattr(settings, "APP_ISBN_LOOKUP_EXTRA_CATALOGS", True))
+    if extra_catalogs_enabled and books_yielded < max_results:
+        remaining = max_results - books_yielded
         yield {
             "status": "searching",
-            "message": f"Layer 5/7: Open Library API lookup for: {keyword}",
+            "message": "Layers 8-9/10: harvesting Crossref and Internet Archive catalogs in parallel...",
             "count": books_yielded,
             "cache_hit": bool(cached_books),
         }
-        try:
-            ol_results = search_openlibrary(
-                keyword,
-                year_start=year_start,
-                year_end=year_end,
-                max_books=max_results - books_yielded,
-            )
-            batch = append_new_books(
-                candidates=(
-                    candidate_from_catalog_result(raw, "open_library", year_start, year_end)
-                    for raw in ol_results
+        yield from _run_catalog_phase(
+            [
+                (
+                    "crossref",
+                    lambda: crossref_keyword_search(
+                        requests.Session(),
+                        keyword,
+                        year_start=year_start,
+                        year_end=year_end,
+                        max_books=remaining,
+                    ),
+                    "Crossref",
+                    "Layer 8/10",
                 ),
-                all_books=all_books,
-                seen_ids=seen_ids,
-                max_results=max_results,
-                books_yielded=books_yielded,
-                only_new=only_new,
-            )
-            if only_new:
-                books_yielded += len(batch)
-            else:
-                books_yielded = min(len(all_books), max_results)
-
-            if batch:
-                cache_path = save_cached_books(keyword, year_start, year_end, all_books, queries_run)
-                yield {
-                    "status": "progress",
-                    "message": f"Saved {len(batch)} new books from Open Library to keyword folder.",
-                    "books": batch,
-                    "count": books_yielded,
-                    "cache_updated": True,
-                    "cache_path": str(cache_path),
-                }
-        except Exception as exc:
-            logger.warning("Open Library fallback lookup failed: %s", exc)
-
-    # Library of Congress is the final no-key catalog fallback. It is deliberately
-    # bounded and internally cached to respect the public service.
-    if books_yielded < max_results:
-        yield {
-            "status": "searching",
-            "message": f"Layer 6/7: Library of Congress lookup for: {keyword}",
-            "count": books_yielded,
-            "cache_hit": bool(cached_books),
-        }
-        try:
-            loc_results = search_library_of_congress(
-                keyword,
-                year_start=year_start,
-                year_end=year_end,
-                max_books=max_results - books_yielded,
-            )
-            batch = append_new_books(
-                candidates=(
-                    candidate_from_catalog_result(raw, "library_of_congress", year_start, year_end)
-                    for raw in loc_results
+                (
+                    "internet_archive",
+                    lambda: internet_archive_keyword_search(
+                        requests.Session(),
+                        keyword,
+                        year_start=year_start,
+                        year_end=year_end,
+                        max_books=remaining,
+                    ),
+                    "Internet Archive",
+                    "Layer 9/10",
                 ),
-                all_books=all_books,
-                seen_ids=seen_ids,
-                max_results=max_results,
-                books_yielded=books_yielded,
-                only_new=only_new,
-            )
-            if only_new:
-                books_yielded += len(batch)
-            else:
-                books_yielded = min(len(all_books), max_results)
-            if batch:
-                cache_path = save_cached_books(keyword, year_start, year_end, all_books, queries_run)
-                yield {
-                    "status": "progress",
-                    "message": f"Saved {len(batch)} new books from the Library of Congress.",
-                    "books": batch,
-                    "count": books_yielded,
-                    "cache_updated": True,
-                    "cache_path": str(cache_path),
-                }
-        except Exception as exc:
-            logger.warning("Library of Congress fallback lookup failed: %s", exc)
+            ]
+        )
 
     if all_books:
         ai_completed = sum(1 for book in all_books if book.get("ai_metadata_completed"))
@@ -860,9 +1028,9 @@ def stream_keyword_lookup(keyword: str, pub_year_start: str, pub_year_end: str, 
         yield {
             "status": "searching",
             "message": (
-                f"Layer 7/7: Groq metadata refinement completed for {ai_completed} books."
+                f"Layer 10/10: Groq metadata refinement completed for {ai_completed} books."
                 if ai_attempted
-                else "Layer 7/7: Optional Groq refinement unavailable; deterministic validation retained."
+                else "Layer 10/10: Optional Groq refinement unavailable; deterministic validation retained."
             ),
             "count": books_yielded,
             "cache_hit": bool(cached_books),
@@ -904,6 +1072,10 @@ def _write_isbn_csv(path: Path, books: list[dict]) -> None:
                 "identifier_type",
                 "validation_score",
                 "analysis_summary",
+                "catalog_verified",
+                "metadata_confidence",
+                "metadata_source_count",
+                "metadata_providers",
                 "ai_layer",
                 "ai_metadata_confidence",
                 "ai_metadata_reason",

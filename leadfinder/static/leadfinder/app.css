@@ -4801,46 +4801,56 @@ body {
 .runs-reference-table {
   font-size: .86rem;
   margin: 0;
-  min-width: 680px;
-  table-layout: fixed;
+  min-width: 1040px;
+  table-layout: auto;
   width: 100%;
 }
 
 .runs-reference-table th:nth-child(1),
 .runs-reference-table td:nth-child(1) {
-  width: 34px;
+  width: 44px;
+  min-width: 44px;
+  text-align: center;
 }
 
 .runs-reference-table th:nth-child(2),
 .runs-reference-table td:nth-child(2) {
-  width: 160px;
+  min-width: 220px;
 }
 
 .runs-reference-table th:nth-child(3),
 .runs-reference-table td:nth-child(3) {
-  width: 82px;
+  width: 125px;
+  min-width: 125px;
 }
 
 .runs-reference-table th:nth-child(4),
 .runs-reference-table td:nth-child(4) {
-  width: 88px;
+  width: 130px;
+  min-width: 130px;
 }
 
 .runs-reference-table th:nth-child(5),
 .runs-reference-table td:nth-child(5) {
-  width: 98px;
+  width: 130px;
+  min-width: 130px;
 }
 
 .runs-reference-table th:nth-child(6),
 .runs-reference-table td:nth-child(6),
 .runs-reference-table th:nth-child(7),
 .runs-reference-table td:nth-child(7) {
-  width: 54px;
+  width: 75px;
+  min-width: 75px;
+  text-align: center;
 }
 
 .runs-reference-table th:nth-child(8),
 .runs-reference-table td:nth-child(8) {
-  width: 106px;
+  width: 230px;
+  min-width: 230px;
+  text-align: right;
+  white-space: nowrap;
 }
 
 .runs-reference-table thead,
@@ -9150,14 +9160,15 @@ body.modern-app .page-wrap {
 }
 
 body.modern-app .app-topbar {
-  background: rgba(255, 255, 255, .86);
+  background: #ffffff;
   border-bottom: 1px solid #e4eae6;
+  box-shadow: 0 2px 8px rgba(15, 45, 25, 0.05);
   display: flex;
   min-height: 68px;
   padding: .75rem 0;
   position: sticky;
   top: 0;
-  z-index: 45;
+  z-index: 50;
 }
 
 body.modern-app .topbar-search {
@@ -10570,7 +10581,8 @@ body.modern-app .rows-per-page select {
 
 @media (max-width: 900px) {
   body.modern-app .topbar-page-actions {
-    display: none;
+    display: inline-flex;
+    gap: 0.35rem;
   }
 }
 
@@ -12804,6 +12816,1407 @@ body.modern-app .verified-contact-line {
 .action-dropdown-item:hover i {
   transform: scale(1.15) !important;
 }
+
+/* ==========================================================================
+   10/10 Universal Responsive Engine (1440p, Laptops, Tablets, Mobile, & Tables)
+   ========================================================================== */
+
+/* 1. Global Reset & Base Normalization */
+body.modern-app {
+  font-size: 14px;
+  line-height: 1.45;
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+
+body.modern-app .nav-toggle {
+  display: none !important;
+}
+
+body.modern-app .container-fluid.page-wrap,
+body.modern-app .page-wrap {
+  box-sizing: border-box !important;
+  min-height: 100vh !important;
+  max-width: none !important;
+}
+
+body.modern-app .app-content {
+  width: 100% !important;
+  max-width: 1440px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  padding: 0.85rem 0 2rem !important;
+}
+
+/* Restrain Oversized Headings */
+body.modern-app h1,
+body.modern-app .page-header h1,
+body.modern-app .dashboard-titlebar h1,
+body.modern-app .isbn-search-command h1,
+body.modern-app .leads-command h1,
+body.modern-app .runs-command h1,
+body.modern-app .new-run-header h1 {
+  font-size: 1.55rem !important;
+  font-weight: 800 !important;
+  line-height: 1.18 !important;
+  letter-spacing: -0.02em !important;
+  margin-bottom: 0.2rem !important;
+}
+
+body.modern-app .page-subtitle,
+body.modern-app .dashboard-titlebar p:last-child {
+  font-size: 0.86rem !important;
+  line-height: 1.4 !important;
+  color: #697870 !important;
+  margin-top: 0.25rem !important;
+  max-width: 780px !important;
+}
+
+body.modern-app .page-header,
+body.modern-app .dashboard-titlebar {
+  margin-bottom: 0.85rem !important;
+  padding-bottom: 0.2rem !important;
+}
+
+/* 2. Universal Topbar & Top Action Buttons Engine */
+body.modern-app .app-topbar {
+  min-height: 56px !important;
+  padding: 0.45rem 1.25rem !important;
+  background: #ffffff !important;
+  box-shadow: 0 2px 10px rgba(15, 45, 25, 0.05) !important;
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 50 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  flex-wrap: nowrap !important;
+  gap: 0.75rem !important;
+  border-bottom: 1px solid #e4eae6 !important;
+}
+
+body.modern-app .topbar-search {
+  flex: 1 1 220px !important;
+  min-width: 150px !important;
+  max-width: 360px !important;
+  width: auto !important;
+  min-height: 38px !important;
+  padding: 0.25rem 0.65rem !important;
+  box-sizing: border-box !important;
+}
+
+body.modern-app .topbar-page-actions {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+  margin-left: auto !important;
+  flex-shrink: 0 !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+body.modern-app .topbar-page-actions .btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.35rem !important;
+  min-height: 35px !important;
+  height: 35px !important;
+  padding: 0 0.85rem !important;
+  font-size: 0.8rem !important;
+  font-weight: 700 !important;
+  border-radius: 8px !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+  text-decoration: none !important;
+  line-height: 1 !important;
+}
+
+body.modern-app .topbar-actions {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.65rem !important;
+  flex-shrink: 0 !important;
+}
+
+body.modern-app .topbar-avatar,
+body.modern-app .topbar-icon {
+  width: 36px !important;
+  height: 36px !important;
+  font-size: 0.78rem !important;
+  flex-shrink: 0 !important;
+}
+
+body.modern-app .profile-logout {
+  width: 34px !important;
+  height: 34px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+}
+
+/* Universal Page Header Action Buttons Up Top */
+body.modern-app .dashboard-titlebar,
+body.modern-app .leads-command,
+body.modern-app .runs-command,
+body.modern-app .page-header,
+body.modern-app .isbn-search-command,
+body.modern-app .lead-detail-command {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  gap: 0.75rem !important;
+  width: 100% !important;
+}
+
+body.modern-app .dashboard-primary-actions,
+body.modern-app .leads-command-actions,
+body.modern-app .runs-toolbar,
+body.modern-app .lead-detail-title-row {
+  display: inline-flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+  flex-shrink: 0 !important;
+}
+
+body.modern-app .dashboard-primary-actions .btn,
+body.modern-app .leads-command-actions .btn,
+body.modern-app .runs-toolbar .btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.35rem !important;
+  min-height: 36px !important;
+  height: 36px !important;
+  padding: 0 0.85rem !important;
+  font-size: 0.82rem !important;
+  font-weight: 700 !important;
+  border-radius: 8px !important;
+  white-space: nowrap !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+  text-decoration: none !important;
+}
+
+/* Universal Table Controls & Filter Buttons Up Top */
+body.modern-app .leads-filter-actions,
+body.modern-app .leads-table-header,
+body.modern-app .runs-list-controls {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  gap: 0.65rem !important;
+}
+
+body.modern-app .leads-table-tools,
+body.modern-app .runs-table-tools {
+  display: inline-flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 0.45rem !important;
+}
+
+body.modern-app .leads-table-tools .btn,
+body.modern-app .runs-table-tools .btn,
+body.modern-app .view-toggle,
+body.modern-app .customize-button,
+body.modern-app #toggle-advanced-btn {
+  min-height: 32px !important;
+  height: 32px !important;
+  padding: 0 0.65rem !important;
+  font-size: 0.78rem !important;
+  font-weight: 700 !important;
+  border-radius: 8px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.3rem !important;
+  white-space: nowrap !important;
+}
+
+/* 3. Universal Table Responsiveness & Clean Spacing */
+.leads-table-wrap,
+.runs-table-wrap,
+.team-table-wrap,
+.table-responsive {
+  width: 100% !important;
+  max-width: 100% !important;
+  border: 1px solid #dfe6e2 !important;
+  border-radius: 12px !important;
+  background: #ffffff !important;
+  box-shadow: 0 4px 18px rgba(15, 45, 30, 0.04) !important;
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  scrollbar-width: thin !important;
+  scrollbar-color: #c4d4ca #f4f8f5 !important;
+  display: block !important;
+  margin-bottom: 1.25rem !important;
+  position: relative !important;
+}
+
+.leads-table-wrap::-webkit-scrollbar,
+.runs-table-wrap::-webkit-scrollbar,
+.team-table-wrap::-webkit-scrollbar,
+.table-responsive::-webkit-scrollbar {
+  height: 6px;
+}
+
+.leads-table-wrap::-webkit-scrollbar-track,
+.runs-table-wrap::-webkit-scrollbar-track,
+.team-table-wrap::-webkit-scrollbar-track,
+.table-responsive::-webkit-scrollbar-track {
+  background: #f4f8f5;
+  border-radius: 99px;
+}
+
+.leads-table-wrap::-webkit-scrollbar-thumb,
+.runs-table-wrap::-webkit-scrollbar-thumb,
+.team-table-wrap::-webkit-scrollbar-thumb,
+.table-responsive::-webkit-scrollbar-thumb {
+  background: #c4d4ca;
+  border-radius: 99px;
+}
+
+body.modern-app .table,
+body.modern-app .leads-reference-table,
+body.modern-app .runs-reference-table,
+body.modern-app .team-reference-table {
+  width: 100% !important;
+  min-width: 860px !important;
+  table-layout: auto !important;
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+  margin-bottom: 0 !important;
+}
+
+body.modern-app .leads-reference-table th,
+body.modern-app .leads-reference-table td,
+body.modern-app .runs-reference-table th,
+body.modern-app .runs-reference-table td {
+  width: auto !important;
+}
+
+body.modern-app .table thead th {
+  background: #f6faf7 !important;
+  border-bottom: 1px solid #dbe5df !important;
+  color: #4a5c51 !important;
+  font-size: 0.72rem !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.03em !important;
+  padding: 0.6rem 0.65rem !important;
+  text-transform: uppercase !important;
+  white-space: nowrap !important;
+}
+
+body.modern-app .table tbody td {
+  padding: 0.55rem 0.65rem !important;
+  font-size: 0.82rem !important;
+  border-bottom: 1px solid #edf2ee !important;
+  vertical-align: middle !important;
+}
+
+body.modern-app .table tbody tr:hover td {
+  background: #f9fcf9 !important;
+}
+
+body.modern-app .table .select-cell,
+body.modern-app .leads-reference-table th.select-cell,
+body.modern-app .leads-reference-table td.select-cell,
+body.modern-app .runs-reference-table th.select-cell,
+body.modern-app .runs-reference-table td.select-cell {
+  width: 44px !important;
+  max-width: 44px !important;
+  text-align: center !important;
+}
+
+body.modern-app .table .badge,
+body.modern-app .run-status-pill,
+body.modern-app .run-provider-pill,
+body.modern-app .channel-chip,
+body.modern-app .action-dropdown-btn {
+  white-space: nowrap !important;
+}
+
+body.modern-app .row-title {
+  font-size: 0.86rem !important;
+  font-weight: 750 !important;
+  line-height: 1.25 !important;
+  max-width: 280px !important;
+  display: block !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+body.modern-app .row-link {
+  font-size: 0.84rem !important;
+  font-weight: 700 !important;
+  max-width: 260px !important;
+  display: inline-block !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+body.modern-app .contact-link {
+  font-size: 0.82rem !important;
+  font-weight: 600 !important;
+  max-width: 280px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+body.modern-app .leads-filter-primary {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 0.65rem !important;
+  align-items: center !important;
+}
+
+body.modern-app .leads-search-field {
+  flex: 1 1 240px !important;
+  min-width: 180px !important;
+}
+
+body.modern-app .leads-table-header {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  gap: 0.75rem !important;
+}
+
+body.modern-app .leads-table-tools {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+}
+
+body.modern-app .bulk-actions-bar.show {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 0.45rem !important;
+}
+
+/* ==========================================================================
+   4. DEVICE BREAKPOINTS: 1440p, Laptops, Tablets, Mobile
+   ========================================================================== */
+
+/* ── A1. Ultra-Wide & Large Desktop Monitors (min-width: 1536px) ─────────── */
+@media (min-width: 1536px) {
+  body.modern-app .app-shell {
+    position: fixed !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    width: 250px !important;
+    z-index: 100 !important;
+    border-right: 1px solid #e4eae6 !important;
+    border-bottom: 0 !important;
+    padding: 1.25rem 1rem 1rem !important;
+    overflow-y: auto !important;
+    background: #fafcfb !important;
+    box-shadow: none !important;
+  }
+
+  body.modern-app .nav-toggle {
+    display: none !important;
+  }
+
+  body.modern-app .nav-links {
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  body.modern-app .brand-row {
+    display: block !important;
+    margin-bottom: 1.25rem !important;
+  }
+
+  body.modern-app .container-fluid.page-wrap,
+  body.modern-app .page-wrap {
+    margin-left: 250px !important;
+    margin-right: 0 !important;
+    width: calc(100% - 250px) !important;
+    max-width: calc(100% - 250px) !important;
+    min-width: 0 !important;
+    padding: 0 1.85rem 2.25rem !important;
+  }
+
+  body.modern-app .modern-kpi-grid {
+    display: grid !important;
+    gap: 0.85rem !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+
+  body.modern-app .dashboard-main-grid {
+    display: grid !important;
+    gap: 0.9rem !important;
+    grid-template-columns: repeat(12, minmax(0, 1fr)) !important;
+  }
+
+  body.modern-app .verification-analytics-card { grid-column: span 7 !important; }
+  body.modern-app .quick-actions-card { grid-column: span 5 !important; }
+  body.modern-app .recent-runs-card { grid-column: span 7 !important; }
+  body.modern-app .coverage-card { grid-column: span 5 !important; }
+  body.modern-app .verification-batches-card { grid-column: span 12 !important; }
+}
+
+/* ── A2. SPECIAL 1440x900 & 16:10 LAPTOP SUITE (MacBook 13-14", 1440x900) ── */
+@media (min-width: 1280px) and (max-width: 1535.98px),
+       (min-width: 1280px) and (max-height: 960px) {
+
+  /* 1. Viewport Geometry & Sidebar (240px leaves generous 1200px workspace) */
+  body.modern-app .app-shell {
+    position: fixed !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    width: 240px !important;
+    z-index: 100 !important;
+    border-right: 1px solid #e4eae6 !important;
+    border-bottom: 0 !important;
+    padding: 1.1rem 0.85rem 1rem !important;
+    overflow-y: auto !important;
+    background: #fafcfb !important;
+    box-shadow: none !important;
+  }
+
+  body.modern-app .nav-toggle {
+    display: none !important;
+  }
+
+  body.modern-app .nav-links {
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  body.modern-app .brand-row {
+    display: block !important;
+    margin-bottom: 1rem !important;
+  }
+
+  body.modern-app .container-fluid.page-wrap,
+  body.modern-app .page-wrap {
+    margin-left: 240px !important;
+    margin-right: 0 !important;
+    width: calc(100% - 240px) !important;
+    max-width: calc(100% - 240px) !important;
+    min-width: 0 !important;
+    padding: 0 1.4rem 1.6rem !important;
+  }
+
+  /* 2. Compact Sticky Topbar */
+  body.modern-app .app-topbar {
+    min-height: 52px !important;
+    padding: 0.35rem 1.15rem !important;
+    gap: 0.65rem !important;
+    background: #ffffff !important;
+    box-shadow: 0 2px 10px rgba(15, 45, 25, 0.04) !important;
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 50 !important;
+  }
+
+  body.modern-app .topbar-search {
+    flex: 1 1 200px !important;
+    max-width: 320px !important;
+    min-width: 150px !important;
+    min-height: 36px !important;
+    padding: 0.2rem 0.65rem !important;
+    font-size: 0.82rem !important;
+    border-radius: 8px !important;
+  }
+
+  body.modern-app .topbar-page-actions {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 0.45rem !important;
+    flex-shrink: 0 !important;
+  }
+
+  body.modern-app .topbar-page-actions .btn {
+    min-height: 34px !important;
+    height: 34px !important;
+    padding: 0 0.75rem !important;
+    font-size: 0.78rem !important;
+    font-weight: 700 !important;
+    border-radius: 8px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 0.35rem !important;
+  }
+
+  body.modern-app .topbar-profile strong {
+    font-size: 0.82rem !important;
+  }
+
+  body.modern-app .topbar-profile small {
+    font-size: 0.68rem !important;
+  }
+
+  body.modern-app .topbar-avatar {
+    width: 32px !important;
+    height: 32px !important;
+    font-size: 0.8rem !important;
+  }
+
+  /* 3. Typography & Page Command Headers */
+  body.modern-app .dashboard-titlebar,
+  body.modern-app .leads-command,
+  body.modern-app .runs-command,
+  body.modern-app .isbn-search-command,
+  body.modern-app .page-header {
+    margin-bottom: 0.65rem !important;
+    padding-bottom: 0.15rem !important;
+    gap: 0.65rem !important;
+  }
+
+  body.modern-app .dashboard-titlebar h1,
+  body.modern-app .leads-command h1,
+  body.modern-app .runs-command h1,
+  body.modern-app .isbn-search-command h1,
+  body.modern-app .page-header h1 {
+    font-size: 1.6rem !important;
+    letter-spacing: -0.035em !important;
+    line-height: 1.15 !important;
+    margin: 0 !important;
+  }
+
+  body.modern-app .dashboard-kicker,
+  body.modern-app .eyebrow,
+  body.modern-app .card-eyebrow {
+    font-size: 0.64rem !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.08em !important;
+    text-transform: uppercase !important;
+    color: #176f49 !important;
+    margin-bottom: 0.15rem !important;
+  }
+
+  body.modern-app .page-subtitle,
+  body.modern-app .dashboard-titlebar p {
+    font-size: 0.8rem !important;
+    color: #526359 !important;
+    margin: 0.15rem 0 0 !important;
+  }
+
+  /* 4. Dashboard KPI Cards (Proportionally Compact & Engaging) */
+  body.modern-app .modern-kpi-grid {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 0.75rem !important;
+    margin-bottom: 0.75rem !important;
+  }
+
+  body.modern-app .modern-kpi-card {
+    padding: 0.75rem 0.95rem !important;
+    border-radius: 12px !important;
+    min-height: 98px !important;
+    background: #ffffff !important;
+    border: 1px solid #e4eae6 !important;
+    box-shadow: 0 4px 14px rgba(21, 53, 36, 0.03) !important;
+    position: relative !important;
+    overflow: hidden !important;
+    transition: transform 0.22s ease, box-shadow 0.22s ease !important;
+  }
+
+  body.modern-app .modern-kpi-card:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 8px 24px rgba(21, 53, 36, 0.08) !important;
+  }
+
+  /* Distinct theme accent top-strip per metric */
+  body.modern-app .modern-kpi-card::before {
+    content: "" !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    height: 3px !important;
+    background: #0c8d58 !important;
+    border-radius: 12px 12px 0 0 !important;
+  }
+
+  body.modern-app .modern-kpi-card:nth-child(2)::before {
+    background: #0284c7 !important;
+  }
+
+  body.modern-app .modern-kpi-card:nth-child(3)::before {
+    background: #d97706 !important;
+  }
+
+  body.modern-app .modern-kpi-card:nth-child(4)::before {
+    background: #7c3aed !important;
+  }
+
+  body.modern-app .kpi-topline {
+    font-size: 0.72rem !important;
+    font-weight: 700 !important;
+  }
+
+  body.modern-app .kpi-topline > i {
+    width: 24px !important;
+    height: 24px !important;
+    font-size: 0.85rem !important;
+  }
+
+  body.modern-app .modern-kpi-card > strong {
+    font-size: 1.8rem !important;
+    line-height: 1 !important;
+    margin: 0.3rem 0 0.15rem !important;
+  }
+
+  body.modern-app .modern-kpi-card > small {
+    font-size: 0.68rem !important;
+  }
+
+  /* Secondary Task KPIs */
+  body.modern-app .role-kpi-grid {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 0.65rem !important;
+    margin-bottom: 0.75rem !important;
+  }
+
+  body.modern-app .role-kpi-grid a {
+    padding: 0.6rem 0.85rem !important;
+    border-radius: 10px !important;
+  }
+
+  body.modern-app .role-kpi-grid a strong {
+    font-size: 1.25rem !important;
+  }
+
+  /* 5. Dashboard 12-Column Main Grid */
+  body.modern-app .dashboard-main-grid {
+    display: grid !important;
+    grid-template-columns: repeat(12, minmax(0, 1fr)) !important;
+    gap: 0.75rem !important;
+  }
+
+  body.modern-app .modern-card {
+    padding: 0.85rem 1.05rem !important;
+    border-radius: 14px !important;
+    border: 1px solid #e4eae6 !important;
+    box-shadow: 0 4px 16px rgba(39, 59, 46, 0.035) !important;
+  }
+
+  body.modern-app .modern-card-heading {
+    margin-bottom: 0.65rem !important;
+  }
+
+  body.modern-app .modern-card-heading h2 {
+    font-size: 0.95rem !important;
+    font-weight: 700 !important;
+    letter-spacing: -0.015em !important;
+  }
+
+  body.modern-app .verification-analytics-card {
+    grid-column: span 7 !important;
+    min-height: 220px !important;
+  }
+
+  body.modern-app .verification-analytics-body {
+    gap: 1.2rem !important;
+    padding: 0.4rem 0 !important;
+  }
+
+  body.modern-app .analytics-footer {
+    gap: 0.85rem !important;
+    padding-top: 0.65rem !important;
+    font-size: 0.75rem !important;
+  }
+
+  body.modern-app .quick-actions-card {
+    grid-column: span 5 !important;
+  }
+
+  body.modern-app .quick-action-list a {
+    padding: 0.45rem 0.65rem !important;
+    border-radius: 8px !important;
+    font-size: 0.82rem !important;
+    margin-bottom: 0.35rem !important;
+  }
+
+  body.modern-app .quick-action-icon {
+    width: 28px !important;
+    height: 28px !important;
+    font-size: 0.85rem !important;
+  }
+
+  body.modern-app .recent-runs-card {
+    grid-column: span 7 !important;
+  }
+
+  body.modern-app .recent-run-item {
+    padding: 0.45rem 0.6rem !important;
+    font-size: 0.82rem !important;
+    border-radius: 8px !important;
+  }
+
+  body.modern-app .coverage-card {
+    grid-column: span 5 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center !important;
+  }
+
+  body.modern-app .coverage-gauge {
+    width: 125px !important;
+    height: 125px !important;
+    margin: 0.35rem auto !important;
+  }
+
+  body.modern-app .coverage-gauge strong {
+    font-size: 1.7rem !important;
+  }
+
+  body.modern-app .coverage-legend {
+    font-size: 0.72rem !important;
+    gap: 0.85rem !important;
+    margin: 0.35rem 0 0.55rem !important;
+  }
+
+  body.modern-app .verification-batches-card {
+    grid-column: span 12 !important;
+  }
+
+  /* 6. Leads Table Page (/leads/) Zero-Scroll Engine */
+  body.modern-app .lead-stat-grid {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 0.75rem !important;
+    margin-bottom: 0.75rem !important;
+  }
+
+  body.modern-app .lead-stat-card {
+    padding: 0.75rem 0.95rem !important;
+    border-radius: 12px !important;
+  }
+
+  body.modern-app .lead-stat-card strong {
+    font-size: 1.75rem !important;
+    margin: 0.25rem 0 0.15rem !important;
+  }
+
+  body.modern-app .leads-filter-panel {
+    padding: 0.65rem 0.85rem !important;
+    border-radius: 12px !important;
+    margin-bottom: 0.75rem !important;
+  }
+
+  body.modern-app .leads-filter-primary {
+    gap: 0.5rem !important;
+  }
+
+  body.modern-app .leads-search-field input,
+  body.modern-app .leads-select-field select,
+  body.modern-app .save-view-button {
+    height: 38px !important;
+    font-size: 0.82rem !important;
+    border-radius: 8px !important;
+  }
+
+  body.modern-app .quick-filter-row {
+    gap: 0.35rem !important;
+    padding-top: 0.45rem !important;
+  }
+
+  body.modern-app .quick-filter {
+    height: 28px !important;
+    padding: 0 0.65rem !important;
+    font-size: 0.75rem !important;
+    border-radius: 999px !important;
+  }
+
+  body.modern-app .leads-table-panel {
+    border-radius: 14px !important;
+    border: 1px solid #e4eae6 !important;
+    box-shadow: 0 4px 18px rgba(15, 45, 25, 0.04) !important;
+    overflow: hidden !important;
+  }
+
+  body.modern-app .leads-table-header {
+    padding: 0.6rem 0.85rem !important;
+    border-bottom: 1px solid #e4eae6 !important;
+  }
+
+  body.modern-app .leads-table-title h2 {
+    font-size: 0.95rem !important;
+  }
+
+  /* Table column proportions for zero horizontal scroll at 1440px */
+  body.modern-app .leads-table-wrap {
+    overflow-x: auto !important;
+    max-width: 100% !important;
+  }
+
+  body.modern-app .leads-table {
+    width: 100% !important;
+    min-width: 100% !important;
+    table-layout: fixed !important;
+    margin-bottom: 0 !important;
+  }
+
+  body.modern-app .leads-table th {
+    padding: 0.55rem 0.65rem !important;
+    font-size: 0.72rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.04em !important;
+    background: #f7faf8 !important;
+  }
+
+  body.modern-app .leads-table td {
+    padding: 0.5rem 0.65rem !important;
+    font-size: 0.82rem !important;
+    vertical-align: middle !important;
+  }
+
+  body.modern-app .leads-table th:nth-child(1),
+  body.modern-app .leads-table td:nth-child(1) { width: 38px !important; }
+  body.modern-app .leads-table th:nth-child(2),
+  body.modern-app .leads-table td:nth-child(2) { width: 30% !important; }
+  body.modern-app .leads-table th:nth-child(3),
+  body.modern-app .leads-table td:nth-child(3) { width: 28% !important; }
+  body.modern-app .leads-table th:nth-child(4),
+  body.modern-app .leads-table td:nth-child(4) { width: 13% !important; }
+  body.modern-app .leads-table th:nth-child(5),
+  body.modern-app .leads-table td:nth-child(5) { width: 9% !important; }
+  body.modern-app .leads-table th:nth-child(6),
+  body.modern-app .leads-table td:nth-child(6) { width: 9% !important; }
+  body.modern-app .leads-table th:nth-child(7),
+  body.modern-app .leads-table td:nth-child(7) { width: 11% !important; }
+
+  body.modern-app .leads-table .row-title {
+    font-size: 0.86rem !important;
+    font-weight: 700 !important;
+    max-width: 250px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  body.modern-app .leads-table .book-cover-mini {
+    width: 34px !important;
+    height: 46px !important;
+  }
+
+  body.modern-app .leads-table tr:hover td {
+    background: #f4f8f5 !important;
+  }
+
+  /* Runs Table column proportions for zero horizontal scroll at 1440px */
+  body.modern-app .runs-table-wrap {
+    overflow-x: auto !important;
+    max-width: 100% !important;
+  }
+
+  body.modern-app .runs-table,
+  body.modern-app .runs-reference-table {
+    width: 100% !important;
+    min-width: 100% !important;
+    table-layout: fixed !important;
+    margin-bottom: 0 !important;
+  }
+
+  body.modern-app .runs-table th,
+  body.modern-app .runs-reference-table th {
+    padding: 0.55rem 0.55rem !important;
+    font-size: 0.72rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.04em !important;
+    background: #f7faf8 !important;
+  }
+
+  body.modern-app .runs-table td,
+  body.modern-app .runs-reference-table td {
+    padding: 0.45rem 0.55rem !important;
+    font-size: 0.82rem !important;
+    vertical-align: middle !important;
+  }
+
+  body.modern-app .runs-table th:nth-child(1),
+  body.modern-app .runs-table td:nth-child(1),
+  body.modern-app .runs-reference-table th:nth-child(1),
+  body.modern-app .runs-reference-table td:nth-child(1) { width: 38px !important; text-align: center !important; }
+
+  body.modern-app .runs-table th:nth-child(2),
+  body.modern-app .runs-table td:nth-child(2),
+  body.modern-app .runs-reference-table th:nth-child(2),
+  body.modern-app .runs-reference-table td:nth-child(2) { width: 31% !important; }
+
+  body.modern-app .runs-table th:nth-child(3),
+  body.modern-app .runs-table td:nth-child(3),
+  body.modern-app .runs-reference-table th:nth-child(3),
+  body.modern-app .runs-reference-table td:nth-child(3) { width: 12% !important; }
+
+  body.modern-app .runs-table th:nth-child(4),
+  body.modern-app .runs-table td:nth-child(4),
+  body.modern-app .runs-reference-table th:nth-child(4),
+  body.modern-app .runs-reference-table td:nth-child(4) { width: 12% !important; }
+
+  body.modern-app .runs-table th:nth-child(5),
+  body.modern-app .runs-table td:nth-child(5),
+  body.modern-app .runs-reference-table th:nth-child(5),
+  body.modern-app .runs-reference-table td:nth-child(5) { width: 13% !important; }
+
+  body.modern-app .runs-table th:nth-child(6),
+  body.modern-app .runs-table td:nth-child(6),
+  body.modern-app .runs-reference-table th:nth-child(6),
+  body.modern-app .runs-reference-table td:nth-child(6) { width: 6.5% !important; text-align: center !important; }
+
+  body.modern-app .runs-table th:nth-child(7),
+  body.modern-app .runs-table td:nth-child(7),
+  body.modern-app .runs-reference-table th:nth-child(7),
+  body.modern-app .runs-reference-table td:nth-child(7) { width: 6.5% !important; text-align: center !important; }
+
+  body.modern-app .runs-table th:nth-child(8),
+  body.modern-app .runs-table td:nth-child(8),
+  body.modern-app .runs-reference-table th:nth-child(8),
+  body.modern-app .runs-reference-table td:nth-child(8) { width: 19% !important; text-align: right !important; white-space: nowrap !important; }
+
+  body.modern-app .runs-table .run-name-cell .row-link,
+  body.modern-app .runs-reference-table .run-name-cell .row-link {
+    font-size: 0.84rem !important;
+    font-weight: 700 !important;
+    max-width: 310px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    display: inline-block !important;
+  }
+
+  body.modern-app .runs-table .run-actions-wrap,
+  body.modern-app .runs-reference-table .run-actions-wrap {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    gap: 0.35rem !important;
+    flex-wrap: nowrap !important;
+  }
+
+  body.modern-app .runs-table .run-review-btn,
+  body.modern-app .runs-reference-table .run-review-btn {
+    font-size: 0.77rem !important;
+    height: 30px !important;
+    min-height: 30px !important;
+    padding: 0 0.65rem !important;
+    gap: 0.3rem !important;
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
+  }
+
+  body.modern-app .runs-table .action-dots-btn,
+  body.modern-app .runs-reference-table .action-dots-btn {
+    width: 30px !important;
+    min-width: 30px !important;
+    max-width: 30px !important;
+    height: 30px !important;
+    min-height: 30px !important;
+    padding: 0 !important;
+    flex-shrink: 0 !important;
+  }
+
+  body.modern-app .runs-table tr:hover td,
+  body.modern-app .runs-reference-table tr:hover td {
+    background: #f4f8f5 !important;
+  }
+
+  /* 7. Instant Book Search (/isbn-search/) */
+  body.modern-app .isbn-search-workspace {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) 310px !important;
+    gap: 0.85rem !important;
+  }
+
+  body.modern-app .isbn-search-page {
+    max-width: 100% !important;
+  }
+
+  /* 8. Lead Detail (/leads/<id>/) */
+  body.modern-app .lead-detail-workspace {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) 310px !important;
+    gap: 0.85rem !important;
+  }
+
+  body.modern-app .detail-jump-nav {
+    gap: 0.35rem !important;
+    padding: 0.35rem 0.5rem !important;
+    border-radius: 10px !important;
+  }
+
+  body.modern-app .detail-jump-nav a {
+    font-size: 0.78rem !important;
+    padding: 0.35rem 0.65rem !important;
+    border-radius: 7px !important;
+  }
+
+  /* 9. Runs Page (/runs/) */
+  body.modern-app .run-stat-grid {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 0.75rem !important;
+  }
+
+  body.modern-app .run-stat-card {
+    padding: 0.75rem 0.95rem !important;
+    border-radius: 12px !important;
+  }
+
+  body.modern-app .run-stat-card strong {
+    font-size: 1.75rem !important;
+  }
+}
+
+/* ── B. Laptops & Landscape Tablets / iPads (992px to 1279.98px) ────────── */
+@media (min-width: 992px) and (max-width: 1279.98px) {
+  body.modern-app .app-shell {
+    position: fixed !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    width: 220px !important;
+    z-index: 100 !important;
+    border-right: 1px solid #e4eae6 !important;
+    border-bottom: 0 !important;
+    padding: 1rem 0.75rem !important;
+    overflow-y: auto !important;
+    background: #fafcfb !important;
+    box-shadow: none !important;
+  }
+
+  body.modern-app .nav-toggle {
+    display: none !important;
+  }
+
+  body.modern-app .nav-links {
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  body.modern-app .brand-row {
+    display: block !important;
+    margin-bottom: 1rem !important;
+  }
+
+  body.modern-app .container-fluid.page-wrap,
+  body.modern-app .page-wrap {
+    margin-left: 220px !important;
+    margin-right: 0 !important;
+    width: calc(100% - 220px) !important;
+    max-width: calc(100% - 220px) !important;
+    min-width: 0 !important;
+    padding: 0 1.15rem 2rem !important;
+  }
+
+  body.modern-app .modern-kpi-grid {
+    display: grid !important;
+    gap: 0.75rem !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  body.modern-app .role-kpi-grid {
+    display: grid !important;
+    gap: 0.65rem !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  body.modern-app .dashboard-main-grid {
+    display: grid !important;
+    gap: 0.85rem !important;
+    grid-template-columns: 1fr !important;
+  }
+
+  body.modern-app .verification-analytics-card,
+  body.modern-app .quick-actions-card,
+  body.modern-app .recent-runs-card,
+  body.modern-app .coverage-card,
+  body.modern-app .verification-batches-card {
+    grid-column: 1 !important;
+  }
+
+  body.modern-app .isbn-search-workspace,
+  body.modern-app .lead-detail-workspace {
+    grid-template-columns: minmax(0, 1fr) 280px !important;
+    gap: 1rem !important;
+  }
+
+  /* Laptop Topbar & Top Buttons Precision */
+  body.modern-app .app-topbar {
+    padding: 0.45rem 1rem !important;
+    gap: 0.55rem !important;
+    flex-wrap: nowrap !important;
+  }
+
+  body.modern-app .topbar-search {
+    flex: 1 1 160px !important;
+    min-width: 130px !important;
+    max-width: 250px !important;
+    padding: 0.2rem 0.5rem !important;
+  }
+
+  body.modern-app .topbar-search kbd {
+    display: none !important;
+  }
+
+  body.modern-app .topbar-page-actions {
+    display: inline-flex !important;
+    gap: 0.35rem !important;
+    flex-shrink: 0 !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+
+  body.modern-app .topbar-page-actions .btn {
+    min-height: 34px !important;
+    height: 34px !important;
+    padding: 0 0.65rem !important;
+    font-size: 0.76rem !important;
+  }
+
+  body.modern-app .topbar-actions {
+    gap: 0.45rem !important;
+    flex-shrink: 0 !important;
+  }
+
+  body.modern-app .topbar-profile-copy small {
+    display: none !important;
+  }
+
+  body.modern-app .topbar-profile-copy strong {
+    max-width: 85px !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    display: inline-block !important;
+  }
+}
+
+/* ── C. Tablets in Portrait & Mobile Devices (< 992px) ──────────────────── */
+@media (max-width: 991.98px) {
+  body.modern-app .app-shell {
+    position: sticky !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: auto !important;
+    width: 100% !important;
+    height: auto !important;
+    padding: 0.65rem 1rem !important;
+    border-right: 0 !important;
+    border-bottom: 1px solid #e4eae6 !important;
+    z-index: 1000 !important;
+    background: rgba(250, 252, 251, 0.98) !important;
+    backdrop-filter: blur(12px) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04) !important;
+  }
+
+  body.modern-app .app-shell .container-fluid {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+    padding: 0 !important;
+    height: auto !important;
+  }
+
+  body.modern-app .brand-row {
+    display: flex !important;
+    width: 100% !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    min-height: 36px !important;
+  }
+
+  body.modern-app .nav-toggle {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 38px !important;
+    height: 38px !important;
+    background: #ffffff !important;
+    border: 1px solid #dce4de !important;
+    border-radius: 8px !important;
+    color: #176f49 !important;
+    cursor: pointer !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06) !important;
+  }
+
+  body.modern-app .nav-links {
+    display: none !important;
+    width: 100% !important;
+    background: #ffffff !important;
+    border: 1px solid #e1e7e2 !important;
+    border-radius: 10px !important;
+    padding: 0.75rem !important;
+    box-shadow: 0 12px 28px rgba(20, 50, 35, 0.12) !important;
+    margin-top: 0.5rem !important;
+  }
+
+  body.modern-app .nav-links.is-open {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0.35rem !important;
+  }
+
+  body.modern-app .nav-section-label,
+  body.modern-app .sidebar-status,
+  body.modern-app .side-help {
+    display: none !important;
+  }
+
+  body.modern-app .container-fluid.page-wrap,
+  body.modern-app .page-wrap {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0 0.85rem 1.75rem !important;
+  }
+
+  body.modern-app .app-topbar {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 50 !important;
+    background: #ffffff !important;
+    box-shadow: 0 2px 10px rgba(15, 45, 25, 0.05) !important;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 0.5rem !important;
+    padding: 0.5rem 0.5rem !important;
+    min-height: auto !important;
+  }
+
+  body.modern-app .topbar-page-actions {
+    display: inline-flex !important;
+    order: 1 !important;
+    margin-left: 0 !important;
+    gap: 0.4rem !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    flex: 1 1 auto !important;
+  }
+
+  body.modern-app .topbar-page-actions .btn {
+    min-height: 34px !important;
+    height: 34px !important;
+    padding: 0 0.65rem !important;
+    font-size: 0.76rem !important;
+    font-weight: 700 !important;
+    display: inline-flex !important;
+  }
+
+  body.modern-app .topbar-actions {
+    display: inline-flex !important;
+    order: 2 !important;
+    margin-left: auto !important;
+    gap: 0.4rem !important;
+    align-items: center !important;
+    flex-shrink: 0 !important;
+  }
+
+  body.modern-app .topbar-search {
+    width: 100% !important;
+    max-width: 100% !important;
+    flex: 1 1 100% !important;
+    order: 3 !important;
+    margin-top: 0.2rem !important;
+  }
+
+  body.modern-app .topbar-search kbd,
+  body.modern-app .topbar-profile-copy,
+  body.modern-app .topbar-profile > i,
+  body.modern-app .topbar-icon {
+    display: none !important;
+  }
+
+  body.modern-app .dashboard-titlebar,
+  body.modern-app .page-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.65rem !important;
+  }
+
+  body.modern-app .dashboard-primary-actions {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    width: 100% !important;
+    gap: 0.5rem !important;
+  }
+
+  body.modern-app .modern-kpi-grid {
+    display: grid !important;
+    gap: 0.65rem !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  body.modern-app .role-kpi-grid {
+    display: grid !important;
+    gap: 0.5rem !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  body.modern-app .dashboard-main-grid {
+    display: grid !important;
+    gap: 0.75rem !important;
+    grid-template-columns: 1fr !important;
+  }
+
+  body.modern-app .verification-analytics-card,
+  body.modern-app .quick-actions-card,
+  body.modern-app .recent-runs-card,
+  body.modern-app .coverage-card,
+  body.modern-app .verification-batches-card {
+    grid-column: 1 !important;
+  }
+
+  body.modern-app .isbn-search-workspace,
+  body.modern-app .lead-detail-workspace,
+  body.modern-app .two-column {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ── D. Mobile Phones (< 600px) ────────────────────────────────────────── */
+@media (max-width: 599.98px) {
+  body.modern-app .modern-kpi-grid,
+  body.modern-app .role-kpi-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  body.modern-app .dashboard-primary-actions {
+    grid-template-columns: 1fr !important;
+  }
+
+  body.modern-app .leads-filter-primary {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  body.modern-app .leads-search-field,
+  body.modern-app .leads-select-field {
+    width: 100% !important;
+    flex: 1 1 100% !important;
+  }
+}
+
+
 
 
 
