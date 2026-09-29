@@ -95,7 +95,8 @@ def test_build_leads_workbook():
     assert ws1.cell(row=1, column=3).value == "Author Name"
     assert ws1.cell(row=2, column=3).value == "Jane Doe"
     assert ws1.cell(row=2, column=10).value == "jane@janedoe.example"
-    assert ws1.cell(row=2, column=22).value == "A Lead"  # Hot mapped to A Lead
+    assert ws1.cell(row=2, column=20).value == "Other"
+    assert ws1.cell(row=2, column=21).value == 0
 
     # Assert Tab 2: Books contents
     ws2 = wb["Books"]

@@ -26,7 +26,9 @@ class GoogleBooksProvider:
     def is_configured(self) -> bool:
         return True
 
-    def discover_books(self, keyword: str, max_books: int = 25) -> list[dict]:
+    def discover_books(self, keyword: str, max_books: int = 25, order_by: str = "relevance") -> list[dict]:
+        """Discover books; ``order_by="newest"`` surfaces the latest publications first."""
+        order_by = order_by if order_by in {"relevance", "newest"} else "relevance"
         self.last_errors = []
         candidates: list[dict] = []
         seen_keys: set[str] = set()
@@ -34,7 +36,7 @@ class GoogleBooksProvider:
             if len(candidates) >= max_books:
                 break
             try:
-                for item in self._search(query, max_results=min(40, max_books * 2)):
+                for item in self._search(query, max_results=min(40, max_books * 2), order_by=order_by):
                     candidate = self._candidate_from_volume(item, query)
                     if not candidate:
                         continue
@@ -64,13 +66,13 @@ class GoogleBooksProvider:
         ]
         return list(dict.fromkeys(queries))
 
-    def _search(self, query: str, max_results: int) -> list[dict]:
+    def _search(self, query: str, max_results: int, order_by: str = "relevance") -> list[dict]:
         params = {
             "q": query,
             "maxResults": max(1, min(max_results, 40)),
             "printType": "books",
             "projection": "full",
-            "orderBy": "relevance",
+            "orderBy": order_by,
         }
         if self.api_key:
             params["key"] = self.api_key

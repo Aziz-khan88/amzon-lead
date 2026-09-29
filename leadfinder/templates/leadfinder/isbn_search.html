@@ -1,45 +1,124 @@
 {% extends "base.html" %}
 {% block title %}Instant Book Search - Book Trailer Lead Finder{% endblock %}
-{% block content %}
-<div class="page-header">
-  <div>
-    <p class="eyebrow"><i class="ph-bold ph-magnifying-glass text-teal"></i> Manual Investigation</p>
-    <h1>Instant Book & Lead Search</h1>
-    <p class="page-subtitle">Search by ASIN/ISBN or discover candidates by keyword, then send selected books into enrichment.</p>
+{% block topbar_page_actions %}
+  <div class="topbar-page-actions isbn-search-topbar-actions">
+    <a class="btn btn-primary" href="{% url 'leadfinder:run_new' %}">
+      <i class="ph-bold ph-plus"></i> New Research
+    </a>
+    <a class="btn btn-outline-primary" href="{% url 'leadfinder:import_csv' %}">
+      <i class="ph-bold ph-upload-simple"></i> Import CSV
+    </a>
   </div>
+{% endblock %}
+{% block content %}
+<div class="isbn-search-page{% if active_run and active_run.source_provider == 'manual' %} has-active-direct-run{% endif %}">
+<div class="isbn-search-command">
+  <div class="isbn-search-breadcrumb">
+    <a href="{% url 'leadfinder:settings_help' %}"><i class="ph ph-house"></i> Tools</a>
+    <i class="ph ph-caret-right"></i>
+    <span>Instant Book &amp; Lead Search</span>
+  </div>
+  <h1>Instant Book &amp; Lead Search</h1>
+  <p class="page-subtitle">Search by keyword or upload lists, then send selected books into enrichment.</p>
 </div>
 
-<div class="two-column">
-  <div>
+<div class="isbn-search-workspace">
+  <section class="isbn-search-main">
     <style>
-    .nav-tabs {
-      border-bottom: 1px solid var(--line) !important;
+    .isbn-search-page {
+      display: grid;
+      gap: 1.2rem;
+      max-width: 1400px;
+      width: 100%;
     }
-    .nav-tabs .nav-link {
-      color: var(--muted) !important;
-      border: none !important;
-      border-bottom: 2px solid transparent !important;
-      background: transparent !important;
-      font-family: var(--font-heading);
-      font-weight: 600;
-      padding: 0.75rem 1.25rem;
-      transition: all 0.3s ease;
-      font-size: 0.95rem;
+    .isbn-search-command {
+      display: grid;
+      gap: 0.45rem;
+      margin-bottom: 0.1rem;
     }
-    .nav-tabs .nav-link:hover {
-      color: #fff !important;
-      border-bottom-color: rgba(20, 184, 166, 0.4) !important;
-    }
-    .nav-tabs .nav-link.active {
-      color: var(--teal) !important;
-      border-bottom-color: var(--teal) !important;
+    .isbn-search-breadcrumb {
+      align-items: center;
+      color: #89948e;
+      display: flex;
+      font-size: 0.78rem;
       font-weight: 700;
+      gap: 0.45rem;
+    }
+    .isbn-search-breadcrumb a {
+      align-items: center;
+      color: #7c8780;
+      display: inline-flex;
+      gap: 0.35rem;
+      text-decoration: none;
+    }
+    .isbn-search-breadcrumb a:hover {
+      color: #087244;
+    }
+    .isbn-search-command h1 {
+      color: #111d17 !important;
+      font-size: clamp(1.9rem, 3vw, 2.45rem) !important;
+      letter-spacing: -0.03em !important;
+      line-height: 1.04 !important;
+      margin: 0 !important;
+    }
+    .isbn-search-command .page-subtitle {
+      color: #526158 !important;
+      font-size: 0.95rem !important;
+      margin: 0 !important;
+      max-width: 760px;
+    }
+    .isbn-search-workspace {
+      align-items: start;
+      display: grid;
+      gap: 1.45rem;
+      grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+    }
+    .isbn-search-main,
+    .isbn-search-sidebar {
+      min-width: 0;
+    }
+    .isbn-search-sidebar {
+      position: sticky;
+      top: 1rem;
+    }
+    .isbn-search-page .panel,
+    .isbn-search-page .narrow-form {
+      border-radius: 14px !important;
+    }
+    .isbn-search-page .nav-tabs {
+      border-bottom: 1px solid var(--line) !important;
+      gap: 0.25rem;
+    }
+    .isbn-search-page .nav-tabs .nav-link {
+      background: #fff !important;
+      border: 1px solid #dfe7e2 !important;
+      border-bottom-color: #dfe7e2 !important;
+      border-radius: 9px 9px 0 0 !important;
+      color: #526158 !important;
+      font-family: var(--font-heading);
+      font-weight: 750;
+      min-height: 42px;
+      padding: 0.65rem 1.25rem;
+      transition: all 0.3s ease;
+      font-size: 0.86rem;
+    }
+    .isbn-search-page .nav-tabs .nav-link:hover {
+      background: #f4f8f5 !important;
+      border-color: #bcd3c5 !important;
+      color: #087244 !important;
+    }
+    .isbn-search-page .nav-tabs .nav-link.active {
+      background: #fff !important;
+      border-color: #dfe7e2 #dfe7e2 #087244 !important;
+      color: #087244 !important;
+      font-weight: 850;
     }
     .candidate-img-placeholder {
       width: 50px;
       height: 70px;
-      background: rgba(255,255,255,0.03);
-      border: 1px dashed var(--line);
+      background: #f8faf8;
+      border: 1px dashed #b9c7bf;
+      color: #66736c;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -54,7 +133,7 @@
     }
     .search-progress-bar-track {
       height: 6px;
-      background: rgba(255,255,255,0.07);
+      background: #dce8e1;
       border-radius: 99px;
       overflow: hidden;
       margin-bottom: 0.75rem;
@@ -92,18 +171,19 @@
     }
     .stat-num.pop {
       transform: scale(1.3);
-      color: #fff;
+      color: #0c6b44;
     }
     .live-query-ticker {
       font-size: 0.78rem;
-      color: var(--muted);
+      color: #526158;
       font-family: monospace;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
       margin-top: 0.5rem;
       padding: 0.35rem 0.6rem;
-      background: rgba(0,0,0,0.2);
+      background: rgba(255,255,255,0.72);
+      border: 1px solid rgba(20, 184, 166, 0.14);
       border-radius: 6px;
     }
     /* Row appear animation */
@@ -122,7 +202,7 @@
       padding: 0.9rem 1rem;
       border: 1px solid var(--line);
       border-radius: 10px;
-      background: rgba(8, 15, 30, 0.55);
+      background: #f8faf8;
     }
     .identifier-preview.is-valid { border-color: rgba(20, 184, 166, 0.55); }
     .identifier-preview.is-invalid { border-color: rgba(239, 68, 68, 0.55); }
@@ -131,15 +211,372 @@
     .stack-chips { display: flex; flex-wrap: wrap; gap: 0.45rem; }
     .stack-chip {
       border: 1px solid rgba(20, 184, 166, 0.25);
-      color: var(--muted);
+      color: #587064;
       background: rgba(20, 184, 166, 0.06);
       border-radius: 999px;
       padding: 0.28rem 0.58rem;
       font-size: 0.74rem;
     }
+    .direct-form-error {
+      align-items: center;
+      background: #fff2f2;
+      border: 1px solid #edb7b7;
+      border-radius: 9px;
+      color: #8d2525;
+      display: flex;
+      font-size: 0.86rem;
+      font-weight: 700;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+      padding: 0.75rem 0.9rem;
+    }
+    .direct-form-error[hidden] { display: none; }
 
     /* ── ISBN Search Page Responsive Fixes ─────────────────────────── */
     /* Contain the results table scroll inside the panel — never page-wide */
+    #lookup-results-wrapper .table-responsive {
+      background: #fff;
+      border: 1px solid #dbe5df;
+      border-radius: 10px;
+      box-shadow: 0 10px 26px rgba(33, 60, 43, 0.045);
+    }
+    #lookup-results-wrapper .table {
+      --bs-table-bg: #fff;
+      --bs-table-color: #20352a;
+      --bs-table-hover-bg: #f5f9f6;
+      --bs-table-hover-color: #17241d;
+      border-collapse: separate;
+      border-spacing: 0;
+      margin: 0;
+    }
+    #lookup-results-wrapper .table thead th {
+      background: #f7f9f7 !important;
+      border-bottom: 1px solid #dbe5df !important;
+      color: #526158 !important;
+      font-size: 0.68rem;
+      font-weight: 850;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+    #lookup-results-wrapper .table tbody tr,
+    #lookup-results-wrapper .table tbody tr.book-row-new,
+    #lookup-results-wrapper .table tbody td {
+      background: #fff !important;
+      color: #20352a !important;
+    }
+    #lookup-results-wrapper .table tbody tr:hover,
+    #lookup-results-wrapper .table tbody tr:hover td {
+      background: #f5f9f6 !important;
+      color: #17241d !important;
+    }
+    #lookup-results-wrapper .table tbody td {
+      border-bottom: 1px solid #e8eee9 !important;
+      padding: 0.85rem 0.75rem;
+    }
+    #lookup-results-wrapper .table tbody tr:last-child td {
+      border-bottom: 0 !important;
+    }
+    #lookup-results-wrapper input[type="checkbox"] {
+      appearance: none;
+      background: #fff;
+      border: 1px solid #b8c8bf;
+      border-radius: 4px;
+      cursor: pointer;
+      height: 1rem;
+      position: relative;
+      width: 1rem;
+    }
+    #lookup-results-wrapper input[type="checkbox"]:checked {
+      background: #0b8c56;
+      border-color: #0b8c56;
+    }
+    #lookup-results-wrapper input[type="checkbox"]:checked::after {
+      border: solid #fff;
+      border-width: 0 2px 2px 0;
+      content: "";
+      height: 0.5rem;
+      left: 0.32rem;
+      position: absolute;
+      top: 0.14rem;
+      transform: rotate(45deg);
+      width: 0.24rem;
+    }
+    #lookup-results-wrapper input[type="checkbox"]:focus-visible {
+      box-shadow: 0 0 0 3px rgba(11, 140, 86, 0.16);
+      outline: 0;
+    }
+    #lookup-results-wrapper :where(.text-white, .text-light, .text-muted) {
+      color: inherit !important;
+    }
+    .lookup-result-title {
+      color: #183024;
+      font-size: 0.88rem;
+      font-weight: 850;
+      line-height: 1.25;
+      max-width: 260px;
+    }
+    .lookup-result-meta {
+      color: #6d7a72;
+      font-size: 0.74rem;
+      line-height: 1.35;
+      margin-top: 0.16rem;
+    }
+    .lookup-source-badge {
+      background: #e7f1eb !important;
+      border: 1px solid #cbdfd3;
+      color: #326249 !important;
+      font-size: 0.62rem;
+      font-weight: 800;
+      margin-left: 0.4rem;
+      vertical-align: 0.08rem;
+    }
+    .lookup-code {
+      background: #eaf6ef !important;
+      border: 1px solid #cfe4d7 !important;
+      color: #087244 !important;
+      display: inline-block;
+      font-size: 0.78rem !important;
+      max-width: 100%;
+      overflow: hidden;
+      padding: 0.25rem 0.42rem;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .lookup-selection-status {
+      align-items: center;
+      color: #66736c;
+      display: flex;
+      font-size: 0.74rem;
+      font-weight: 700;
+      gap: 0.45rem;
+      margin-top: 0.65rem;
+    }
+    .lookup-selection-status i {
+      color: #087244;
+    }
+    .isbn-side-panel {
+      background: #fff !important;
+      border: 1px solid #dfe7e2 !important;
+      border-radius: 14px !important;
+      box-shadow: 0 10px 28px rgba(35,55,43,.045) !important;
+      color: #20352a !important;
+      padding: 1.35rem !important;
+    }
+    .isbn-side-panel h3 {
+      color: #111d17 !important;
+      font-size: 1.05rem;
+      margin-bottom: 1.1rem !important;
+    }
+    .isbn-side-panel .list-unstyled {
+      color: #35453b !important;
+    }
+    .isbn-side-panel .list-unstyled strong {
+      color: #17241d;
+      display: block;
+      font-size: 0.8rem;
+      margin-bottom: 0.18rem;
+    }
+    .isbn-side-panel .list-unstyled div {
+      color: #526158;
+      font-size: 0.78rem;
+      line-height: 1.45;
+    }
+    .isbn-side-panel .alert-info {
+      background: #f3faf6 !important;
+      border-color: #bfe2cf !important;
+      color: #365846 !important;
+    }
+    .isbn-search-page .progress-console-panel {
+      background: #fff !important;
+      border: 1px solid #dfe7e2 !important;
+      border-radius: 14px !important;
+      box-shadow: 0 10px 28px rgba(35,55,43,.045) !important;
+      color: #20352a !important;
+      padding: 1.35rem !important;
+    }
+    .isbn-search-page .progress-console-panel:hover {
+      border-color: #cfddd4 !important;
+      box-shadow: 0 14px 34px rgba(35,55,43,.07) !important;
+    }
+    .isbn-search-page .progress-header-row {
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+    .isbn-search-page .progress-console-panel h3,
+    .isbn-search-page .queue-console-title {
+      color: #17241d !important;
+      font-size: 1.02rem !important;
+      font-weight: 850 !important;
+      letter-spacing: -0.01em;
+    }
+    .isbn-search-page .progress-console-panel p.text-muted {
+      color: #65736b !important;
+      line-height: 1.45;
+    }
+    .isbn-search-page .progress-console-panel .status-pill {
+      background: #fff7df !important;
+      border-color: #efca79 !important;
+      color: #9f690f !important;
+      font-size: 0.68rem;
+      padding: 0.32rem 0.6rem;
+    }
+    .isbn-search-page .progress-track-wrapper {
+      background: #e8f0eb !important;
+      border: 1px solid #cadbd1 !important;
+      box-shadow: inset 0 1px 2px rgba(34, 58, 44, 0.08) !important;
+      height: 0.7rem;
+      margin-bottom: 1rem;
+    }
+    .isbn-search-page .progress-fill-glow {
+      background: linear-gradient(90deg, #0b8c56, #26a870) !important;
+      box-shadow: none !important;
+    }
+    .isbn-search-page .metric-grid {
+      display: grid;
+      gap: 0.75rem;
+      grid-template-columns: 1fr;
+      margin-bottom: 1.1rem;
+    }
+    .isbn-search-page .metric {
+      background: #f8faf8 !important;
+      backdrop-filter: none !important;
+      border: 1px solid #dfe7e2 !important;
+      border-left: 4px solid #8ca99a !important;
+      border-radius: 10px !important;
+      box-shadow: none !important;
+      min-height: 84px;
+      padding: 0.9rem 1rem !important;
+    }
+    .isbn-search-page .metric:hover {
+      border-color: #cbdcd2 !important;
+      box-shadow: 0 8px 20px rgba(35,55,43,.055) !important;
+      transform: translateY(-1px);
+    }
+    .isbn-search-page .metric::after {
+      display: none;
+    }
+    .isbn-search-page .metric-accent {
+      border-left-color: #0b8c56 !important;
+    }
+    .isbn-search-page .metric-info {
+      border-left-color: #326bcb !important;
+    }
+    .isbn-search-page .metric-warning {
+      border-left-color: #c7830e !important;
+    }
+    .isbn-search-page .metric span {
+      color: #66736c !important;
+      font-size: 0.7rem !important;
+      font-weight: 850 !important;
+      letter-spacing: 0.03em;
+    }
+    .isbn-search-page .metric strong {
+      color: #143223 !important;
+      font-size: 1.55rem !important;
+      margin-top: 0.45rem !important;
+    }
+    .isbn-search-page #etc-text {
+      color: #143223 !important;
+      font-size: 1rem !important;
+      margin-top: 0.45rem !important;
+    }
+    .isbn-search-page .queue-console-title {
+      margin: 1rem 0 0.7rem !important;
+    }
+    .isbn-search-page .queue-cards-scrollable {
+      background: #f8faf8;
+      border: 1px solid #dfe7e2;
+      border-radius: 10px;
+      gap: 0.65rem;
+      max-height: 340px;
+      padding: 0.65rem;
+    }
+    .isbn-search-page .queue-cards-scrollable::-webkit-scrollbar {
+      width: 0.5rem;
+    }
+    .isbn-search-page .queue-cards-scrollable::-webkit-scrollbar-track {
+      background: #edf3ef;
+      border-radius: 999px;
+    }
+    .isbn-search-page .queue-cards-scrollable::-webkit-scrollbar-thumb {
+      background: #78b092;
+      border-radius: 999px;
+    }
+    .isbn-search-page .queue-task-card {
+      background: #fff !important;
+      backdrop-filter: none !important;
+      border: 1px solid #dfe7e2 !important;
+      border-left: 4px solid #8ca99a !important;
+      border-radius: 10px !important;
+      box-shadow: 0 6px 16px rgba(35,55,43,.04) !important;
+      color: #20352a !important;
+      padding: 0.8rem 0.9rem !important;
+    }
+    .isbn-search-page .queue-task-card:hover {
+      border-color: #c9d9cf !important;
+      box-shadow: 0 10px 22px rgba(35,55,43,.065) !important;
+      transform: translateY(-1px);
+    }
+    .isbn-search-page .queue-task-card.task-processing {
+      background: #fffaf0 !important;
+      border-left-color: #d69012 !important;
+      animation: queue-processing 1.7s ease-in-out infinite !important;
+    }
+    @keyframes queue-processing {
+      0%, 100% { box-shadow: 0 6px 16px rgba(35,55,43,.04); }
+      50% { box-shadow: 0 8px 22px rgba(214,144,18,.14); }
+    }
+    .isbn-search-page .queue-task-card.task-completed {
+      background: #f4fbf7 !important;
+      border-left-color: #0b8c56 !important;
+    }
+    .isbn-search-page .queue-task-card.task-failed {
+      background: #fff7f7 !important;
+      border-left-color: #c14d4d !important;
+    }
+    .isbn-search-page .task-asin-badge {
+      background: #eaf3ff !important;
+      border-color: #cdddf7 !important;
+      color: #2260b3 !important;
+    }
+    .isbn-search-page .task-status-text {
+      font-size: 0.66rem !important;
+      letter-spacing: 0.02em !important;
+      white-space: nowrap;
+    }
+    .isbn-search-page .task-pending .task-status-text {
+      color: #6d7a72 !important;
+    }
+    .isbn-search-page .task-processing .task-status-text {
+      color: #b87509 !important;
+    }
+    .isbn-search-page .task-completed .task-status-text {
+      color: #0b764c !important;
+    }
+    .isbn-search-page .task-failed .task-status-text {
+      color: #b6443d !important;
+    }
+    .isbn-search-page .task-title-text {
+      color: #17241d !important;
+      font-size: 0.84rem !important;
+      line-height: 1.25 !important;
+    }
+    .isbn-search-page .task-author-text {
+      color: #66736c !important;
+      font-size: 0.74rem !important;
+    }
+    .isbn-search-page .task-error-alert {
+      background: #fff0f0 !important;
+      border-color: #efcaca !important;
+      color: #9f3737 !important;
+    }
+    .isbn-search-page .view-lead-btn-compact {
+      background: #0b8c56;
+      border: 1px solid #0b8c56;
+      color: #fff !important;
+      text-decoration: none;
+    }
+
     #lookup-results-wrapper {
       max-width: 100%;
       overflow: hidden;
@@ -158,6 +595,18 @@
     }
 
     /* Keyword search form fields full-width on small screens */
+    @media (max-width: 991.98px) {
+      .isbn-search-workspace {
+        grid-template-columns: 1fr;
+      }
+      .isbn-search-sidebar {
+        position: static;
+      }
+      .isbn-search-page.has-active-direct-run .isbn-search-sidebar {
+        order: -1;
+      }
+    }
+
     @media (max-width: 768px) {
       #keyword-pane .row {
         flex-direction: column;
@@ -222,86 +671,29 @@
       .book-row-new,
       .stat-num,
       .radar-signal,
-      .ph-circle-notch { animation: none !important; transition: none !important; }
+      .ph-circle-notch,
+      .isbn-search-page .queue-task-card.task-processing { animation: none !important; transition: none !important; }
     }
     </style>
 
     <!-- Tab Navigation -->
     <ul class="nav nav-tabs mb-3 border-secondary" id="lookupTabs" role="tablist">
       <li class="nav-item" role="presentation">
-        <button class="nav-link active" id="direct-tab" data-bs-toggle="tab" data-bs-target="#direct-pane" type="button" role="tab" aria-controls="direct-pane" aria-selected="true">
-          <i class="ph-bold ph-barcode text-teal me-1.5"></i>Direct List
+        <button class="nav-link active" id="keyword-tab" data-bs-toggle="tab" data-bs-target="#keyword-pane" type="button" role="tab" aria-controls="keyword-pane" aria-selected="true">
+          <i class="ph-bold ph-magnifying-glass text-teal me-1.5"></i>Keyword Search
         </button>
       </li>
       <li class="nav-item" role="presentation">
-        <button class="nav-link" id="keyword-tab" data-bs-toggle="tab" data-bs-target="#keyword-pane" type="button" role="tab" aria-controls="keyword-pane" aria-selected="false">
-          <i class="ph-bold ph-magnifying-glass text-teal me-1.5"></i>Keyword Search
+        <button class="nav-link" id="direct-tab" data-bs-toggle="tab" data-bs-target="#direct-pane" type="button" role="tab" aria-controls="direct-pane" aria-selected="false">
+          <i class="ph-bold ph-barcode text-teal me-1.5"></i>ASIN / ISBN List
         </button>
       </li>
     </ul>
 
     <!-- Tab Content -->
     <div class="tab-content" id="lookupTabsContent">
-      <!-- Direct Input Pane -->
-      <div class="tab-pane fade show active" id="direct-pane" role="tabpanel" aria-labelledby="direct-tab">
-        <form method="post" id="enrichment-form" class="narrow-form form-grid panel mt-2">
-          {% csrf_token %}
-          <h3 class="mb-3 text-white"><i class="ph-bold ph-barcode text-teal me-2"></i>Enter ASIN / ISBN</h3>
-          
-          <!-- Premium Batch Instructions -->
-          <div class="alert alert-info py-2 px-3 mb-3 text-blue border-info bg-opacity-10" style="font-size: 0.85rem; border-radius: 8px;">
-            <i class="ph-fill ph-info me-1.5"></i><strong>Evidence-first batch mode:</strong> ISBN checksums are reconciled before a run starts. Equivalent ISBN-10/13 values and exact duplicates are collapsed.
-          </div>
-          
-          {% if form.non_field_errors %}
-            <div class="alert alert-danger">{{ form.non_field_errors }}</div>
-          {% endif %}
-          
-          {% for field in form %}
-            <div class="field-row field-{{ field.field.widget.input_type|default:'text' }} mb-3">
-              {% if field.field.widget.input_type == 'checkbox' %}
-                <div class="field-checkbox">
-                  {{ field }}
-                  {{ field.label_tag }}
-                </div>
-              {% else %}
-                {{ field.label_tag }}
-                {{ field }}
-              {% endif %}
-              
-              {% if field.help_text %}
-                <div class="form-text text-muted mt-1">{{ field.help_text }}</div>
-              {% endif %}
-              
-              {% for error in field.errors %}
-                <div class="invalid-feedback d-block">{{ error }}</div>
-              {% endfor %}
-            </div>
-          {% endfor %}
-
-          <div id="identifier-preview" class="identifier-preview d-none" role="status" aria-live="polite">
-            <div>
-              <div id="identifier-preview-title" class="fw-bold text-white">Waiting for an identifier</div>
-              <div id="identifier-preview-detail" class="small text-muted mt-1"></div>
-            </div>
-            <a id="identifier-barcode-link" class="d-none" href="#" target="_blank" rel="noopener noreferrer" aria-label="Open standards-based ISBN barcode">
-              <img id="identifier-barcode" alt="Generated ISBN barcode preview">
-            </a>
-          </div>
-          
-          <div class="form-actions mt-4">
-            <button class="btn btn-primary" type="submit">
-              <i class="ph-fill ph-magic-wand me-1"></i> Search & Enrich
-            </button>
-            <a class="btn btn-secondary" href="{% url 'leadfinder:lead_list' %}">
-              <i class="ph-bold ph-table me-1"></i> View Leads
-            </a>
-          </div>
-        </form>
-      </div>
-
-      <!-- Keyword Search Pane -->
-      <div class="tab-pane fade" id="keyword-pane" role="tabpanel" aria-labelledby="keyword-tab">
+      <!-- Keyword Search Pane (First & Active) -->
+      <div class="tab-pane fade show active" id="keyword-pane" role="tabpanel" aria-labelledby="keyword-tab">
         <div class="narrow-form form-grid panel mt-2" style="overflow:hidden;max-width:100%;">
           <h3 class="mb-3 text-white"><i class="ph-bold ph-magnifying-glass text-teal me-2"></i>Keyword Lookup</h3>
           
@@ -348,17 +740,83 @@
               <label for="lookup-run-video-search" class="text-white">Identify Book Trailers & YouTube Videos</label>
             </div>
             <div class="field-checkbox mt-2">
-              <input type="checkbox" id="lookup-run-groq-ai" checked>
-              <label for="lookup-run-groq-ai" class="text-white">Use Groq AI for Deep Metadata Parsing</label>
+              <input type="checkbox" id="lookup-require-public-email">
+              <label for="lookup-require-public-email" class="text-white">Only include leads with verified email or phone</label>
             </div>
-            <div class="form-text text-muted mt-1">These settings apply when you click "Load Selected & Run" or copy to Direct List.</div>
           </div>
 
           <div class="form-actions mt-4">
             <button class="btn btn-primary" type="button" id="btn-search-books">
-              <i class="ph-bold ph-magnifying-glass me-1"></i> Search Books
+              <i class="ph-bold ph-magnifying-glass me-1"></i> Start Keyword Lookup
             </button>
+            <a class="btn btn-secondary" href="{% url 'leadfinder:lead_list' %}">
+              <i class="ph-bold ph-table me-1"></i> View Leads
+            </a>
           </div>
+        </div>
+      </div>
+
+      <!-- Direct Input Pane (Second) -->
+      <div class="tab-pane fade" id="direct-pane" role="tabpanel" aria-labelledby="direct-tab">
+        <form method="post" id="enrichment-form" class="narrow-form form-grid panel mt-2" novalidate>
+          {% csrf_token %}
+          <h3 class="mb-3 text-white"><i class="ph-bold ph-barcode text-teal me-2"></i>Enrich a verified identifier list</h3>
+          
+          <!-- Premium Batch Instructions -->
+          <div class="alert alert-info py-2 px-3 mb-3 text-blue border-info bg-opacity-10" style="font-size: 0.85rem; border-radius: 8px;">
+            <i class="ph-fill ph-info me-1.5"></i><strong>Evidence-first batch mode:</strong> ISBN checksums are reconciled before a run starts. Equivalent ISBN-10/13 values and exact duplicates are collapsed.
+          </div>
+          
+          {% if form.non_field_errors %}
+            <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+          {% endif %}
+          <div class="direct-form-error" id="direct-form-error" role="alert" hidden>
+            <i class="ph-bold ph-warning-circle" aria-hidden="true"></i>
+            <span>Enter at least one ASIN, ISBN, or Amazon book URL to start.</span>
+          </div>
+          
+          {% for field in form %}
+            <div class="field-row field-{{ field.field.widget.input_type|default:'text' }} mb-3">
+              {% if field.field.widget.input_type == 'checkbox' %}
+                <div class="field-checkbox">
+                  {{ field }}
+                  {{ field.label_tag }}
+                </div>
+              {% else %}
+                {{ field.label_tag }}
+                {{ field }}
+              {% endif %}
+              
+              {% if field.help_text %}
+                <div class="form-text text-muted mt-1">{{ field.help_text }}</div>
+              {% endif %}
+              
+              {% for error in field.errors %}
+                <div class="invalid-feedback d-block">{{ error }}</div>
+              {% endfor %}
+            </div>
+          {% endfor %}
+
+          <div id="identifier-preview" class="identifier-preview d-none" role="status" aria-live="polite">
+            <div>
+              <div id="identifier-preview-title" class="fw-bold text-white">Waiting for an identifier</div>
+              <div id="identifier-preview-detail" class="small text-muted mt-1"></div>
+            </div>
+            <a id="identifier-barcode-link" class="d-none" href="#" target="_blank" rel="noopener noreferrer" aria-label="Open standards-based ISBN barcode">
+              <img id="identifier-barcode" alt="Generated ISBN barcode preview">
+            </a>
+          </div>
+          
+          <div class="form-actions mt-4">
+            <button class="btn btn-primary" type="submit">
+              <i class="ph-fill ph-magic-wand me-1"></i> Search & Enrich
+            </button>
+            <a class="btn btn-secondary" href="{% url 'leadfinder:lead_list' %}">
+              <i class="ph-bold ph-table me-1"></i> View Leads
+            </a>
+          </div>
+        </form>
+      </div>
 
           <!-- Live Search Dashboard -->
           <div id="lookup-loading" class="d-none mt-4">
@@ -416,6 +874,10 @@
                 </tbody>
               </table>
             </div>
+            <div id="lookup-selection-status" class="lookup-selection-status" aria-live="polite">
+              <i class="ph-bold ph-check-square"></i>
+              <span>No books selected yet.</span>
+            </div>
 
             <div class="form-actions mt-4 gap-2 d-flex flex-wrap">
               <button class="btn btn-secondary" type="button" id="btn-copy-to-input">
@@ -428,17 +890,15 @@
           </div>
 
         </div>
-      </div>
-    </div>
-  </div>
+  </section>
 
-  <div>
+  <aside class="isbn-search-sidebar">
     {% if active_run %}
-      <!-- Premium Progress Console -->
-      <div class="panel progress-console-panel h-100">
-        <div class="progress-header-row">
-          <h3 class="text-white mb-0 d-flex align-items-center gap-2" style="font-size: 1.25rem;">
-            <span class="radar-signal" id="status-indicator"></span> Active Deep Enrichment
+      <!-- Progress Panel -->
+      <div class="progress-console-panel">
+        <div class="progress-header-row d-flex align-items-center justify-content-between">
+          <h3 class="queue-console-title mb-0 text-white">
+            <i class="ph-bold ph-circle-notch text-teal me-2" style="display:inline-block;animation:ph-spin 1s linear infinite"></i> Active Deep Enrichment
           </h3>
           <span class="status-pill status-running" id="overall-status-pill">
             {{ active_run.status|title }}
@@ -446,7 +906,7 @@
         </div>
         
         <p class="text-muted small mb-3">
-          Public-source enrichment is running asynchronously. You may navigate away; progress is saved and updates here.
+          Processing “{{ active_run.keyword }}” with public-source enrichment. You may navigate away; progress is saved and updates here.
         </p>
 
         <!-- Progress Tracking Meter -->
@@ -482,42 +942,46 @@
       </div>
     {% else %}
       <!-- Standard Explainer -->
-      <div class="panel h-100">
-        <h3 class="text-white mb-3"><i class="ph-fill ph-info text-blue me-2"></i>How does it work?</h3>
-        <p class="text-muted leading-relaxed">
+      <div class="panel h-100 isbn-side-panel p-4" style="background: #ffffff; border: 1px solid #dfe7e2; border-radius: 14px; box-shadow: 0 10px 28px rgba(35,55,43,.045);">
+        <h3 class="text-dark font-weight-700 h5 mb-3"><i class="ph-fill ph-info text-teal me-2"></i>How does it work?</h3>
+        <p class="text-muted small leading-relaxed">
           Validate an ISBN or B-prefixed Amazon ASIN, reconcile available public catalog evidence, then enrich the author and video opportunity with a reviewable audit trail.
         </p>
         
-        <ul class="list-unstyled text-muted mt-3">
+        <ul class="list-unstyled text-dark mt-3">
           <li class="mb-3 d-flex align-items-start">
-            <i class="ph-bold ph-shield-check text-teal me-3 mt-1"></i>
+            <i class="ph-bold ph-shield-check text-teal me-2.5 mt-1" style="font-size: 1.1rem; flex-shrink: 0;"></i>
             <div>
-              <strong>Checksum agreement:</strong> ISBNlib, pyisbn, and the built-in verifier must agree before an ISBN enters the pipeline.
+              <strong class="d-block text-dark font-weight-700 small mb-0.5">Checksum agreement</strong>
+              <span class="small text-muted">ISBNlib, pyisbn, and the built-in verifier must agree before an ISBN enters the pipeline.</span>
             </div>
           </li>
           <li class="mb-3 d-flex align-items-start">
-            <i class="ph-bold ph-user-check text-teal me-3 mt-1"></i>
+            <i class="ph-bold ph-user-check text-teal me-2.5 mt-1" style="font-size: 1.1rem; flex-shrink: 0;"></i>
             <div>
-              <strong>Public catalog reconciliation:</strong> Exact identifier matches from Google Books, Open Library, and the Library of Congress are compared field by field. Conflicts remain visible for review.
+              <strong class="d-block text-dark font-weight-700 small mb-0.5">Public catalog reconciliation</strong>
+              <span class="small text-muted">Exact identifier matches from Google Books, Open Library, and the Library of Congress are compared field by field.</span>
             </div>
           </li>
           <li class="mb-3 d-flex align-items-start">
-            <i class="ph-fill ph-magic-wand text-teal me-3 mt-1"></i>
+            <i class="ph-fill ph-magic-wand text-teal me-2.5 mt-1" style="font-size: 1.1rem; flex-shrink: 0;"></i>
             <div>
-              <strong>Audited enrichment:</strong> Public author, contact, social, and video signals retain source links, confidence, warnings, and human-review status.
+              <strong class="d-block text-dark font-weight-700 small mb-0.5">Audited enrichment</strong>
+              <span class="small text-muted">Public author, contact, social, and video signals retain source links, confidence score, and human-review status.</span>
             </div>
           </li>
         </ul>
         
-        <div class="alert alert-info mt-4 bg-opacity-10 border-info text-blue" style="border-radius: 8px;">
-          <i class="ph-bold ph-lightbulb me-2"></i><strong>Free-first, not unlimited:</strong> no-key providers are still subject to fair-use limits and availability. Cached evidence reduces repeated requests.
+        <div class="alert alert-info mt-3 p-3 text-blue" style="background: #eef7ff; border: 1px solid #bae0ff; border-radius: 10px; color: #003a8c; font-size: 0.82rem;">
+          <i class="ph-bold ph-lightbulb me-1.5"></i><strong>Fair Use & Caching:</strong> Public discovery queries are rate-limited and cached to prevent repeated requests.
         </div>
-        <div class="stack-chips mt-3" aria-label="ISBN verification stack">
-          {% for item in isbn_stack %}<span class="stack-chip">{{ item }}</span>{% endfor %}
+        <div class="stack-chips mt-3 d-flex flex-wrap gap-1.5" aria-label="ISBN verification stack">
+          {% for item in isbn_stack %}<span class="badge bg-light text-dark border border-secondary-subtle small py-1 px-2">{{ item }}</span>{% endfor %}
         </div>
       </div>
     {% endif %}
-  </div>
+  </aside>
+</div>
 </div>
 
 {% if active_run %}
@@ -583,7 +1047,8 @@
                 statusBadgeHtml = `<span class="task-status-text"><i class="fa-solid fa-circle-check text-green"></i> Completed</span>`;
               } else if (task.status === "processing") {
                 statusClass = "task-processing";
-                statusBadgeHtml = `<span class="task-status-text"><i class="fa-solid fa-spinner fa-spin text-amber"></i> Scraping</span>`;
+                const stage = task.stage ? escapeHtml(task.stage) : "Working";
+                statusBadgeHtml = `<span class="task-status-text"><i class="fa-solid fa-spinner fa-spin text-amber"></i> ${stage}</span>`;
               } else if (task.status === "failed") {
                 statusClass = "task-failed";
                 statusBadgeHtml = `<span class="task-status-text"><i class="fa-solid fa-circle-xmark text-red"></i> Failed</span>`;
@@ -595,6 +1060,9 @@
               if (titleCleaned.startsWith("Book for ")) {
                 titleCleaned = `Identifier evidence lookup`;
               }
+              const authorLine = task.author && task.author !== "Searching..."
+                ? `by ${task.author}`
+                : (task.status === "completed" ? "Lead evidence saved." : (task.detail || "Author lookup in progress."));
               
               htmlContent += `
                 <div class="queue-task-card ${statusClass}">
@@ -603,7 +1071,7 @@
                     ${statusBadgeHtml}
                   </div>
                   <h5 class="task-title-text" title="${escapeHtml(task.title)}">${escapeHtml(titleCleaned)}</h5>
-                  <p class="task-author-text">${escapeHtml(task.author)}</p>
+                  <p class="task-author-text">${escapeHtml(authorLine)}</p>
               `;
               
               if (task.status === "completed" && task.lead_id) {
@@ -664,6 +1132,7 @@
     const selectAllCandidates = document.getElementById("select-all-candidates");
     const btnCopyToInput = document.getElementById("btn-copy-to-input");
     const btnRunEnrichSelected = document.getElementById("btn-run-enrich-selected");
+    const lookupSelectionStatus = document.getElementById("lookup-selection-status");
     let activeLookupController = null;
 
     const idIsbnTextarea = document.getElementById("id_isbn");
@@ -673,7 +1142,15 @@
     const identifierPreviewDetail = document.getElementById("identifier-preview-detail");
     const identifierBarcodeLink = document.getElementById("identifier-barcode-link");
     const identifierBarcode = document.getElementById("identifier-barcode");
+    const directFormError = document.getElementById("direct-form-error");
     let identifierPreviewTimer;
+
+    if (document.querySelector(".has-active-direct-run")) {
+      const directTabEl = document.getElementById("direct-tab");
+      if (directTabEl && typeof bootstrap !== "undefined") {
+        new bootstrap.Tab(directTabEl).show();
+      }
+    }
 
     function renderIdentifierPreview(state, title, detail, barcodeUrl = "") {
       identifierPreview.classList.remove("d-none", "is-valid", "is-invalid");
@@ -722,10 +1199,22 @@
     }
 
     idIsbnTextarea.addEventListener("input", function() {
+      if (directFormError) directFormError.hidden = true;
+      idIsbnTextarea.removeAttribute("aria-invalid");
       clearTimeout(identifierPreviewTimer);
       identifierPreviewTimer = setTimeout(analyzeDirectInput, 320);
     });
     if (idIsbnTextarea.value.trim()) analyzeDirectInput();
+
+    if (enrichmentForm) {
+      enrichmentForm.addEventListener("submit", function(event) {
+        if (idIsbnTextarea.value.trim()) return;
+        event.preventDefault();
+        if (directFormError) directFormError.hidden = false;
+        idIsbnTextarea.setAttribute("aria-invalid", "true");
+        idIsbnTextarea.focus();
+      });
+    }
 
     if (btnSearchBooks) {
       const progressFill = document.getElementById("search-progress-fill");
@@ -738,6 +1227,38 @@
         void el.offsetWidth; // reflow
         el.classList.add("pop");
         setTimeout(() => el.classList.remove("pop"), 220);
+      }
+
+      function showLookupError(message) {
+        lookupError.textContent = message;
+        lookupError.classList.remove("d-none");
+      }
+
+      function clearLookupError() {
+        lookupError.textContent = "";
+        lookupError.classList.add("d-none");
+      }
+
+      function updateSelectionStatus() {
+        const checks = Array.from(document.querySelectorAll(".candidate-check"));
+        const selected = checks.filter(cb => cb.checked).length;
+        const total = checks.length;
+
+        if (lookupSelectionStatus) {
+          const textEl = lookupSelectionStatus.querySelector("span");
+          if (textEl) {
+            textEl.textContent = total === 0
+              ? "No books selected yet."
+              : `${selected} of ${total} discovered books selected.`;
+          }
+        }
+
+        if (btnCopyToInput) btnCopyToInput.disabled = total > 0 && selected === 0;
+        if (btnRunEnrichSelected) btnRunEnrichSelected.disabled = total > 0 && selected === 0;
+        if (selectAllCandidates) {
+          selectAllCandidates.checked = total > 0 && selected === total;
+          selectAllCandidates.indeterminate = selected > 0 && selected < total;
+        }
       }
 
       // Helper function to append a book row dynamically to the results table
@@ -764,16 +1285,16 @@
               const image = document.createElement("img");
               image.src = coverUrl.href;
               image.alt = `Cover for ${book.title || "book"}`;
-              image.style.cssText = "width:50px;height:auto;border-radius:4px;border:1px solid var(--line)";
+              image.style.cssText = "width:50px;height:auto;border-radius:4px;border:1px solid #dbe5df";
               coverTd.appendChild(image);
             }
           } catch (_) {
-            coverTd.textContent = "—";
+            coverTd.textContent = "-";
           }
         } else {
           const placeholder = document.createElement("div");
           placeholder.className = "candidate-img-placeholder";
-          placeholder.textContent = "—";
+          placeholder.textContent = "-";
           placeholder.title = "No cover available";
           coverTd.appendChild(placeholder);
         }
@@ -781,27 +1302,37 @@
         const detailsTd = document.createElement("td");
         detailsTd.style.verticalAlign = "middle";
         const title = document.createElement("div");
-        title.className = "fw-bold text-white";
+        title.className = "lookup-result-title";
         title.textContent = book.title || "Unknown title";
         if (book.source) {
           const badge = document.createElement("span");
-          badge.className = "badge bg-secondary ms-2";
+          badge.className = "badge lookup-source-badge";
           badge.textContent = String(book.source);
           title.appendChild(badge);
         }
+        if (book.catalog_verified) {
+          const verified = document.createElement("span");
+          verified.className = "badge lookup-source-badge";
+          verified.style.cssText = "background:#0b8c56 !important;border-color:#0b8c56;color:#fff !important;";
+          const sourceCount = parseInt(book.metadata_source_count) || 0;
+          verified.textContent = sourceCount >= 2 ? `✓ verified ×${sourceCount}` : "✓ verified";
+          verified.title = book.metadata_providers
+            ? `Matched in public catalogs: ${book.metadata_providers}`
+            : "Matched in a public catalog record.";
+          title.appendChild(verified);
+        }
         const author = document.createElement("div");
-        author.className = "text-muted small";
+        author.className = "lookup-result-meta";
         author.textContent = `by ${book.author_name || "Unknown author"}`;
         const score = document.createElement("div");
-        score.className = "text-muted small";
+        score.className = "lookup-result-meta";
         score.textContent = book.validation_score ? `Automated score ${book.validation_score}` : "";
         detailsTd.append(title, author, score);
 
         const asinTd = document.createElement("td");
         asinTd.style.verticalAlign = "middle";
         const code = document.createElement("code");
-        code.className = "text-teal";
-        code.style.fontSize = "0.95rem";
+        code.className = "lookup-code";
         code.textContent = book.asin || "";
         asinTd.appendChild(code);
 
@@ -815,6 +1346,7 @@
         tr.appendChild(asinTd);
         tr.appendChild(pubTd);
         candidatesBody.appendChild(tr);
+        updateSelectionStatus();
       }
 
       // Search Books handler
@@ -827,7 +1359,8 @@
         const onlyNew = lookupOnlyNew ? lookupOnlyNew.checked : false;
 
         if (!keyword) {
-          alert("Please enter a search keyword.");
+          showLookupError("Enter a search keyword before searching.");
+          lookupKeyword.focus();
           return;
         }
 
@@ -840,9 +1373,10 @@
         if (progressFill) progressFill.style.width = "0%";
         const searchProgress = progressFill ? progressFill.parentElement : null;
         if (searchProgress) searchProgress.setAttribute("aria-valuenow", "0");
-        lookupError.classList.add("d-none");
+        clearLookupError();
         lookupResultsWrapper.classList.add("d-none");
         candidatesBody.innerHTML = "";
+        updateSelectionStatus();
 
         const queryParams = new URLSearchParams({
           keyword: keyword,
@@ -889,8 +1423,7 @@
                   if (progressFill) progressFill.style.width = "100%";
                   if (progressFill) progressFill.parentElement.setAttribute("aria-valuenow", "100");
                   if (booksFoundCount === 0) {
-                    lookupError.textContent = "No books with ISBN/ASIN found. Try a simpler keyword or broader year range.";
-                    lookupError.classList.remove("d-none");
+                    showLookupError("No books with ISBN/ASIN found. Try a simpler keyword or broader year range.");
                   } else {
                     lookupResultsWrapper.classList.remove("d-none");
                   }
@@ -972,8 +1505,7 @@
           .catch(err => {
             if (err.name === "AbortError") return;
             lookupLoading.classList.add("d-none");
-            lookupError.textContent = err.message || "An unexpected error occurred.";
-            lookupError.classList.remove("d-none");
+            showLookupError(err.message || "An unexpected error occurred.");
           })
           .finally(() => {
             if (activeLookupController !== controller) return;
@@ -990,6 +1522,13 @@
         document.querySelectorAll(".candidate-check").forEach(cb => {
           cb.checked = isChecked;
         });
+        updateSelectionStatus();
+      });
+
+      candidatesBody.addEventListener("change", function(event) {
+        if (event.target && event.target.classList.contains("candidate-check")) {
+          updateSelectionStatus();
+        }
       });
 
       // Extract selected ASINs/ISBNs
@@ -1021,9 +1560,10 @@
       btnCopyToInput.addEventListener("click", function() {
         const selectedCodes = getSelectedCodes();
         if (selectedCodes.length === 0) {
-          alert("Please select at least one book.");
+          showLookupError("Select at least one book to load into the direct input.");
           return;
         }
+        clearLookupError();
 
         // Sync settings
         syncEnrichmentOptions();
@@ -1046,9 +1586,10 @@
       btnRunEnrichSelected.addEventListener("click", function() {
         const selectedCodes = getSelectedCodes();
         if (selectedCodes.length === 0) {
-          alert("Please select at least one book.");
+          showLookupError("Select at least one book before running enrichment.");
           return;
         }
+        clearLookupError();
 
         // Sync settings
         syncEnrichmentOptions();
@@ -1059,6 +1600,7 @@
         // Submit the enrichment form
         enrichmentForm.submit();
       });
+      updateSelectionStatus();
     }
   });
 </script>

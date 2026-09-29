@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}Scheduled Hunts - Book Trailer Lead Finder{% endblock %}
+{% block content %}
+<div class="scheduled-page">
+  <div class="page-header scheduled-command">
+    <div>
+      <p class="eyebrow"><i class="ph-bold ph-calendar-check"></i> Automated discovery</p>
+      <h1>Scheduled Hunts</h1>
+      <p class="page-subtitle">Run evidence-first lead research on a reliable schedule and keep only verified, contactable results.</p>
+    </div>
+    <a class="btn btn-primary" href="{% url 'leadfinder:scheduled_task_create' %}">
+      <i class="ph-bold ph-plus"></i> New scheduled hunt
+    </a>
+  </div>
+
+  <section class="scheduled-stat-grid" aria-label="Schedule summary">
+    <div class="scheduled-stat"><span>Total schedules</span><strong>{{ stats.total }}</strong><i class="ph-bold ph-calendar-dots"></i></div>
+    <div class="scheduled-stat"><span>Active</span><strong>{{ stats.active }}</strong><i class="ph-bold ph-play-circle"></i></div>
+    <div class="scheduled-stat"><span>Running now</span><strong>{{ stats.running }}</strong><i class="ph-bold ph-spinner-gap"></i></div>
+    <div class="scheduled-stat"><span>Due now</span><strong>{{ stats.due }}</strong><i class="ph-bold ph-clock-countdown"></i></div>
+  </section>
+
+  <div class="scheduled-toolbar">
+    <div>
+      <strong>Your automations</strong>
+      <span>Run Now is safe to use: duplicate starts are blocked automatically.</span>
+    </div>
+    <div class="scheduled-runner-note"><i class="ph-bold ph-terminal-window"></i><code>python manage.py run_scheduler_loop --daemon</code></div>
+  </div>
+
+  <div class="scheduled-task-grid">
+    {% for task in tasks %}
+      <article class="scheduled-task-card {% if not task.is_active %}is-paused{% endif %}">
+        <header class="scheduled-task-head">
+          <div class="scheduled-task-icon"><i class="ph-bold ph-magnifying-glass"></i></div>
+          <div class="scheduled-task-title">
+            <div class="d-flex align-items-center flex-wrap gap-2">
+              <h2>{{ task.name }}</h2>
+              {% if task.execution_status == "running" %}
+                <span class="schedule-status is-running"><i class="ph-bold ph-spinner-gap ph-spin"></i> Running</span>
+              {% elif not task.is_active %}
+                <span class="schedule-status is-paused"><i class="ph-bold ph-pause"></i> Paused</span>
+              {% elif task.execution_status == "failed" %}
+                <span class="schedule-status is-failed"><i class="ph-bold ph-warning"></i> Needs attention</span>
+              {% else %}
+                <span class="schedule-status is-ready"><i class="ph-bold ph-check"></i> Ready</span>
+              {% endif %}
+            </div>
+            <p><i class="ph ph-quotes"></i>{{ task.keyword }}</p>
+          </div>
+          <a class="scheduled-edit-link" href="{% url 'leadfinder:scheduled_task_edit' task.id %}" aria-label="Edit {{ task.name }}"><i class="ph-bold ph-pencil-simple"></i></a>
+        </header>
+
+        <div class="scheduled-rule-row">
+          <span><i class="ph-bold ph-clock"></i>{{ task.schedule_label }}</span>
+          <span><i class="ph-bold ph-target"></i>Target {{ task.target_verified_leads }}</span>
+          <span><i class="ph-bold ph-database"></i>{{ task.get_source_provider_display }}</span>
+          {% if task.only_new_books %}<span><i class="ph-bold ph-funnel"></i>New books only</span>{% endif %}
+          {% if task.verify_email_mx %}<span><i class="ph-bold ph-envelope-simple-open"></i>MX checked</span>{% endif %}
+        </div>
+
+        <dl class="scheduled-metrics">
+          <div><dt>Total runs</dt><dd>{{ task.total_runs_count }}</dd></div>
+          <div><dt>Verified leads</dt><dd>{{ task.total_verified_leads_found }}</dd></div>
+          <div><dt>Last run</dt><dd>{% if task.last_run_at %}{{ task.last_run_at|date:"M j, H:i" }}{% else %}Not run yet{% endif %}</dd></div>
+          <div><dt>Next run</dt><dd>{% if task.is_active and task.next_run_at %}{{ task.next_run_at|date:"M j, H:i" }}{% else %}Paused{% endif %}</dd></div>
+        </dl>
+
+        {% if task.last_error %}
+          <div class="scheduled-error"><i class="ph-bold ph-warning-circle"></i><span>{{ task.last_error|truncatechars:180 }}</span></div>
+        {% endif %}
+
+        <footer class="scheduled-task-actions">
+          <form method="post" action="{% url 'leadfinder:scheduled_task_run_now' task.id %}">
+            {% csrf_token %}
+            <button class="btn btn-primary btn-sm" {% if task.execution_status == "running" %}disabled{% endif %}>
+              <i class="ph-bold ph-lightning"></i> Run now
+            </button>
+          </form>
+          <form method="post" action="{% url 'leadfinder:scheduled_task_toggle' task.id %}">
+            {% csrf_token %}
+            <button class="btn btn-outline-secondary btn-sm">
+              {% if task.is_active %}<i class="ph-bold ph-pause"></i> Pause{% else %}<i class="ph-bold ph-play"></i> Resume{% endif %}
+            </button>
+          </form>
+          {% if task.latest_run_id %}
+            <a class="btn btn-outline-secondary btn-sm" href="{% url 'leadfinder:run_detail' task.latest_run_id %}"><i class="ph-bold ph-arrow-square-out"></i> Latest run</a>
+          {% endif %}
+          <form class="ms-auto" method="post" action="{% url 'leadfinder:scheduled_task_delete' task.id %}">
+            {% csrf_token %}
+            <button class="btn btn-link btn-sm text-danger" onclick="return confirm('Delete this schedule? Existing runs and leads will be preserved.');" {% if task.execution_status == "running" %}disabled{% endif %}>
+              <i class="ph-bold ph-trash"></i> Delete
+            </button>
+          </form>
+        </footer>
+      </article>
+    {% empty %}
+      <section class="scheduled-empty">
+        <span><i class="ph-bold ph-calendar-plus"></i></span>
+        <h2>Create your first scheduled hunt</h2>
+        <p>Choose a keyword, schedule, verified-lead target, and contact rules. The scheduler handles repeat discovery and prior-book exclusion.</p>
+        <a class="btn btn-primary" href="{% url 'leadfinder:scheduled_task_create' %}">Create scheduled hunt</a>
+      </section>
+    {% endfor %}
+  </div>
+</div>
+{% if stats.running %}
+<script>
+  window.setTimeout(() => window.location.reload(), 5000);
+</script>
+{% endif %}
+{% endblock %}

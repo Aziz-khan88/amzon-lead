@@ -1,301 +1,174 @@
 {% extends "base.html" %}
 {% block title %}Dashboard - Book Trailer Lead Finder{% endblock %}
-{% block content %}
-<div class="dashboard-command">
-  <div class="dashboard-hero">
-    <div>
-      <h1>Dashboard</h1>
-      <p class="page-subtitle">Monitor discovery, review quality, and move the best book trailer opportunities into outreach.</p>
-    </div>
-    <div class="dashboard-toolbar" aria-label="Dashboard tools">
-      <form class="dashboard-search" action="{% url 'leadfinder:lead_list' %}" method="get">
-        <label class="visually-hidden" for="dashboard-search-input">Search leads, runs, or ISBN</label>
-        <i class="ph-bold ph-magnifying-glass" aria-hidden="true"></i>
-        <input id="dashboard-search-input" name="q" type="search" placeholder="Search leads, runs, or ISBN...">
-        <kbd>Ctrl K</kbd>
-      </form>
-      <button class="icon-button" type="button" title="Notifications" aria-label="Notifications">
-        <i class="ph ph-bell"></i>
-        {% if needs_review > 0 %}<span class="notification-dot"></span>{% endif %}
-      </button>
-      <button class="profile-button" type="button" aria-label="User menu">
-        <span>JD</span>
-        <i class="ph ph-caret-down"></i>
-      </button>
-    </div>
-  </div>
-
-  <div class="dashboard-actions" aria-label="Primary dashboard actions">
-    <a class="btn btn-primary" href="{% url 'leadfinder:run_new' %}">
-      <i class="ph-bold ph-plus"></i> New Research Run
-    </a>
-    <a class="btn btn-secondary" href="{% url 'leadfinder:import_csv' %}">
-      <i class="ph-bold ph-upload-simple"></i> Import CSV
-    </a>
-    <a class="btn btn-secondary" href="{% url 'leadfinder:export_leads_csv' %}?limit=700">
-      <i class="ph-bold ph-download-simple"></i> Export Leads
-    </a>
-    <a class="btn btn-secondary" href="{% url 'leadfinder:export_leads_xlsx' %}?limit=700">
-      <i class="ph ph-file-xls text-teal"></i> Export Excel
-    </a>
-  </div>
-</div>
-
-<section class="panel dashboard-panel quick-start-panel">
-  <div class="section-heading">
-    <div>
-      <h2><i class="ph-fill ph-rocket text-teal"></i> Quick Start Workflow</h2>
-      <p class="section-subtitle">Follow these steps to find and qualify the best book trailer opportunities.</p>
-    </div>
-  </div>
-
-  <div class="workflow-grid dashboard-workflow-grid">
-    <article class="walkthrough-card">
-      <div class="step-badge">1</div>
-      <div class="card-icon icon-search"><i class="ph-bold ph-magnifying-glass"></i></div>
-      <h3>Search Books</h3>
-      <p>Run keyword lookups or paste ASINs/ISBNs to find books, authors, and Amazon URLs.</p>
-      <a href="{% url 'leadfinder:isbn_search' %}" class="btn btn-primary btn-sm w-100 mt-auto">
-        Start Book Search <i class="ph ph-caret-right"></i>
+{% block topbar_page_actions %}
+  <div class="topbar-page-actions dashboard-topbar-actions">
+    {% if is_management %}
+      <a class="btn btn-primary" href="{% url 'leadfinder:run_new' %}">
+        <i class="ph-bold ph-plus"></i> New research
       </a>
-    </article>
-
-    <article class="walkthrough-card">
-      <div class="step-badge">2</div>
-      <div class="card-icon icon-review"><i class="ph ph-clipboard"></i></div>
-      <h3>Review Leads</h3>
-      <p>Inspect emails, confidence scores, source evidence, and existing video signals before outreach.</p>
-      <a href="{% url 'leadfinder:lead_list' %}?manual_review_status=needs_review&valid_only=0" class="btn btn-secondary btn-sm w-100 mt-auto text-teal">
-        Open Review Queue <i class="ph ph-caret-right"></i>
+      <a class="btn btn-outline-primary" href="{% url 'leadfinder:import_csv' %}">
+        <i class="ph-bold ph-upload-simple"></i> Import data
       </a>
-    </article>
-
-    <article class="walkthrough-card">
-      <div class="step-badge">3</div>
-      <div class="card-icon icon-outreach"><i class="ph-bold ph-video-camera"></i></div>
-      <h3>Export & Pitch</h3>
-      <p>Filter no-video opportunities and export clean lead sheets for the outreach team.</p>
-      <a href="{% url 'leadfinder:lead_list' %}?video_status=no_public_video_found&valid_only=0" class="btn btn-secondary btn-sm w-100 mt-auto">
-        View Video Opportunities <i class="ph ph-caret-right"></i>
+    {% else %}
+      <a class="btn btn-primary" href="{% url 'leadfinder:lead_list' %}?assignment_status=pending">
+        <i class="ph ph-list-checks"></i> Open queue
       </a>
-    </article>
-  </div>
-</section>
-
-<section class="panel dashboard-panel manager-workbench">
-  <div class="section-heading">
-    <div>
-      <h2><i class="ph ph-clipboard"></i> Lead Manager Workbench</h2>
-    </div>
-  </div>
-  <div class="workbench-grid dashboard-workbench-grid">
-    <a class="workbench-card card-needs-review" href="{% url 'leadfinder:lead_list' %}?manual_review_status=needs_review&valid_only=0">
-      <span class="workbench-icon"><i class="ph-bold ph-users-three"></i></span>
-      <span class="workbench-label">Review Queue</span>
-      <strong>{{ needs_review }}</strong>
-      <small>Needs human decision</small>
-      <i class="ph ph-caret-right workbench-arrow"></i>
-    </a>
-    <a class="workbench-card card-contactable" href="{% url 'leadfinder:lead_list' %}?has_email=1&valid_only=0">
-      <span class="workbench-icon"><i class="fa-solid fa-user"></i></span>
-      <span class="workbench-label">Contactable Leads</span>
-      <strong>{{ public_emails }}</strong>
-      <small>Ready for outreach prep</small>
-      <i class="ph ph-caret-right workbench-arrow"></i>
-    </a>
-    <a class="workbench-card card-no-video" href="{% url 'leadfinder:lead_list' %}?video_status=no_public_video_found&valid_only=0">
-      <span class="workbench-icon"><i class="ph-bold ph-video-camera"></i></span>
-      <span class="workbench-label">No-Video Opportunities</span>
-      <strong>{{ no_public_video_found }}</strong>
-      <small>Potential trailer fit</small>
-      <i class="ph ph-caret-right workbench-arrow"></i>
-    </a>
-    <a class="workbench-card card-hot-prospects" href="{% url 'leadfinder:lead_list' %}?tier=hot&valid_only=0">
-      <span class="workbench-icon"><i class="ph ph-fire-simple"></i></span>
-      <span class="workbench-label">Hot Prospects</span>
-      <strong>{{ hot_leads }}</strong>
-      <small>Highest score first</small>
-      <i class="ph ph-caret-right workbench-arrow"></i>
-    </a>
-  </div>
-</section>
-
-<div class="dashboard-insights-grid">
-  <section class="panel dashboard-panel insight-panel">
-    <div class="metric-group-header">
-      <i class="ph-bold ph-funnel"></i> Lead Pipeline
-    </div>
-    <div class="pipeline-visual">
-      <a href="{% url 'leadfinder:lead_list' %}?valid_only=0" class="pipeline-ring" aria-label="{{ total_leads }} total leads">
-        <span>{{ total_leads }}</span>
-        <small>Total Leads</small>
-      </a>
-      <div class="pipeline-legend">
-        <a href="{% url 'leadfinder:lead_list' %}?tier=hot&valid_only=0"><span class="legend-dot hot"></span><span>Hot</span><strong>{{ hot_leads }}</strong></a>
-        <a href="{% url 'leadfinder:lead_list' %}?tier=warm&valid_only=0"><span class="legend-dot warm"></span><span>Warm</span><strong>{{ warm_leads }}</strong></a>
-        <a href="{% url 'leadfinder:lead_list' %}?tier=cold&valid_only=0"><span class="legend-dot cold"></span><span>Cold</span><strong>{{ cold_leads }}</strong></a>
-        <a href="{% url 'leadfinder:lead_list' %}?tier=rejected&valid_only=0"><span class="legend-dot rejected"></span><span>Rejected</span><strong>{{ rejected_leads }}</strong></a>
-      </div>
-    </div>
-    {% if rejected_leads > 0 %}
-      <form method="post" action="{% url 'leadfinder:delete_rejected_leads' %}" class="delete-rejected-inline">
-        {% csrf_token %}
-        <button type="submit" class="btn btn-secondary btn-sm" onclick="return confirm('Are you sure you want to permanently delete all {{ rejected_leads }} rejected leads? This action cannot be undone.');">
-          <i class="ph-bold ph-trash"></i> Delete Rejected
-        </button>
-      </form>
     {% endif %}
-    <a href="{% url 'leadfinder:lead_list' %}?valid_only=0" class="btn btn-secondary btn-sm w-100 mt-auto">View All Leads <i class="ph ph-caret-right"></i></a>
-  </section>
+  </div>
+{% endblock %}
+{% block content %}
+<div class="modern-dashboard">
+  <header class="dashboard-titlebar">
+    <div>
+      <p class="dashboard-kicker">Welcome back! &#128075;</p>
+      <h1>Dashboard</h1>
+      <p>Discover authors, verify contact evidence, and prepare reliable lead exports.</p>
+    </div>
+    {% if is_management %}<div class="dashboard-primary-actions">
+      <a class="btn btn-primary" href="{% url 'leadfinder:run_new' %}"><i class="ph-bold ph-plus"></i> New research</a>
+      <a class="btn btn-outline-primary" href="{% url 'leadfinder:import_csv' %}"><i class="ph-bold ph-upload-simple"></i> Import data</a>
+    </div>{% else %}<div class="dashboard-primary-actions"><a class="btn btn-primary" href="{% url 'leadfinder:lead_list' %}?assignment_status=pending"><i class="ph ph-list-checks"></i> Open my queue</a></div>{% endif %}
+  </header>
 
-  <section class="panel dashboard-panel insight-panel">
-    <div class="metric-group-header">
-      <i class="ph ph-envelope"></i> Outreach & Reviews
-    </div>
-    <div class="metric-grid dashboard-mini-grid">
-      <a href="{% url 'leadfinder:lead_list' %}?has_email=1&valid_only=0" class="metric text-decoration-none">
-        <span>Public Emails</span>
-        <strong>{{ public_emails }}</strong>
-      </a>
-      <a href="{% url 'leadfinder:lead_list' %}?has_amazon_url=1&valid_only=0" class="metric text-decoration-none">
-        <span>Amazon Link</span>
-        <strong>{{ amazon_urls }}</strong>
-      </a>
-      <a href="{% url 'leadfinder:lead_list' %}?manual_review_status=needs_review&valid_only=0" class="metric text-decoration-none">
-        <span>Needs Review</span>
-        <strong>{{ needs_review }}</strong>
-      </a>
-      <a href="{% url 'leadfinder:lead_list' %}?manual_review_status=approved&valid_only=0" class="metric text-decoration-none">
-        <span>Approved</span>
-        <strong>{{ approved }}</strong>
-      </a>
-      <a href="{% url 'leadfinder:lead_list' %}?do_not_contact=1&valid_only=0" class="metric text-decoration-none wide-metric">
-        <span>Do Not Contact</span>
-        <strong>{{ do_not_contact }}</strong>
-      </a>
-    </div>
-    <a href="{% url 'leadfinder:lead_list' %}?has_email=1&valid_only=0" class="btn btn-secondary btn-sm w-100 mt-auto">View Outreach <i class="ph ph-caret-right"></i></a>
-  </section>
-
-  <section class="panel dashboard-panel insight-panel">
-    <div class="metric-group-header">
-      <i class="ph-bold ph-video-camera"></i> Video Fitting & Status
-    </div>
-    <div class="metric-grid dashboard-mini-grid">
-      <a href="{% url 'leadfinder:lead_list' %}?video_status=no_public_video_found&valid_only=0" class="metric text-decoration-none">
-        <span>No Public Video</span>
-        <strong>{{ no_public_video_found }}</strong>
-      </a>
-      <div class="metric">
-        <span>Video Found</span>
-        <strong>{{ video_found }}</strong>
-      </div>
-      <a href="{% url 'leadfinder:run_list' %}" class="metric text-decoration-none">
-        <span>Failed Runs</span>
-        <strong>{{ failed_runs }}</strong>
-      </a>
-    </div>
-    <a href="{% url 'leadfinder:lead_list' %}?video_status=no_public_video_found&valid_only=0" class="btn btn-secondary btn-sm w-100 mt-auto">View Video Opportunities <i class="ph ph-caret-right"></i></a>
-  </section>
-</div>
-
-{% if latest_errors %}
-  <section class="notice-list dashboard-panel mb-4">
-    <h2 class="text-danger"><i class="ph-fill ph-warning"></i> Recent Run Failures</h2>
-    <div class="row g-3">
-      {% for run in latest_errors %}
-        <div class="col-md-6">
-          <a class="notice-item notice-link d-block p-3" href="{% url 'leadfinder:run_detail' run.id %}">
-            <div class="d-flex justify-content-between align-items-center">
-              <strong class="text-white">{{ run.keyword|default:run.source_provider }}</strong>
-              <span class="badge bg-danger">{{ run.status }}</span>
-            </div>
-            <p class="text-muted small mt-2 mb-0">{{ run.error_message|truncatechars:180 }}</p>
-          </a>
-        </div>
-      {% endfor %}
-    </div>
-  </section>
-{% endif %}
-
-<section class="panel dashboard-panel latest-runs-panel">
-  <div class="section-heading mb-3">
-    <h2><i class="ph-bold ph-clock-counter-clockwise"></i> Latest Research Runs</h2>
-    <a href="{% url 'leadfinder:run_list' %}" class="btn btn-secondary btn-sm">
-      <i class="ph-bold ph-list"></i> View All Runs <i class="ph ph-caret-right"></i>
+  <section class="modern-kpi-grid" aria-label="Lead verification summary">
+    <a class="modern-kpi-card" href="{% url 'leadfinder:lead_list' %}">
+      <span class="kpi-topline"><span>Total leads</span><i class="ph-bold ph-trend-up"></i></span>
+      <strong>{{ total_leads }}</strong>
+      <small><i class="ph-fill ph-database"></i> All discovered records</small>
     </a>
-  </div>
-  <div class="table-responsive dashboard-table-wrap">
-    <table class="table align-middle dashboard-table">
-      <thead>
-        <tr>
-          <th>Keyword / Source</th>
-          <th>Provider</th>
-          <th>Status</th>
-          <th>Created</th>
-          <th class="text-end">Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for run in latest_runs %}
-          <tr>
-            <td data-label="Keyword / Source">
-              <strong class="text-white">{{ run.keyword|default:"Manual Import" }}</strong>
-            </td>
-            <td data-label="Provider">
-              <span class="badge dashboard-provider-badge">{{ run.source_provider }}</span>
-            </td>
-            <td data-label="Status">
-              <span class="status-pill status-{{ run.status }}">
-                {% if run.status == 'completed' %}
-                  <i class="ph-fill ph-check-circle"></i>
-                {% elif run.status == 'running' %}
-                  <i class="ph ph-circle-notch" style="display:inline-block;animation:ph-spin 1s linear infinite"></i>
-                {% elif run.status == 'failed' %}
-                  <i class="ph-fill ph-x-circle"></i>
-                {% else %}
-                  <i class="ph ph-circle-dashed"></i>
-                {% endif %}
-                {{ run.status }}
-              </span>
-            </td>
-            <td data-label="Created" class="text-muted">{{ run.created_at|date:"M d, Y H:i" }}</td>
-            <td data-label="Actions" class="text-end">
-              <span class="dashboard-row-actions">
-                <a class="btn btn-secondary btn-sm" href="{% url 'leadfinder:run_detail' run.id %}">
-                  <i class="ph-bold ph-folder-open"></i> Open
-                </a>
-                {% if run.status == "pending" or run.status == "running" %}
-                  <form method="post" action="{% url 'leadfinder:run_stop' run.id %}">
-                    {% csrf_token %}
-                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                    <button class="btn btn-sm btn-danger" onclick="return confirm('Stop this research run? Work already saved will remain.');">
-                      <i class="ph-fill ph-stop-circle"></i> Stop
-                    </button>
-                  </form>
-                {% elif run.status == "canceled" or run.status == "failed" %}
-                  <form method="post" action="{% url 'leadfinder:run_retry' run.id %}">
-                    {% csrf_token %}
-                    <button class="btn btn-sm btn-primary">
-                      <i class="ph-bold ph-arrow-counter-clockwise"></i> Retry
-                    </button>
-                  </form>
-                {% endif %}
-                <button class="btn btn-secondary btn-sm icon-only" type="button" title="More actions" aria-label="More actions">
-                  <i class="fa-solid fa-ellipsis"></i>
-                </button>
-              </span>
-            </td>
-          </tr>
+    <a class="modern-kpi-card" href="{% url 'leadfinder:lead_list' %}?verification_status=verified">
+      <span class="kpi-topline"><span>Verified</span><i class="ph-bold ph-check-circle"></i></span>
+      <strong>{{ verified_leads }}</strong>
+      <small class="text-success"><i class="ph-fill ph-shield-check"></i> {{ verified_percent }}% passed hard gates</small>
+    </a>
+    <a class="modern-kpi-card" href="{% url 'leadfinder:lead_list' %}?verification_status=other">
+      <span class="kpi-topline"><span>Other</span><i class="ph-bold ph-clipboard-text"></i></span>
+      <strong>{{ other_leads }}</strong>
+      <small class="text-warning"><i class="ph-fill ph-clock"></i> {{ other_percent }}% needs more evidence</small>
+    </a>
+    <a class="modern-kpi-card" href="{% url 'leadfinder:lead_list' %}?verification_status=not_verified">
+      <span class="kpi-topline"><span>Not verified</span><i class="ph-bold ph-x"></i></span>
+      <strong>{{ not_verified_leads }}</strong>
+      <small class="text-danger"><i class="ph-fill ph-x-circle"></i> {{ not_verified_percent }}% failed checks</small>
+    </a>
+  </section>
+
+  <section class="role-kpi-grid dashboard-task-kpis" aria-label="Assignment performance">
+    <a href="{% url 'leadfinder:lead_list' %}?assignment_status=pending"><span>Pending tasks</span><strong>{{ assignment_stats.pending }}</strong><small>waiting to start</small></a>
+    <a href="{% url 'leadfinder:lead_list' %}?assignment_status=in_progress"><span>Active work</span><strong>{{ assignment_stats.in_progress }}</strong><small>in progress or follow up</small></a>
+    <a href="{% url 'leadfinder:lead_list' %}?assignment_status=completed"><span>Completed</span><strong>{{ assignment_stats.completed }}</strong><small>tasks finished</small></a>
+    <a href="{% url 'leadfinder:lead_list' %}?assignment_status=converted"><span>Converted</span><strong>{{ assignment_stats.converted }}</strong><small>successful leads</small></a>
+  </section>
+
+  {% if is_management %}<div class="dashboard-main-grid">
+    <section class="modern-card verification-analytics-card">
+      <div class="modern-card-heading">
+        <div><span class="card-eyebrow">Contact quality</span><h2>Verification analytics</h2></div>
+        <a href="{% url 'leadfinder:lead_list' %}">View leads <i class="ph ph-arrow-right"></i></a>
+      </div>
+      <div class="verification-analytics-body">
+        <div class="verification-donut" role="img" aria-label="Verified {{ verified_percent }} percent, other {{ other_percent }} percent, not verified {{ not_verified_percent }} percent" style="--verified: {{ verified_percent }}%; --other: {{ other_percent }}%;">
+          <div><strong>{{ total_leads }}</strong><span>Total</span></div>
+        </div>
+        <div class="verification-legend">
+          <div class="verification-legend-row">
+            <span><i class="chart-dot dot-verified"></i>Verified</span>
+            <strong>{{ verified_leads }} <small>({{ verified_percent }}%)</small></strong>
+          </div>
+          <div class="verification-legend-row">
+            <span><i class="chart-dot dot-other"></i>Other</span>
+            <strong>{{ other_leads }} <small>({{ other_percent }}%)</small></strong>
+          </div>
+          <div class="verification-legend-row">
+            <span><i class="chart-dot dot-failed"></i>Not verified</span>
+            <strong>{{ not_verified_leads }} <small>({{ not_verified_percent }}%)</small></strong>
+          </div>
+        </div>
+      </div>
+      <div class="analytics-footer">
+        <span><i class="ph-fill ph-envelope-simple"></i><strong>{{ public_emails }}</strong><small>Public emails</small></span>
+        <span><i class="ph-fill ph-amazon-logo"></i><strong>{{ amazon_urls }}</strong><small>Amazon links</small></span>
+        <span><i class="ph-fill ph-video-camera"></i><strong>{{ no_public_video_found }}</strong><small>No-video opportunities</small></span>
+      </div>
+    </section>
+
+    <section class="modern-card quick-actions-card">
+      <div class="modern-card-heading"><div><span class="card-eyebrow">Shortcuts</span><h2>Quick actions</h2></div></div>
+      <div class="quick-action-list">
+        <a href="{% url 'leadfinder:run_new' %}"><span class="quick-action-icon icon-green"><i class="ph-bold ph-magnifying-glass"></i></span><span><strong>Start research</strong><small>Discover new author leads</small></span><i class="ph ph-caret-right"></i></a>
+        <a href="{% url 'leadfinder:lead_list' %}?verification_status=other"><span class="quick-action-icon icon-amber"><i class="ph-bold ph-shield-warning"></i></span><span><strong>Review other</strong><small>Resolve inconclusive contacts</small></span><i class="ph ph-caret-right"></i></a>
+        <a href="{% url 'leadfinder:export_leads_xlsx' %}?limit=700"><span class="quick-action-icon icon-blue"><i class="ph-bold ph-file-xls"></i></span><span><strong>Export verified data</strong><small>Download the Excel workbook</small></span><i class="ph ph-caret-right"></i></a>
+      </div>
+    </section>
+
+    <section class="modern-card recent-runs-card">
+      <div class="modern-card-heading">
+        <div><span class="card-eyebrow">Activity</span><h2>Recent research runs</h2></div>
+        <a href="{% url 'leadfinder:run_list' %}">View all <i class="ph ph-arrow-right"></i></a>
+      </div>
+      <div class="recent-run-list">
+        {% for run in latest_runs|slice:":5" %}
+          <a href="{% url 'leadfinder:run_detail' run.id %}" class="recent-run-item">
+            <span class="run-provider-icon"><i class="ph-bold ph-books"></i></span>
+            <span class="run-copy"><strong>{{ run.keyword|default:"Manual import" }}</strong><small>{{ run.source_provider }} &middot; {{ run.created_at|date:"M d, Y" }}</small></span>
+            <span class="modern-status status-{{ run.status }}">{{ run.status }}</span>
+          </a>
         {% empty %}
-          <tr>
-            <td colspan="5" class="text-center py-4 text-muted">
-              <i class="ph-fill ph-warning fa-2x mb-2 d-block"></i> No research runs found.
-            </td>
-          </tr>
+          <div class="modern-empty"><i class="ph ph-magnifying-glass"></i><strong>No research runs yet</strong><span>Start your first research run to populate this activity list.</span></div>
         {% endfor %}
-      </tbody>
-    </table>
+      </div>
+    </section>
+
+    <section class="modern-card coverage-card">
+      <div class="modern-card-heading"><div><span class="card-eyebrow">Readiness</span><h2>Contact coverage</h2></div></div>
+      <div class="coverage-gauge" style="--coverage: {{ contact_percent }}deg; --coverage-angle: calc({{ contact_percent }} * 3.6deg);">
+        <div><strong>{{ contact_percent }}%</strong><span>with public email</span></div>
+      </div>
+      <div class="coverage-legend">
+        <span><i class="chart-dot dot-verified"></i>Contact found</span>
+        <span><i class="chart-dot dot-muted"></i>Still searching</span>
+      </div>
+      <a href="{% url 'leadfinder:lead_list' %}?has_email=1" class="btn btn-soft w-100">Open contactable leads</a>
+    </section>
+
+    <section class="modern-card verification-batches-card">
+      <div class="modern-card-heading">
+        <div><span class="card-eyebrow">Audit trail</span><h2>Verification batches</h2></div>
+        <a class="btn btn-soft verification-run-button" href="{% url 'leadfinder:lead_list' %}?verification_status=other">Run verification</a>
+      </div>
+      <div class="batch-list">
+        {% for batch in latest_verification_batches|slice:":4" %}
+          <div class="batch-row">
+            <span class="batch-icon"><i class="ph-bold ph-shield-check"></i></span>
+            <span class="batch-copy"><strong>{{ batch.processed_count }} / {{ batch.total_count }} processed</strong><small>{{ batch.started_at|default:batch.created_at|date:"M d, Y H:i" }}</small></span>
+            <span class="batch-result"><strong>{{ batch.verified_count }}</strong><small>verified</small></span>
+          </div>
+        {% empty %}
+          <div class="modern-empty compact"><i class="ph ph-stack"></i><strong>No batch analysis yet</strong><span>Run reverify_contacts to analyze existing records.</span></div>
+        {% endfor %}
+      </div>
+    </section>
   </div>
-</section>
+  <section class="modern-card team-performance-card">
+    <div class="modern-card-heading"><div><span class="card-eyebrow">Sales activity</span><h2>Team performance</h2></div><a href="{% url 'leadfinder:team_list' %}">Manage team <i class="ph ph-arrow-right"></i></a></div>
+    <div class="team-performance-grid">{% for person in team_performance %}<article><span class="person-avatar">{{ person.assigned_to__first_name|first|default:person.assigned_to__username|first|upper }}</span><div><strong>{{ person.assigned_to__first_name|default:person.assigned_to__username }} {{ person.assigned_to__last_name }}</strong><small>{{ person.total }} assigned · {{ person.pending }} pending</small></div><p><strong>{{ person.completed }}</strong><span>completed</span></p><p class="converted"><strong>{{ person.converted }}</strong><span>converted</span></p></article>{% empty %}<div class="modern-empty compact"><strong>No sales assignments yet</strong><span>Assign leads manually or create a daily schedule.</span></div>{% endfor %}</div>
+  </section>
+  {% else %}
+  <div class="sales-dashboard-grid">
+    <section class="modern-card"><div class="modern-card-heading"><div><span class="card-eyebrow">My workflow</span><h2>Today’s lead queue</h2></div></div><div class="sales-workflow"><div><i class="ph ph-inbox"></i><strong>{{ assignment_stats.pending }}</strong><span>Open a pending lead, check its contact data, then move it to in progress.</span></div><div><i class="ph ph-phone-call"></i><strong>{{ assignment_stats.in_progress }}</strong><span>Record contact results, follow-up needs, or invalid data from the lead page.</span></div><div><i class="ph ph-check-circle"></i><strong>{{ assignment_stats.completed }}</strong><span>Completed work stays in your private queue for review.</span></div></div><a class="btn btn-primary" href="{% url 'leadfinder:lead_list' %}">View all assigned leads</a></section>
+    <section class="modern-card sales-privacy-card"><i class="ph ph-lock-key"></i><h2>Your workspace is private</h2><p>You can view and export only the leads currently assigned to your account. Research tools, schedules, other sales queues, and administrator settings are restricted.</p></section>
+  </div>
+  {% endif %}
+
+  {% if is_management and latest_errors %}
+    <section class="modern-card dashboard-errors-card">
+      <div class="modern-card-heading"><div><span class="card-eyebrow text-danger">Attention</span><h2>Recent run issues</h2></div></div>
+      <div class="error-chip-list">
+        {% for run in latest_errors %}
+          <a href="{% url 'leadfinder:run_detail' run.id %}"><i class="ph-fill ph-warning-circle"></i><span><strong>{{ run.keyword|default:run.source_provider }}</strong><small>{{ run.error_message|truncatechars:120 }}</small></span></a>
+        {% endfor %}
+      </div>
+    </section>
+  {% endif %}
+</div>
 {% endblock %}

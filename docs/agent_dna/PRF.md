@@ -75,6 +75,6 @@ Find and qualify book trailer opportunities with evidence, confidence, review st
 - `/runs/`: run history, status, retry/open controls.
 - `/runs/new/`: keyword discovery run creation.
 - `/runs/booklife/`: BookLife category runner.
-- `/import-csv/`: CSV seed import.
+- `/import-csv/`: Manual CSV/XLSX/XLSM lead import with header detection, preview, export-format round trip, and optional video/contact/AI checks.
 - `/isbn-search/`: ASIN/ISBN batch lookup.
 - `/export/leads.csv` and `/export/leads.xlsx`: lead delivery.

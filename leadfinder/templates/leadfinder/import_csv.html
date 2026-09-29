@@ -1,86 +1,255 @@
 {% extends "base.html" %}
-{% block title %}Import CSV - Book Trailer Lead Finder{% endblock %}
+{% block title %}Import CSV or Excel - Book Trailer Lead Finder{% endblock %}
 {% block content %}
-<div class="page-header">
+<div class="page-header mb-4">
   <div>
-    <p class="eyebrow"><i class="ph-bold ph-file-arrow-up text-teal"></i> Seed data</p>
-    <h1>Import CSV</h1>
-    <p class="page-subtitle">Upload client-supplied book seeds, preview the first rows, and start enrichment.</p>
+    <p class="eyebrow"><i class="ph-bold ph-file-arrow-up text-teal"></i> Seed Data</p>
+    <h1>Import CSV or Excel</h1>
+    <p class="page-subtitle">Drag in a client lead sheet, preview detected columns, and load it directly into your workspace.</p>
   </div>
 </div>
-<form method="post" enctype="multipart/form-data" class="narrow-form form-grid">
+
+<div class="import-page-shell" style="max-width: 780px; margin: 0 auto;">
+<form method="post" enctype="multipart/form-data" class="import-file-form" id="manual-import-form">
   {% csrf_token %}
   
-  <div class="panel mb-4">
-    <div class="section-heading">
-      <h2><i class="ph-bold ph-file-csv text-teal"></i> Upload Lead Seeds</h2>
+  <div class="panel mb-4 import-panel p-4" style="background: #ffffff; border: 1px solid #e2ebe6; border-radius: 16px; box-shadow: 0 10px 30px rgba(15, 45, 30, 0.05);">
+    <div class="section-heading mb-3">
+      <h2 style="font-size: 1.25rem; font-weight: 700; color: #172a21;"><i class="ph-bold ph-file-arrow-up text-teal me-2"></i> Upload Manual Lead Data</h2>
     </div>
     
-    <div class="alert alert-info mb-4">
-      <i class="ph-fill ph-info me-2"></i>
-      <strong>CSV Format:</strong> Needs <code>title</code> (or <code>book_title</code>) and <code>author</code> (or <code>author_name</code>) columns. <code>asin</code>/<code>amazon_book_url</code> is optional but highly recommended.
+    <div class="alert alert-info mb-4 p-3 d-flex align-items-start gap-2.5" style="background: #eef7ff; border: 1px solid #bae0ff; border-radius: 10px; color: #003a8c;">
+      <i class="ph-fill ph-info text-primary fs-5 mt-0.5"></i>
+      <div style="font-size: 0.86rem; line-height: 1.5;">
+        <strong>Supported Formats:</strong> CSV, XLSX, and XLSM. The importer auto-detects headers anywhere in the first 25 rows (supports <code>Book / Project</code>, <code>Author / Owner</code>, <code>book_title</code>, and <code>author_name</code>).
+      </div>
     </div>
 
     <!-- Styled File Input Wrapper -->
     <div class="field-row mb-4">
-      <label for="id_csv_file" class="form-label text-white">Select CSV File</label>
-      <div class="csv-upload-dropzone">
-        <i class="ph-bold ph-upload-simple upload-icon text-teal mb-2"></i>
-        <div class="upload-text text-white" id="upload-filename">Drag & drop your CSV file here, or click to browse</div>
-        <div class="upload-subtext small text-muted">Supports standard .csv format with headers</div>
-        {{ form.csv_file }}
+      <label for="id_csv_file" class="form-label font-weight-700 text-dark mb-2 d-block">Select CSV or Excel File</label>
+      <div class="csv-upload-dropzone p-4 text-center" id="import-dropzone" role="button" tabindex="0" aria-label="Choose a CSV or Excel lead file" style="border: 2px dashed #087c47; border-radius: 12px; background: #f6faf7; cursor: pointer; transition: all 0.2s ease;">
+        <i class="ph-bold ph-upload-simple upload-icon text-teal mb-2" style="font-size: 2.2rem; display: block;"></i>
+        <div class="upload-text font-weight-700 text-dark mb-1" id="upload-filename" style="font-size: 1rem; color: #172a21;">Drag & drop your CSV, XLSX, or XLSM file here</div>
+        <div class="upload-subtext small text-muted">The data remains manual unless you enable one of the optional checks below.</div>
+        <div style="display: none;">{{ form.csv_file }}</div>
       </div>
       {% for error in form.csv_file.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
     </div>
 
-    <!-- Advanced Enrichment Options -->
-    <div class="form-check-grid mt-3" style="grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); padding: 1rem;">
-      <div class="field-checkbox">
-        {{ form.run_video_search }}
-        {{ form.run_video_search.label_tag }}
+    <!-- Optional checks list -->
+    <div class="manual-import-options-list d-flex flex-column gap-2.5 mt-3" aria-label="Optional import checks">
+      <div class="manual-import-option-card p-3" style="background: #f8fbf9; border: 1px solid #e1ebe5; border-radius: 10px;">
+        <label class="d-flex align-items-start gap-2.5 cursor-pointer mb-0">
+          {{ form.run_video_search }}
+          <div>
+            <strong class="d-block text-dark" style="font-size: 0.9rem; line-height: 1.3;">Check existing videos</strong>
+            <small class="text-muted d-block" style="font-size: 0.78rem; margin-top: 2px;">Looks for existing public trailers and saves video evidence only.</small>
+          </div>
+        </label>
       </div>
-      <div class="field-checkbox">
-        {{ form.run_groq_ai_extraction }}
-        {{ form.run_groq_ai_extraction.label_tag }}
+
+      <div class="manual-import-option-card p-3" style="background: #f8fbf9; border: 1px solid #e1ebe5; border-radius: 10px;">
+        <label class="d-flex align-items-start gap-2.5 cursor-pointer mb-0">
+          {{ form.verify_imported_contacts }}
+          <div>
+            <strong class="d-block text-dark" style="font-size: 0.9rem; line-height: 1.3;">Verify imported email and phone</strong>
+            <small class="text-muted d-block" style="font-size: 0.78rem; margin-top: 2px;">Checks email syntax/domain and phone format against public source URLs.</small>
+          </div>
+        </label>
       </div>
+
+      <div class="manual-import-option-card p-3" style="background: #f8fbf9; border: 1px solid #e1ebe5; border-radius: 10px;">
+        <label class="d-flex align-items-start gap-2.5 cursor-pointer mb-0">
+          {{ form.run_groq_ai_extraction }}
+          <div>
+            <strong class="d-block text-dark" style="font-size: 0.9rem; line-height: 1.3;">Build AI sales brief</strong>
+            <small class="text-muted d-block" style="font-size: 0.78rem; margin-top: 2px;">Creates outreach briefs without overwriting your manual lead fields.</small>
+          </div>
+        </label>
+      </div>
+    </div>
+
+    <div class="manual-import-progress mt-4" id="manual-import-progress" hidden>
+      <div class="manual-import-progress-head d-flex justify-content-between align-items-center mb-2">
+        <span id="manual-import-progress-label" class="font-weight-700">Preparing import</span>
+        <strong id="manual-import-progress-percent" class="text-teal">0%</strong>
+      </div>
+      <div class="manual-import-progress-track" role="progressbar" aria-label="Manual lead import progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" style="background: #e2ebe6; border-radius: 999px; height: 10px; overflow: hidden;">
+        <div class="manual-import-progress-fill" id="manual-import-progress-fill" style="background: linear-gradient(90deg, #087c47, #14b8a6); height: 100%; width: 0%; transition: width 0.25s ease;"></div>
+      </div>
+      <p id="manual-import-progress-note" class="small text-muted mt-2 mb-0">Uploading selected file...</p>
     </div>
   </div>
 
-  <div class="form-actions">
-    <button class="btn btn-secondary" name="preview" value="1" type="submit">
+  <div class="form-actions d-flex gap-3 justify-content-end">
+    <button class="btn btn-secondary px-4 py-2" name="preview" value="1" type="submit">
       <i class="ph-bold ph-table"></i> Preview First 20 Rows
     </button>
-    <button class="btn btn-primary" type="submit">
-      <i class="ph-bold ph-file-arrow-up"></i> Import and Run Enrichment
+    <button class="btn btn-primary px-4 py-2 font-weight-700" name="import" value="1" type="submit" id="manual-import-submit">
+      <i class="ph-bold ph-file-arrow-up"></i> Import Manual Leads
     </button>
   </div>
 </form>
+</div>
 
 <script>
 document.addEventListener("DOMContentLoaded", function() {
+  const form = document.getElementById("manual-import-form");
   const fileInput = document.getElementById("id_csv_file");
   const filenameLabel = document.getElementById("upload-filename");
-  if (fileInput && filenameLabel) {
-    fileInput.addEventListener("change", function() {
+  const dropzone = document.getElementById("import-dropzone");
+  const importButton = document.getElementById("manual-import-submit");
+  const progressPanel = document.getElementById("manual-import-progress");
+  const progressFill = document.getElementById("manual-import-progress-fill");
+  const progressTrack = progressFill ? progressFill.parentElement : null;
+  const progressPercent = document.getElementById("manual-import-progress-percent");
+  const progressLabel = document.getElementById("manual-import-progress-label");
+  const progressNote = document.getElementById("manual-import-progress-note");
+  const defaultLabel = "Drag & drop your CSV, XLSX, or XLSM file here";
+
+  function setImportProgress(percent, label, note) {
+    const safePercent = Math.max(0, Math.min(100, Math.round(percent)));
+    if (progressPanel) progressPanel.hidden = false;
+    if (progressFill) progressFill.style.width = safePercent + "%";
+    if (progressTrack) progressTrack.setAttribute("aria-valuenow", String(safePercent));
+    if (progressPercent) progressPercent.textContent = safePercent + "%";
+    if (progressLabel && label) progressLabel.textContent = label;
+    if (progressNote && note) progressNote.textContent = note;
+  }
+
+  function updateFileLabel() {
       if (fileInput.files.length > 0) {
         filenameLabel.textContent = "Selected: " + fileInput.files[0].name;
-        filenameLabel.style.color = "var(--green)";
+        filenameLabel.classList.add("has-file");
       } else {
-        filenameLabel.textContent = "Drag & drop your CSV file here, or click to browse";
-        filenameLabel.style.color = "var(--ink)";
+        filenameLabel.textContent = defaultLabel;
+        filenameLabel.classList.remove("has-file");
       }
+  }
+
+  if (fileInput && filenameLabel && dropzone) {
+    fileInput.addEventListener("change", updateFileLabel);
+    ["dragenter", "dragover"].forEach(function(eventName) {
+      dropzone.addEventListener(eventName, function(event) {
+        event.preventDefault();
+        dropzone.classList.add("is-dragging");
+      });
+    });
+    ["dragleave", "drop"].forEach(function(eventName) {
+      dropzone.addEventListener(eventName, function(event) {
+        event.preventDefault();
+        dropzone.classList.remove("is-dragging");
+      });
+    });
+    dropzone.addEventListener("drop", function(event) {
+      if (!event.dataTransfer.files.length) return;
+      fileInput.files = event.dataTransfer.files;
+      updateFileLabel();
+    });
+    dropzone.addEventListener("click", function(event) {
+      if (event.target !== fileInput) {
+        fileInput.click();
+      }
+    });
+    dropzone.addEventListener("keydown", function(event) {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        fileInput.click();
+      }
+    });
+  }
+
+  if (form && importButton && progressPanel) {
+    form.addEventListener("submit", function(event) {
+      const submitter = event.submitter || document.activeElement;
+      const isPreview = submitter && submitter.name === "preview";
+      if (isPreview || !fileInput || !fileInput.files.length) return;
+
+      event.preventDefault();
+      const formData = new FormData(form);
+      formData.set(importButton.name, importButton.value);
+      const xhr = new XMLHttpRequest();
+      let serverTimer = null;
+      let serverPercent = 88;
+
+      importButton.disabled = true;
+      importButton.classList.add("is-loading");
+      setImportProgress(4, "Preparing import", "Reading the selected workbook before upload.");
+
+      xhr.upload.addEventListener("progress", function(progressEvent) {
+        if (!progressEvent.lengthComputable) {
+          setImportProgress(18, "Uploading file", "The browser is sending the workbook to Django.");
+          return;
+        }
+        const uploadPercent = Math.min(82, 6 + (progressEvent.loaded / progressEvent.total) * 76);
+        setImportProgress(uploadPercent, "Uploading file", "Uploading " + fileInput.files[0].name + ".");
+      });
+
+      xhr.addEventListener("loadstart", function() {
+        setImportProgress(8, "Starting upload", "Sending the selected lead sheet.");
+      });
+
+      xhr.addEventListener("readystatechange", function() {
+        if (xhr.readyState === XMLHttpRequest.HEADERS_RECEIVED) {
+          setImportProgress(88, "Saving leads", "Creating manual lead records and selected checks.");
+        }
+        if (xhr.readyState === XMLHttpRequest.LOADING && !serverTimer) {
+          serverTimer = window.setInterval(function() {
+            serverPercent = Math.min(96, serverPercent + 1);
+            setImportProgress(serverPercent, "Saving leads", "Building books, authors, contacts and evidence records.");
+          }, 450);
+        }
+      });
+
+      xhr.addEventListener("load", function() {
+        if (serverTimer) window.clearInterval(serverTimer);
+        importButton.disabled = false;
+        importButton.classList.remove("is-loading");
+        if (xhr.status >= 200 && xhr.status < 400) {
+          const stayedOnImportPage = !xhr.responseURL || xhr.responseURL === window.location.href || xhr.responseURL.indexOf("/import-csv/") !== -1;
+          if (stayedOnImportPage) {
+            setImportProgress(100, "Review file", "Django returned the import form with validation details.");
+            document.open();
+            document.write(xhr.responseText);
+            document.close();
+            return;
+          }
+          setImportProgress(100, "Import complete", "Opening the run page.");
+          window.setTimeout(function() {
+            window.location.href = xhr.responseURL;
+          }, 350);
+        } else {
+          setImportProgress(100, "Import failed", "The server could not finish the import. Review the returned page.");
+          document.open();
+          document.write(xhr.responseText || "Import failed.");
+          document.close();
+        }
+      });
+
+      xhr.addEventListener("error", function() {
+        if (serverTimer) window.clearInterval(serverTimer);
+        importButton.disabled = false;
+        importButton.classList.remove("is-loading");
+        setImportProgress(100, "Connection failed", "The upload did not reach the server. Please try again.");
+      });
+
+      xhr.open("POST", form.action || window.location.href);
+      xhr.send(formData);
     });
   }
 });
 </script>
 {% if preview %}
 <section class="panel mt-4">
-  <h2>Preview</h2>
+  <h2>Detected preview</h2>
+  <p class="text-muted">{{ import_summary.source_description }} &middot; {{ import_summary.row_count }} data rows found. Showing the first {{ preview|length }}.</p>
   <div class="table-responsive">
     <table class="table table-sm">
+      <thead><tr>{% for header in import_summary.headers %}<th>{{ header }}</th>{% endfor %}</tr></thead>
       <tbody>
         {% for row in preview %}
-          <tr><td><pre>{{ row }}</pre></td></tr>
+          <tr>{% for value in row.values %}<td>{{ value|default:"—" }}</td>{% endfor %}</tr>
         {% endfor %}
       </tbody>
     </table>

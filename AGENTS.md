@@ -1,4 +1,4 @@
-# Multi-Agent Coordination Handbook (AGENTS.md)
+# 🤖 Multi-Agent Coordination Handbook (AGENTS.md)
 
 This handbook defines the roles, responsibilities, capabilities, and coordination workflows of the specialized AI Agents operating within the **Book Trailer Lead Finder** project. 
 
@@ -27,14 +27,16 @@ graph LR
 * **Responsibilities:**
   * Define keyword lists and suggest terms using the keyword badge suggester.
   * Fetch listing data from PW BookLife category index pages.
-  * Import seed book lists from CSVs supplied by the client.
+  * Import seed book lists from CSVs and multi-sheet Excel workbooks (`leads data.xlsx`, `leads dev-ali.xlsx`).
+  * Validate ISBN-10, ISBN-13, and ASIN identifiers and reconcile metadata across Open Library and Google Books.
 * **Active Skills Used:**
   * `run_lead_research` (keyword lookup)
   * `run_bulk_lead_research` (looping keyword lookup)
   * `run_booklife_research` (BookLife category indexing)
+  * `import_excel_leads` (production Excel ingestion with column-shift protection)
   * `import_books_csv` (CSV seeding)
 * **Workflow Input/Output:**
-  * **Input:** Raw search queries, CSV seeds.
+  * **Input:** Raw search queries, CSV/XLSX seeds, ISBNs.
   * **Output:** Database records containing book title, author, ASIN, and Amazon URL.
 
 ---
@@ -44,11 +46,13 @@ graph LR
 * **Responsibilities:**
   * Look up official author websites, publishers, and speaking pages using web search indexing.
   * Crawl author-owned pages politely (complying with robots.txt, timeouts, and safe delays).
+  * Inspect bounded public bio links (Linktree, Carrd, Substack).
   * Pull visible public professional emails and phone numbers.
   * Scan public search results and YouTube/Vimeo APIs for existing animated trailers or promotional videos.
 * **Active Skills Used:**
-  * `scrape_author_visit_leads` (direct visit harvesting)
+  * `scrape_author_visit_leads` (school visit & speaker kit harvesting)
   * `pull_tavily_validated_leads` (Tavily contact lookup)
+  * `harvest_author_site_leads` (direct website crawler)
   * `enrich_existing_leads` (Amazon ASIN backfill scraper)
 * **Workflow Input/Output:**
   * **Input:** Database book records.
@@ -62,10 +66,12 @@ graph LR
   * Perform name similarity audits between domain, page title, and author name to ensure site ownership.
   * Screen contact emails to filter out generic bookstores, retailers, catalog lists, and support desks (e.g. Open Library, Goodreads, MIT Press Bookstore).
   * Safely accept agent channels (`representation_email`) and PR desks (`publicist_email`) as verified contact channels.
+  * Perform optional asynchronous DNS MX record checks.
   * Audit video classification to distinguish read-alouds and amateur recordings from professionally animated trailers.
 * **Active Skills Used:**
   * `sanitize_contact_sources` (clean up catalog links)
-  * Verification reports & identity checks (`is_valid_author_name`, `valid_email`)
+  * `reverify_contacts` & `reverify_stale_contacts`
+  * Contact verification engine & scoring calculator
 * **Workflow Input/Output:**
   * **Input:** Raw contact candidates and source snippets.
   * **Output:** Identity alignment confidence score, audit trail events, and final validation status.
@@ -91,16 +97,19 @@ graph LR
 * **Objective:** Package, sanitize, and deliver finalized lead lists to production teams or outreach databases.
 * **Responsibilities:**
   * Enforce final data qualification thresholds (e.g. require email, require ASIN, require low-video presence).
-  * Clean up and output compiled database entries to highly structured CSV formats.
+  * Distribute qualified leads into sales rep private queues based on daily schedules.
+  * Output compiled database entries to highly structured CSV and multi-sheet styled Excel (`.xlsx`) formats.
   * Manage database states, mark bad records as `do_not_contact`, and recalculate scores post-sanitization.
 * **Active Skills Used:**
   * `export_leads_csv`
+  * `export_leads_xlsx`
   * `export_validated_author_leads`
   * `export_contactable_leads_csv`
   * `export_best_animation_leads`
+  * `run_scheduler_loop`
 * **Workflow Input/Output:**
   * **Input:** Scored and completed database entries.
-  * **Output:** Production-ready export sheets (`leads.csv`).
+  * **Output:** Production-ready export sheets (`leads.csv`, `leads.xlsx`) and assigned rep queues.
 
 ---
 
@@ -111,22 +120,39 @@ When a new scraping project begins, the coordination pipeline triggers agent dut
 ```mermaid
 sequenceDiagram
     autonumber
-    actor CLI/UI as Operator
+    actor CLI/UI as Operator / Scheduler
     participant Scout as Scout Agent
     participant Harvester as Harvester Agent
     participant Auditor as Auditor Agent
     participant Copywriter as Copywriter Agent
     participant Coordinator as Coordinator Agent
 
-    CLI/UI->>Scout: Execute Discovery (e.g., run_lead_research)
-    Scout->>Scout: Discover books, titles, and ASINs
+    CLI/UI->>Scout: Execute Discovery (e.g. run_lead_research / Excel Ingestion)
+    Scout->>Scout: Discover books, titles, ASINs & ISBNs
     Scout->>Harvester: Pass ASIN list & search parameters
     Harvester->>Harvester: Search websites, safe-fetch, and query video APIs
     Harvester->>Auditor: Pass contact candidates & video evidence
-    Auditor->>Auditor: Run verification audits & name token matching
+    Auditor->>Auditor: Run verification audits, catalog filters & MX checks
     Auditor->>Copywriter: Pass validated and scored leads
     Copywriter->>Copywriter: Generate customized sales briefs & angles
     Copywriter->>Coordinator: Send complete lead profiles
-    Coordinator->>Coordinator: Export CSV & deliver reports
-    Coordinator-->>CLI/UI: Success notification
+    Coordinator->>Coordinator: Distribute to sales reps & export sheets
+    Coordinator-->>CLI/UI: Success notification & live dashboard update
 ```
+
+---
+
+## 💻 Technical Guidelines for AI Coding Agents
+
+When working on this codebase, all autonomous coding agents must adhere to:
+
+1. **Table Stacking Context Integrity:**
+   - Never apply `transform` or `animation-fill-mode: both / forwards` to table rows (`<tr>`). Doing so traps the stacking context and breaks dropdown layering.
+   - Dropdown animations must only transition `opacity`.
+   - Maintain the desktop 7-column table layout: Checkbox `38px`, Book Details `32%`, Author & Contact `27%`, Channels `11%`, Published `10%`, Task `11%`, Actions `9%`.
+2. **Deterministic Data Handling:**
+   - Preserve all existing docstrings and explanatory comments.
+   - Always link contact candidate records to concrete `Evidence` model instances with valid `source_url`.
+3. **Verification Before Delivery:**
+   - Always run `python -m pytest leadfinder/tests` before submitting code changes.
+   - All 281 tests must pass.

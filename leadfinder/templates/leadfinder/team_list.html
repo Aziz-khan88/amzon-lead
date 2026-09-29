@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% block title %}Team & Access Control - Lead Finder{% endblock %}
+{% block content %}
+<div class="team-page">
+  <header class="role-page-header mb-4">
+    <div>
+      <p class="eyebrow"><i class="ph-fill ph-users-three text-teal"></i> Access Control & Team Operations</p>
+      <h1>Team & Role Performance</h1>
+      <p>Manage workspace access, assign roles, and track salesperson lead conversions in real time.</p>
+    </div>
+  </header>
+
+  <!-- Team Performance Summary KPI Cards -->
+  <div class="run-stat-grid mb-4">
+    <div class="run-stat-card stat-runs-total">
+      <span class="run-stat-icon"><i class="ph-bold ph-users-three"></i></span>
+      <span class="run-stat-label">Team Members</span>
+      <strong>{{ users|length }}</strong>
+      <small>Active workspace members</small>
+    </div>
+    <div class="run-stat-card stat-runs-completed">
+      <span class="run-stat-icon"><i class="ph-bold ph-paper-plane-tilt"></i></span>
+      <span class="run-stat-label">Assigned Work</span>
+      <strong>{% for m in users %}{% if forloop.first %}{{ m.assigned_count }}{% endif %}{% empty %}0{% endfor %}</strong>
+      <small>Active assignments</small>
+    </div>
+    <div class="run-stat-card stat-runs-review">
+      <span class="run-stat-icon"><i class="ph-bold ph-checks"></i></span>
+      <span class="run-stat-label">Outreach Completed</span>
+      <strong>{% for m in users %}{% if forloop.first %}{{ m.completed_count }}{% endif %}{% empty %}0{% endfor %}</strong>
+      <small>Completed contacts</small>
+    </div>
+    <div class="run-stat-card stat-runs-failed">
+      <span class="run-stat-icon"><i class="ph-fill ph-trophy text-amber"></i></span>
+      <span class="run-stat-label">Deals Converted</span>
+      <strong>{% for m in users %}{% if forloop.first %}{{ m.converted_count }}{% endif %}{% empty %}0{% endfor %}</strong>
+      <small>Closed conversions</small>
+    </div>
+  </div>
+
+  <div class="team-layout">
+    <!-- Main Roster Section -->
+    <section class="role-panel team-roster">
+      <div class="role-panel-head mb-3">
+        <div>
+          <p class="eyebrow"><i class="ph-bold ph-user-gear"></i> Roster</p>
+          <h2>Workspace Members & Roles</h2>
+        </div>
+      </div>
+
+      <div class="team-table-wrap">
+        <table class="table align-middle team-roster-table">
+          <thead>
+            <tr>
+              <th style="width: 28%;">Member</th>
+              <th style="width: 28%;">Role & Queue</th>
+              <th class="text-center" style="width: 9%;">Assigned</th>
+              <th class="text-center" style="width: 9%;">Completed</th>
+              <th class="text-center" style="width: 9%;">Converted</th>
+              <th style="width: 9%;">Status</th>
+              <th class="text-end" style="width: 8%;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for member in users %}
+              <tr>
+                <td>
+                  <div class="team-person d-flex align-items-center gap-2">
+                    <div class="team-avatar" style="width: 36px; height: 36px; border-radius: 8px; background: linear-gradient(135deg, #087c47, #065e36); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.9rem; flex-shrink: 0;">
+                      {{ member.first_name|first|default:member.username|first|upper }}
+                    </div>
+                    <div class="min-w-0">
+                      <strong class="d-block text-truncate" style="max-width: 160px; font-size: 0.88rem;">{{ member.get_full_name|default:member.username }}</strong>
+                      <small class="text-muted text-truncate d-block" style="max-width: 160px; font-size: 0.75rem;">{{ member.email }}</small>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  {% if is_super_admin and member != request.user %}
+                    <form class="inline-role-form d-flex align-items-center gap-2" method="post" action="{% url 'leadfinder:team_member_role_update' member.id %}">
+                      {% csrf_token %}
+                      <select name="role" class="form-select form-select-sm inline-role-select">
+                        {% for value,label in form.fields.role.choices %}
+                          <option value="{{ value }}" {% if member.leadfinder_profile.role == value or member.is_superuser and value == 'super_admin' %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                      </select>
+                      <label class="inline-role-queue-label d-flex align-items-center gap-1 cursor-pointer" title="Available for automatic assignments">
+                        <input type="checkbox" name="available" class="form-check-input me-0" {% if member.leadfinder_profile.is_available_for_assignment %}checked{% endif %}>
+                        <span class="small text-muted">Queue</span>
+                      </label>
+                      <button class="inline-role-save-btn" type="submit" aria-label="Save role" title="Save Role & Queue Setting"><i class="ph-bold ph-check"></i></button>
+                    </form>
+                  {% else %}
+                    <span class="role-badge badge-role-{% if member.is_superuser %}admin{% else %}{{ member.leadfinder_profile.role|default:'sales' }}{% endif %}">
+                      {% if member.is_superuser %}Super Admin{% else %}{{ member.leadfinder_profile.get_role_display|default:"Salesperson" }}{% endif %}
+                    </span>
+                  {% endif %}
+                </td>
+                <td class="text-center font-weight-700">{{ member.assigned_count }}</td>
+                <td class="text-center font-weight-700 text-primary">{{ member.completed_count }}</td>
+                <td class="text-center font-weight-700 text-success">{{ member.converted_count }}</td>
+                <td>
+                  {% if member.is_active %}
+                    <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1"><i class="ph-fill ph-check-circle"></i> Active</span>
+                  {% else %}
+                    <span class="badge bg-secondary-subtle text-muted border border-secondary-subtle px-2 py-1"><i class="ph-bold ph-prohibit"></i> Disabled</span>
+                  {% endif %}
+                </td>
+                <td class="text-end">
+                  {% if member != request.user and not member.is_superuser %}
+                    <form method="post" action="{% url 'leadfinder:team_member_toggle' member.id %}" class="d-inline">
+                      {% csrf_token %}
+                      <button class="btn btn-secondary btn-sm">
+                        {% if member.is_active %}
+                          <i class="ph-bold ph-prohibit"></i> Disable
+                        {% else %}
+                          <i class="ph-bold ph-check"></i> Enable
+                        {% endif %}
+                      </button>
+                    </form>
+                  {% endif %}
+                </td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="7" class="text-center py-4 text-muted">No team members found.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Side Panel: Add Team Member Form -->
+    <aside class="role-panel invite-panel">
+      <div class="role-panel-head mb-3">
+        <div>
+          <p class="eyebrow"><i class="ph-bold ph-user-plus text-teal"></i> User Onboarding</p>
+          <h2>{% if can_choose_roles %}Add Team Member{% else %}Add Salesperson{% endif %}</h2>
+        </div>
+      </div>
+      <form method="post" class="team-create-form">
+        {% csrf_token %}
+        {% for hidden in form.hidden_fields %}{{ hidden }}{% endfor %}
+        {% for field in form.visible_fields %}
+          <div class="mb-3">
+            <label class="form-label text-muted small font-weight-700 mb-1 d-block">
+              {{ field.label }}
+            </label>
+            {{ field }}
+            {% if field.errors %}
+              <div class="invalid-feedback d-block">{{ field.errors }}</div>
+            {% endif %}
+          </div>
+        {% endfor %}
+        <button class="btn btn-primary w-100 font-weight-700 mt-2" type="submit">
+          <i class="ph-bold ph-user-plus"></i> Create Secure Account
+        </button>
+      </form>
+    </aside>
+  </div>
+</div>
+{% endblock %}

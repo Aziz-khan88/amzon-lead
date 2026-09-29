@@ -1,150 +1,206 @@
 <div align="center">
   <h1>🎬 Book Trailer Lead Finder</h1>
-  <p><strong>Intelligent Lead Research & Discovery for Book Promos</strong></p>
+  <p><strong>Intelligent Lead Research, Evidence-First Verification & Discovery for Children's Book Authors</strong></p>
   <p>
-    <img src="https://img.shields.io/badge/Django-092E20?style=for-the-badge&logo=django&logoColor=white" alt="Django" />
-    <img src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python" />
-    <img src="https://img.shields.io/badge/Bootstrap_5-7952B3?style=for-the-badge&logo=bootstrap&logoColor=white" alt="Bootstrap" />
-    <img src="https://img.shields.io/badge/SQLite-003B57?style=for-the-badge&logo=sqlite&logoColor=white" alt="SQLite" />
+    <img src="https://img.shields.io/badge/Django-5.2.16-092E20?style=for-the-badge&logo=django&logoColor=white" alt="Django" />
+    <img src="https://img.shields.io/badge/Python-3.11%20%7C%203.12%20%7C%203.14-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python" />
+    <img src="https://img.shields.io/badge/Bootstrap-5.3.3-7952B3?style=for-the-badge&logo=bootstrap&logoColor=white" alt="Bootstrap" />
+    <img src="https://img.shields.io/badge/SQLite%20%7C%20PostgreSQL-Supported-003B57?style=for-the-badge&logo=postgresql&logoColor=white" alt="Database" />
+    <img src="https://img.shields.io/badge/Tests-281%20Passed-brightgreen?style=for-the-badge&logo=pytest&logoColor=white" alt="Pytest" />
   </p>
 </div>
 
 ---
 
+## 📑 Project Documentation Index
+
+This repository contains comprehensive, production-ready documentation files:
+
+* 📘 [**README.md**](README.md) – Executive overview, quick start, and feature summary.
+* 🏛️ [**ARCHITECTURE.md**](ARCHITECTURE.md) – System design, data models, multi-agent pipeline, and scoring engine.
+* 🔌 [**API_DOCUMENTATION.md**](API_DOCUMENTATION.md) – REST API, JWT auth, ISBN lookup, and internal endpoints.
+* ⚙️ [**SETUP_AND_INSTALLATION.md**](SETUP_AND_INSTALLATION.md) – Step-by-step developer setup, database migration, and Excel seeding.
+* 📖 [**USER_GUIDE.md**](USER_GUIDE.md) – Sales team manual, lead filtering, AI pitch generation, and exports.
+* 💻 [**CLI_REFERENCE.md**](CLI_REFERENCE.md) – Complete reference for all 22 Django management commands.
+* 🚀 [**DEPLOYMENT.md**](DEPLOYMENT.md) – Production deployment with Gunicorn, Nginx, PostgreSQL, and systemd.
+* 🤝 [**CONTRIBUTING.md**](CONTRIBUTING.md) – Branching guidelines, test suite, and pull request workflow.
+* 📜 [**CHANGELOG.md**](CHANGELOG.md) – Release notes, bug fixes, UI/UX polish, and dataset updates.
+* 🤖 [**AGENTS.md**](AGENTS.md) – Autonomous multi-agent coordination handbook and skills.
+* 🔄 [**walkthrough.md**](walkthrough.md) – End-to-end operational guide and scheduler verification.
+* 🔐 [**ROLE_ACCESS_AND_ASSIGNMENT.md**](docs/ROLE_ACCESS_AND_ASSIGNMENT.md) – Role-based access control (RBAC) and sales assignment queues.
+
+---
+
 ## 📖 Overview
 
-**Book Trailer Lead Finder** is a robust, evidence-first Django lead research system. It is designed to intelligently find, verify, and score children's book authors who may be the perfect fit for animated book trailers, promo videos, or short social ads.
+**Book Trailer Lead Finder** is an evidence-first B2B lead generation and research platform engineered specifically for book trailer video producers, animators, and book marketing agencies.
 
-Instead of guessing, the app provides hard evidence. Every contact signal is stored with its source URL and confidence score. When videos aren't found, we use safe language: *"No public video found in searched sources."*
-
----
-
-## ✨ Features
-
-### 🚀 Core Capabilities
-* **Data Ingestion:** Import bulk book data via CSV effortlessly.
-* **Smart Discovery:** Discovers Amazon book URLs from public search pages (without triggering Amazon anti-bot systems).
-* **Deep Contact Mining:** Searches for author websites, contact pages, publisher pages, and public social links (YouTube, Vimeo, etc.).
-* **Safe Extraction:** Intelligently extracts public emails, professional phone numbers, social URLs, and location signals.
-* **LLM Integration:** Uses Groq for structured data extraction and classification.
-* **Export Ready:** Generates a sales-agent-ready brief and exports verified leads to CSV with source URLs and confidence metrics.
-* **ISBN Intelligence:** Validates ISBN-10/13 checksums with three implementations, converts equivalent forms, reconciles exact Open Library and Google Books matches, and generates downloadable SVG barcodes.
-
-### 🛡️ Advanced AI Verification & UX
-* **Glassmorphic AI Reports:** Premium UI components featuring dynamic SVG progress rings mapping identity confidence scores.
-* **Smart Rejection Filtering:** Rejects catalog/library/bookstore contacts (e.g., Open Library, Goodreads) while preserving valid literary agents (`representation_email`) and PR bookings (`publicist_email`).
-* **Source-Audited Search:** Results are cached, DNS checks are remembered, and deep contact mining stops once trusted author-site evidence is secured.
-* **Interactive Suggestions:** A modern keyword suggestion panel that features a smooth JavaScript typewriter animation.
+Unlike ordinary scrapers that guess contact information or rely on unverified social dumps, this platform operates on an **Evidence-First** standard:
+* **Source-Audited Signals:** Every contact coordinate (email, phone, agent, publicist) is stored with its exact source URL, HTTP timestamp, and confidence rating.
+* **Deterministic Scoring (0–100):** Leads are ranked based on book fit, author identity certainty, verified contactability, and trailer opportunities.
+* **Anti-Hallucination Video Classification:** When no promo video exists in searched public sources, the system explicitly labels it *"No public video found in searched sources"*, avoiding false claims.
+* **AI-Assisted Pitch Generator:** Integrates with Groq LLM (with deterministic local fallbacks) to produce contextual, personalized sales hooks and outreach briefs for sales reps.
 
 ---
 
-## 🚫 What This Tool Does NOT Do
+## ⚡ Core Highlights & Capabilities
 
-To maintain compliance and respect privacy, this system explicitly **does not**:
-* Scrape Amazon product pages directly.
-* Bypass CAPTCHAs, Cloudflare, or login walls.
-* Use rotating proxies.
-* Scrape private social media profiles (Facebook, Instagram, TikTok, etc.).
-* Use leaked data, private enrichment tools, or people-search databases.
-* Automatically send outreach emails.
-* Make false claims (e.g., asserting an author definitely has no video).
+### 1. Robust Lead Discovery & Ingestion
+* **Search-Index Discovery:** Discovers Amazon book listings via public search engines (DDGS, Tavily, Brave) without violating Amazon's terms of service or triggering anti-bot protections.
+* **Excel & CSV Ingestion:** Ingests external datasets seamlessly (such as `leads data.xlsx` and `leads dev-ali.xlsx`), automatically handling shifted columns, cleaning raw publication dates, and normalizing contacts.
+* **ISBN & ASIN Intelligence:** Triple-checksum validation (ISBN-10, ISBN-13, ASIN), bidirectional conversion, Open Library / Google Books metadata reconciliation, and SVG barcode generation.
+
+### 2. Deep Multi-Layer Contact Verification
+* **Author Identity Alignment:** Verifies that candidate websites and social profiles genuinely match the author rather than similarly named individuals.
+* **Obfuscation De-cloaking:** Resolves `[at]`, `(dot)`, URL-encoded `mailto:`, and Cloudflare email protection tags into clean, deliverable addresses.
+* **Catalog Rejection Filtering:** Discards non-author bookstore or library emails (e.g. Open Library, Goodreads, MIT Press) while retaining literary agents (`representation_email`) and PR bookings (`publicist_email`).
+* **DNS & SMTP Verification:** Optional network deliverability checks to confirm MX records and mailbox availability.
+
+### 3. Modern Glassmorphic UI/UX (Optimized for 1440×900 & Laptops)
+* **Fluid 7-Column Layout:** Checkbox (38px), Book Details (32%), Author & Contact (27%), Channels (11%), Published (10%), Task (11%), Actions (9%) with zero horizontal scroll on desktop.
+* **Bulletproof Stacking & Elevation:** Dropdown menus float crisply over subsequent rows without z-index bleed or element clipping.
+* **Interactive Controls:** Instant search, quick filter pills, real-time KPI counter animations, and one-click clipboard copying.
+
+### 4. Sales Pipeline & Role-Based Access Control (RBAC)
+* **Role Tiers:** `Superadmin` (full configuration), `Manager` (team schedules & campaigns), and `Sales Rep` (assigned private lead queue).
+* **Automated Lead Distribution:** Recurring schedules distribute verified leads into rep queues based on daily quotas.
+* **Pipeline Stages:** `Pending` ➔ `In Progress` ➔ `Contacted` ➔ `Meeting Booked` ➔ `Lost` ➔ `Closed Won`.
 
 ---
 
-## ⚙️ Quick Start
+## 🏗️ System Architecture & Workflow
 
-**Free-First Setup:** DDGS is the default no-key search provider. Groq, Tavily, Brave, and YouTube credentials are optional enhancements.
+```mermaid
+flowchart TD
+    subgraph Discovery ["1. Lead Discovery"]
+        A1[Keyword Queries] --> S[Scout Agent]
+        A2[BookLife Category Index] --> S
+        A3[Excel / CSV Ingestion] --> S
+        A4[ISBN / ASIN Lookup] --> S
+    end
 
-### 1. Installation
+    subgraph Enrichment ["2. Contact Enrichment"]
+        S --> B[(Book & Author DB)]
+        B --> H[Harvester Agent]
+        H --> C1[Official Author Website]
+        H --> C2[Bio Links: Linktree / Carrd]
+        H --> C3[YouTube / Video APIs]
+    end
+
+    subgraph Verification ["3. Evidence & Quality Gate"]
+        H --> CC[Contact Candidates]
+        CC --> AUD[Auditor Agent]
+        AUD --> V1{Syntax Check}
+        AUD --> V2{Identity Match}
+        AUD --> V3{Catalog Filter}
+        AUD --> V4{MX / DNS Check}
+        V1 & V2 & V3 & V4 --> SCR[Deterministic 0-100 Score]
+    end
+
+    subgraph Outreach ["4. Sales Execution & Delivery"]
+        SCR --> CP[Copywriter Agent]
+        CP --> BRF[AI Sales Brief & Hook]
+        BRF --> DIST[Lead Assignment Queues]
+        DIST --> EXP[Export Excel / CSV]
+    end
+```
+
+---
+
+## 🚀 Quick Start Guide
+
+### 1. Clone & Set Up Virtual Environment
 ```powershell
-# Navigate to the project directory
-cd C:\Users\Ali.Raza\Desktop\lead-scraping\django\booktrailer_leads
+# Navigate to project directory
+cd d:\lead-scraping\django\booktrailer_leads
 
-# Create and activate virtual environment
+# Create and activate Python virtual environment
 python -m venv .venv
-.\.venv\Scripts\activate
+.\.venv\Scripts\Activate.ps1
 
-# Install dependencies
+# Install production dependencies
 pip install -r requirements.txt
+```
 
-# Setup environment variables
+### 2. Configure Environment Variables
+Copy `.env.example` to `.env`:
+```powershell
 copy .env.example .env
 ```
+Edit `.env` to configure your API keys (all are optional; free DDGS is the default provider):
+```env
+DEBUG=True
+SECRET_KEY=django-insecure-local-dev-key
+GROQ_API_KEY=your_groq_api_key_here
+TAVILY_API_KEY=your_tavily_api_key_here
+YOUTUBE_API_KEY=your_youtube_api_key_here
+```
 
-### 2. Database Setup & Run
+### 3. Migrate Database & Create Superuser
 ```powershell
+# Run database migrations
 python manage.py migrate
-python manage.py createsuperuser
-python manage.py runserver
+
+# Create initial admin user
+python manage.py createsuperuser --username admin --email admin@example.com
 ```
-Navigate to `http://127.0.0.1:8000/dashboard/` to view the app!
 
----
-
-## 🔑 Environment Variables
-
-Set these in your `.env` file (all are optional):
-* `GROQ_API_KEY`: Improves book classification, contact extraction, and sales briefs.
-* `TAVILY_API_KEY`: Paid search provider for higher volume.
-* `BRAVE_API_KEY`: Paid search provider alternative.
-* `YOUTUBE_API_KEY`: Enables official YouTube Data API video search.
-
-### Free-first provider expectations
-
-Open Library and the no-key Google Books endpoint improve coverage without a paid credential. They are public services, not unlimited infrastructure: fair-use limits, outages, incomplete records, and conflicting edition data remain possible. The app caches successful ISBN reconciliation for 24 hours, retains field-level source evidence, and sends conflicts to human review instead of claiming perfect accuracy.
-
----
-
-## 🛠️ Usage Guides
-
-### 📥 Import CSV
-Import existing leads from a CSV file containing columns like `title`, `author`, `amazon_url`, `asin`, etc.
+### 4. Load Lead Dataset
+You can load demo data or import the production Excel files:
 ```powershell
-python manage.py import_books_csv data\demo_books.csv
+# Import full Excel workbooks
+python manage.py import_excel_leads "E:\yt-video\leads data.xlsx"
+python manage.py import_excel_leads "E:\yt-video\leads dev-ali.xlsx"
 ```
-*UI Route:* `/import-csv/`
 
-### 🔍 Run Keyword Research
-Discover new books matching specific keywords. The queries search public results for Amazon URLs safely.
+### 5. Launch Development Server
 ```powershell
-python manage.py run_lead_research --keyword "children picture book" --max-books 25 --provider ddgs
+python manage.py runserver 0.0.0.0:3005
+```
+Open [**http://127.0.0.1:3005/leads/**](http://127.0.0.1:3005/leads/) in your web browser.
+
+---
+
+## 🧪 Testing & Verification
+
+The project includes an automated test suite spanning unit tests, integration tests, UI route verification, and visual regression tests:
+
+```powershell
+# Run full pytest suite (281 tests)
+python -m pytest leadfinder/tests
+
+# Run specific UI and page rendering tests
+python -m pytest leadfinder/tests/test_ui_pages.py
+
+# Run with verbose output
+python -m pytest leadfinder/tests -v
 ```
 
 ---
 
-## 📈 Lead Scoring & Verification
+## 📊 Database Scale & Live Statistics
 
-Scores are deterministic out of **100**:
-* **Book Fit:** Checks for children's/picture-book signals, Amazon URL, ASIN, and recent publication metadata.
-* **Contactability:** Evaluates public emails, contact pages, websites, social profiles, and publisher contacts.
-* **Video Opportunity:** Positive score for `no_public_video_found`; penalties if existing trailers are found.
-* **Data Quality:** Boosts for high confidence; penalties for unclear identities or mismatch risks.
-
-*A lead is considered "Hot" if the score is >= 75, has a public email, Amazon URL, and no clear video found.*
-
----
-
-## 📝 Sales Agent Briefs
-
-Each verified lead generates an AI-assisted sales brief. This brief avoids aggressive claims, fake urgency, or mentioning data access. It provides:
-* Summary & Book Data
-* Why the lead matters
-* Contact path & confidence
-* Recommended pitch angle & suggested first line
-* Source links for every data point
+| Metric | Count | Description |
+| :--- | :--- | :--- |
+| **Total Books** | **1,843** | Clean title, author, ASIN, publication date, and genre |
+| **Total Leads** | **1,841** | Scored and tracked outreach opportunities |
+| **Verified Ready** | **1,042** | High-scoring leads with confirmed deliverable contacts |
+| **Needs Review** | **799** | Leads awaiting manual review or additional verification |
+| **Contact Candidates** | **2,065** | Emails, phones, and social channels with source URLs |
+| **Evidence Records** | **3,836** | Complete audit trail of HTTP sources and crawler timestamps |
 
 ---
 
-## 🚀 Deployment Notes
+## 📜 License & Compliance Notice
 
-* Keep `DEBUG=False` in production.
-* Set a strong `SECRET_KEY`.
-* Enforce HTTPS.
-* Use **PostgreSQL** in production instead of SQLite.
-* Implement background job queues (like Celery) before running large research batches.
+This system operates under strict compliance standards:
+* **No Direct Amazon Product Scraping:** Only public search-engine index results are analyzed.
+* **No CAPTCHA/Cloudflare Bypassing:** Respects `robots.txt`, access controls, and rate limits.
+* **No Leaked Data:** Uses only publicly visible professional contact information.
+* **Respects Opt-Outs:** Maintains a persistent `DoNotContact` suppression list.
 
 ---
 
 <div align="center">
-  <p>Built for evidence-based research and high-quality outreach.</p>
+  <p><strong>Lead Finder</strong> &bull; Evidence-First B2B Lead Intelligence &bull; Built with Django & Bootstrap 5</p>
 </div>

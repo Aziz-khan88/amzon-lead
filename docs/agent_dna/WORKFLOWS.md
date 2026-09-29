@@ -39,14 +39,14 @@ Operator input
 5. If direct fetch is not allowed, search-index snippets are used as fallback.
 6. Candidate books enter the same enrichment and audit pipeline as keyword runs.
 
-## Workflow 3: CSV Import
+## Workflow 3: Manual CSV / Excel Import
 
-1. Operator uploads a CSV at `/import-csv/` or runs `import_books_csv`.
-2. Accepted columns are normalized into book rows.
-3. A `ResearchRun` is created with `source_provider="csv"`.
-4. Imported books are stored with source metadata.
-5. The pipeline enriches each imported book.
-6. Results are available through runs, leads, and exports.
+1. Operator uploads a CSV, XLSX, or XLSM file at `/import-csv/` or runs `import_books_csv`.
+2. The page detects a compatible lead-table header in the first 25 rows. It supports app-export workbooks (which separate Authors, Books, Contact Evidence, and Outreach Log tabs) by joining them on Lead ID.
+3. A manual `ResearchRun` is created and the book, author, lead, contact, and source-evidence fields are stored directly.
+4. By default no AI, web scraping, email/phone verification, or video search runs.
+5. The operator may independently select video checks, contact verification, and/or AI sales briefs. Only those selected background checks run; imported values remain the source data.
+6. Results are available through runs, leads, and CSV/XLSX exports.
 
 ## Workflow 4: ISBN/ASIN Search
 
@@ -82,6 +82,16 @@ Operator input
 3. Operator can retry failed or canceled runs.
 4. Retry creates a fresh `ResearchRun` with copied settings.
 5. Existing saved work remains intact.
+
+## Workflow 8: Scheduled Lead Hunt
+
+1. Operator creates a task at `/scheduled-tasks/new/` with a keyword, provider, cadence, lead target, and contact requirement.
+2. Django calculates `next_run_at` in the configured application timezone.
+3. `python manage.py run_scheduler_loop` claims due tasks atomically and creates a normal linked `ResearchRun`.
+4. Discovery removes prior normalized-book keys and ASINs when new-books-only is enabled, then uses the normal enrich, audit, copywriting, and delivery pipeline.
+5. The run stops when the verified-contact target is reached or its bounded candidate pool is exhausted.
+6. Completion records totals, errors, and the next occurrence. A task left `running` longer than `APP_SCHEDULED_TASK_LEASE_SECONDS` is eligible for recovery by a later scheduler tick.
+7. A weekly schedule accepts one weekday; use specific-days for multi-day cadence. Pausing prevents future claims but does not interrupt a safely running task.
 
 ## Agent Handoffs
 

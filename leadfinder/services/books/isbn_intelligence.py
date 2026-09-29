@@ -24,6 +24,12 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 from leadfinder.services.amazon.amazon_url_parser import extract_asin, is_amazon_url
+from leadfinder.services.books.free_catalogs import (
+    crossref_isbn_record,
+    internet_archive_isbn_record,
+    wikidata_isbn_record,
+)
+from leadfinder.services.parallel import map_parallel
 
 ASIN_RE = re.compile(r"^B0[A-Z0-9]{8}$")
 TOKEN_RE = re.compile(
@@ -339,6 +345,31 @@ def _choose_field(
     }
 
 
+def _new_session() -> requests.Session:
+    http = requests.Session()
+    retry = Retry(
+        total=2,
+        connect=2,
+        read=2,
+        backoff_factor=0.35,
+        status_forcelist=(429, 500, 502, 503, 504),
+        allowed_methods=frozenset({"GET"}),
+    )
+    http.mount("https://", HTTPAdapter(max_retries=retry))
+    return http
+
+
+# Free, no-key ISBN sources.  Crossref is publisher-deposited (freshest),
+# Internet Archive adds scanned covers, Wikidata adds community entities.
+_METADATA_PROVIDERS = (
+    ("open_library", _open_library_record),
+    ("google_books", _google_books_record),
+    ("crossref", crossref_isbn_record),
+    ("internet_archive", internet_archive_isbn_record),
+    ("wikidata", wikidata_isbn_record),
+)
+
+
 def resolve_free_metadata(
     value: str, *, session: requests.Session | None = None
 ) -> dict[str, Any]:
@@ -358,34 +389,27 @@ def resolve_free_metadata(
         }
 
     lookup_isbn = analysis.isbn13 or analysis.canonical
-    cache_key = f"isbn-intelligence:v1:{lookup_isbn}"
+    cache_key = f"isbn-intelligence:v2:{lookup_isbn}"
     cached = cache.get(cache_key)
     if isinstance(cached, dict):
         return {**cached, "cache_hit": True}
 
-    http = session or requests.Session()
-    if session is None:
-        retry = Retry(
-            total=2,
-            connect=2,
-            read=2,
-            backoff_factor=0.35,
-            status_forcelist=(429, 500, 502, 503, 504),
-            allowed_methods=frozenset({"GET"}),
-        )
-        http.mount("https://", HTTPAdapter(max_retries=retry))
+    def _fetch(provider_fetcher: tuple[str, Any]) -> tuple[str, dict[str, Any] | None, str]:
+        """Network-only worker; safe to run in the stage thread pool."""
+        provider, fetcher = provider_fetcher
+        http = session or _new_session()
+        try:
+            return provider, fetcher(http, lookup_isbn), ""
+        except (requests.RequestException, ValueError) as exc:
+            return provider, None, f"{provider}: {exc}"
+
     records: list[dict[str, Any]] = []
     provider_errors: list[str] = []
-    for provider, fetcher in (
-        ("open_library", _open_library_record),
-        ("google_books", _google_books_record),
-    ):
-        try:
-            record = fetcher(http, lookup_isbn)
-            if record:
-                records.append(record)
-        except (requests.RequestException, ValueError) as exc:
-            provider_errors.append(f"{provider}: {exc}")
+    for provider, record, error in map_parallel(_fetch, _METADATA_PROVIDERS, max_workers=len(_METADATA_PROVIDERS)):
+        if record:
+            records.append(record)
+        if error:
+            provider_errors.append(error)
 
     metadata: dict[str, Any] = {}
     field_evidence: dict[str, Any] = {}

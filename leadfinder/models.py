@@ -1,10 +1,42 @@
 from __future__ import annotations
 
+import base64
+import hashlib
 import uuid
 import django.core.signing
+from datetime import time
 
+from django.conf import settings
 from django.db import models
 from django.utils import timezone
+
+
+def _credential_cipher():
+    """Fernet cipher keyed from SECRET_KEY for at-rest credential encryption."""
+    from cryptography.fernet import Fernet
+
+    digest = hashlib.sha256(settings.SECRET_KEY.encode("utf-8")).digest()
+    return Fernet(base64.urlsafe_b64encode(digest))
+
+
+def _encrypt_credential(raw: str) -> str:
+    return "fernet:" + _credential_cipher().encrypt(raw.encode("utf-8")).decode("ascii")
+
+
+def _decrypt_credential(stored: str) -> str:
+    if not stored:
+        return ""
+    if stored.startswith("fernet:"):
+        try:
+            return _credential_cipher().decrypt(stored[len("fernet:"):].encode("ascii")).decode("utf-8")
+        except Exception:
+            return ""
+    # Legacy rows were only *signed* (not encrypted); read them once so they
+    # transparently upgrade on next save.
+    try:
+        return django.core.signing.loads(stored)
+    except Exception:
+        return ""
 
 
 class TimestampedModel(models.Model):
@@ -13,6 +45,103 @@ class TimestampedModel(models.Model):
 
     class Meta:
         abstract = True
+
+
+class UserProfile(TimestampedModel):
+    ROLE_CHOICES = [
+        ("super_admin", "Super admin"),
+        ("admin", "Admin"),
+        ("sales", "Salesperson"),
+    ]
+
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="leadfinder_profile")
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default="sales", db_index=True)
+    phone = models.CharField(max_length=50, blank=True)
+    is_available_for_assignment = models.BooleanField(default=True, db_index=True)
+
+    def __str__(self) -> str:
+        return f"{self.user.get_full_name() or self.user.username} ({self.get_role_display()})"
+
+
+class ScheduledLeadTask(TimestampedModel):
+    FREQUENCY_CHOICES = [
+        ("daily", "Every day"),
+        ("interval_hours", "Every X hours"),
+        ("weekly", "Weekly"),
+        ("specific_days", "Specific days of the week"),
+    ]
+    REQUIRE_CONTACT_CHOICES = [
+        ("email_or_phone", "Verified email or phone"),
+        ("email_only", "Verified email required"),
+    ]
+    EXECUTION_STATUS_CHOICES = [
+        ("idle", "Ready"),
+        ("running", "Running"),
+        ("failed", "Needs attention"),
+    ]
+    SOURCE_PROVIDER_CHOICES = [
+        ("ddgs", "DDGS"),
+        ("tavily", "Tavily"),
+        ("brave", "Brave"),
+        ("google", "Google"),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=255, help_text="Display name for this scheduled hunt")
+    keyword = models.CharField(max_length=255, help_text="Search keyword query")
+    frequency = models.CharField(max_length=32, choices=FREQUENCY_CHOICES, default="daily")
+    interval_hours = models.PositiveSmallIntegerField(default=24)
+    days_of_week = models.JSONField(default=list, blank=True)
+    run_time = models.TimeField(default=time(8, 0))
+    only_new_books = models.BooleanField(default=True)
+    target_verified_leads = models.PositiveSmallIntegerField(default=50)
+    require_contact = models.CharField(
+        max_length=32,
+        choices=REQUIRE_CONTACT_CHOICES,
+        default="email_or_phone",
+    )
+    verify_email_mx = models.BooleanField(default=True)
+    source_provider = models.CharField(max_length=32, choices=SOURCE_PROVIDER_CHOICES, default="ddgs")
+    is_active = models.BooleanField(default=True, db_index=True)
+    execution_status = models.CharField(
+        max_length=16,
+        choices=EXECUTION_STATUS_CHOICES,
+        default="idle",
+        db_index=True,
+    )
+    last_started_at = models.DateTimeField(null=True, blank=True)
+    last_run_at = models.DateTimeField(null=True, blank=True)
+    next_run_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    total_runs_count = models.PositiveIntegerField(default=0)
+    total_verified_leads_found = models.PositiveIntegerField(default=0)
+    last_error = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["-is_active", "next_run_at", "name"]
+
+    def __str__(self) -> str:
+        return self.name
+
+    @property
+    def schedule_label(self) -> str:
+        formatted_time = self.run_time.strftime("%I:%M %p").lstrip("0")
+        if self.frequency == "interval_hours":
+            return f"Every {self.interval_hours} hour{'s' if self.interval_hours != 1 else ''}"
+        if self.frequency == "daily":
+            return f"Daily at {formatted_time}"
+        day_labels = {
+            "mon": "Mon",
+            "tue": "Tue",
+            "wed": "Wed",
+            "thu": "Thu",
+            "fri": "Fri",
+            "sat": "Sat",
+            "sun": "Sun",
+        }
+        days = ", ".join(day_labels.get(day, day.title()) for day in self.days_of_week)
+        if self.frequency == "weekly":
+            return f"Weekly on {days or 'selected day'} at {formatted_time}"
+        return f"{days or 'Selected days'} at {formatted_time}"
 
 
 class ResearchRun(TimestampedModel):
@@ -32,6 +161,10 @@ class ResearchRun(TimestampedModel):
         ("amazon_creators", "Amazon Creators"),
         ("google_books", "Google Books"),
         ("booklife", "BookLife"),
+        ("kickstarter", "Kickstarter campaigns"),
+        ("goodreads_giveaways", "Goodreads giveaways"),
+        ("scbwi", "SCBWI directory"),
+        ("amazon_new_releases", "Amazon new releases"),
         ("manual", "Manual"),
     ]
 
@@ -45,6 +178,13 @@ class ResearchRun(TimestampedModel):
     completed_at = models.DateTimeField(null=True, blank=True)
     error_message = models.TextField(blank=True)
     settings_json = models.JSONField(default=dict, blank=True)
+    scheduled_task = models.ForeignKey(
+        ScheduledLeadTask,
+        on_delete=models.SET_NULL,
+        related_name="runs",
+        null=True,
+        blank=True,
+    )
 
     def mark_running(self) -> None:
         self.status = "running"
@@ -133,6 +273,11 @@ class AuthorProfile(TimestampedModel):
 
 
 class Lead(TimestampedModel):
+    VERIFICATION_STATUS_CHOICES = [
+        ("verified", "Verified"),
+        ("not_verified", "Not verified"),
+        ("other", "Other"),
+    ]
     VIDEO_STATUS_CHOICES = [
         ("not_checked", "Not checked"),
         ("found_trailer", "Found trailer"),
@@ -168,6 +313,28 @@ class Lead(TimestampedModel):
     video_confidence = models.FloatField(default=0)
     lead_score = models.IntegerField(default=0)
     lead_tier = models.CharField(max_length=16, choices=TIER_CHOICES, default="cold")
+    verification_status = models.CharField(
+        max_length=16,
+        choices=VERIFICATION_STATUS_CHOICES,
+        default="other",
+        db_index=True,
+    )
+    verification_score = models.PositiveSmallIntegerField(default=0, db_index=True)
+    verification_reason = models.TextField(blank=True)
+    verification_reasons_json = models.JSONField(default=list, blank=True)
+    verification_version = models.CharField(max_length=32, blank=True)
+    verified_at = models.DateTimeField(null=True, blank=True)
+    contacts_stale = models.BooleanField(default=False, db_index=True)
+    contacts_flagged_stale_at = models.DateTimeField(null=True, blank=True)
+    uploader_attested = models.BooleanField(default=False, db_index=True)
+    uploader_attested_at = models.DateTimeField(null=True, blank=True)
+    primary_contact = models.ForeignKey(
+        "ContactCandidate",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="primary_for_leads",
+    )
     fit_reason = models.TextField(blank=True)
     sales_agent_summary = models.TextField(blank=True)
     suggested_pitch_angle = models.TextField(blank=True)
@@ -182,10 +349,271 @@ class Lead(TimestampedModel):
     warnings_json = models.JSONField(default=list, blank=True)
     service_needs_json = models.JSONField(default=list, blank=True)
     notes = models.TextField(blank=True)
+    outreach_pitch_body = models.TextField(blank=True, default="")
+    outreach_pitch_subject = models.CharField(max_length=255, blank=True, default="")
+    outreach_status = models.CharField(max_length=32, blank=True, default="not_started")
+
 
 
     def __str__(self) -> str:
         return f"{self.book.title} lead ({self.lead_score})"
+
+
+class LeadAssignment(TimestampedModel):
+    STATUS_CHOICES = [
+        ("pending", "Pending"),
+        ("in_progress", "In progress"),
+        ("contacted", "Contacted"),
+        ("follow_up", "Follow up"),
+        ("completed", "Completed"),
+        ("converted", "Converted"),
+        ("not_interested", "Not interested"),
+        ("no_response", "No response"),
+        ("invalid_data", "Invalid or fake data"),
+        ("duplicate", "Duplicate"),
+    ]
+    CONTACT_QUALITY_CHOICES = [
+        ("unchecked", "Not checked"),
+        ("complete", "Email and phone complete"),
+        ("email_only", "Email only"),
+        ("phone_only", "Phone only"),
+        ("missing_contact", "No usable contact"),
+        ("fake_or_invalid", "Fake or invalid data"),
+        ("wrong_person", "Wrong person"),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    lead = models.ForeignKey(Lead, on_delete=models.CASCADE, related_name="assignments")
+    assigned_to = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="lead_assignments")
+    assigned_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_lead_assignments",
+    )
+    schedule = models.ForeignKey(
+        "LeadAssignmentSchedule",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="assignments",
+    )
+    status = models.CharField(max_length=24, choices=STATUS_CHOICES, default="pending", db_index=True)
+    contact_quality = models.CharField(max_length=24, choices=CONTACT_QUALITY_CHOICES, default="unchecked")
+    notes = models.TextField(blank=True)
+    is_current = models.BooleanField(default=True, db_index=True)
+    assigned_at = models.DateTimeField(default=timezone.now, db_index=True)
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    converted_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-assigned_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["lead"],
+                condition=models.Q(is_current=True),
+                name="one_current_assignment_per_lead",
+            )
+        ]
+        indexes = [models.Index(fields=["assigned_to", "is_current", "status"])]
+
+    def __str__(self) -> str:
+        return f"{self.lead} assigned to {self.assigned_to}"
+
+
+class LeadAssignmentSchedule(TimestampedModel):
+    CONTACT_REQUIREMENT_CHOICES = [
+        ("any", "Any lead"),
+        ("email_or_phone", "Email or phone required"),
+        ("email_only", "Email required"),
+        ("phone_only", "Phone required"),
+        ("email_and_phone", "Email and phone required"),
+        ("verified_contact", "Verified contact required"),
+    ]
+    WEEKDAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=255)
+    salesperson = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="assignment_schedules")
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="created_assignment_schedules")
+    daily_lead_count = models.PositiveSmallIntegerField(default=20)
+    days_of_week = models.JSONField(default=list)
+    run_time = models.TimeField(default=time(9, 0))
+    contact_requirement = models.CharField(max_length=24, choices=CONTACT_REQUIREMENT_CHOICES, default="email_or_phone")
+    verified_only = models.BooleanField(default=False)
+    minimum_lead_score = models.PositiveSmallIntegerField(default=0)
+    is_active = models.BooleanField(default=True, db_index=True)
+    next_run_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    last_run_at = models.DateTimeField(null=True, blank=True)
+    total_assigned = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["-is_active", "next_run_at", "name"]
+
+    def __str__(self) -> str:
+        return f"{self.name} → {self.salesperson}"
+
+
+class LeadAssignmentScheduleRun(TimestampedModel):
+    STATUS_CHOICES = [("running", "Running"), ("completed", "Completed"), ("failed", "Failed")]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    schedule = models.ForeignKey(LeadAssignmentSchedule, on_delete=models.CASCADE, related_name="runs")
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default="running")
+    requested_count = models.PositiveSmallIntegerField(default=0)
+    assigned_count = models.PositiveSmallIntegerField(default=0)
+    message = models.CharField(max_length=500, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+
+class VerificationBatch(TimestampedModel):
+    STATUS_CHOICES = [
+        ("pending", "Pending"),
+        ("running", "Running"),
+        ("completed", "Completed"),
+        ("failed", "Failed"),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    research_run = models.ForeignKey(
+        ResearchRun,
+        on_delete=models.SET_NULL,
+        related_name="verification_batches",
+        null=True,
+        blank=True,
+    )
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default="pending", db_index=True)
+    total_count = models.PositiveIntegerField(default=0)
+    processed_count = models.PositiveIntegerField(default=0)
+    verified_count = models.PositiveIntegerField(default=0)
+    not_verified_count = models.PositiveIntegerField(default=0)
+    other_count = models.PositiveIntegerField(default=0)
+    error_count = models.PositiveIntegerField(default=0)
+    settings_json = models.JSONField(default=dict, blank=True)
+    error_message = models.TextField(blank=True)
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self) -> str:
+        return f"Verification batch {self.id} ({self.status})"
+
+
+class ContactCandidate(TimestampedModel):
+    CHANNEL_CHOICES = [("email", "Email"), ("phone", "Phone")]
+    ROLE_CHOICES = [
+        ("author", "Author"),
+        ("author_business", "Author business"),
+        ("agent", "Agent or representation"),
+        ("publicist", "Publicist or booking"),
+        ("unknown", "Unknown"),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    lead = models.ForeignKey(Lead, on_delete=models.CASCADE, related_name="contact_candidates")
+    channel = models.CharField(max_length=16, choices=CHANNEL_CHOICES)
+    role = models.CharField(max_length=32, choices=ROLE_CHOICES, default="unknown")
+    raw_value = models.CharField(max_length=500)
+    normalized_value = models.CharField(max_length=500)
+    verification_status = models.CharField(
+        max_length=16,
+        choices=Lead.VERIFICATION_STATUS_CHOICES,
+        default="other",
+        db_index=True,
+    )
+    verification_score = models.PositiveSmallIntegerField(default=0, db_index=True)
+    deliverability_status = models.CharField(max_length=32, blank=True, default="not_checked")
+    is_primary = models.BooleanField(default=False, db_index=True)
+    selected_reason = models.TextField(blank=True)
+    first_seen_at = models.DateTimeField(default=timezone.now)
+    last_checked_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-is_primary", "-verification_score", "created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["lead", "channel", "normalized_value"],
+                name="unique_contact_candidate_per_lead",
+            ),
+            models.UniqueConstraint(
+                fields=["lead"],
+                condition=models.Q(is_primary=True),
+                name="one_primary_contact_per_lead",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.channel}: {self.normalized_value} ({self.verification_status})"
+
+
+class VerificationCheck(models.Model):
+    RESULT_CHOICES = [("pass", "Pass"), ("fail", "Fail"), ("unknown", "Unknown")]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    candidate = models.ForeignKey(ContactCandidate, on_delete=models.CASCADE, related_name="checks")
+    batch = models.ForeignKey(
+        VerificationBatch,
+        on_delete=models.SET_NULL,
+        related_name="checks",
+        null=True,
+        blank=True,
+    )
+    check_type = models.CharField(max_length=64)
+    result = models.CharField(max_length=16, choices=RESULT_CHOICES)
+    score_delta = models.SmallIntegerField(default=0)
+    reason_code = models.CharField(max_length=100, blank=True)
+    details_json = models.JSONField(default=dict, blank=True)
+    checker_version = models.CharField(max_length=32, default="v1")
+    checked_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["checked_at", "check_type"]
+
+
+class SocialProfileAudit(TimestampedModel):
+    FETCH_STATUS_CHOICES = [
+        ("pending", "Pending"),
+        ("fetched", "Fetched"),
+        ("blocked", "Blocked"),
+        ("unavailable", "Unavailable"),
+        ("error", "Error"),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    lead = models.ForeignKey(Lead, on_delete=models.CASCADE, related_name="social_audits")
+    author_profile = models.ForeignKey(
+        AuthorProfile,
+        on_delete=models.CASCADE,
+        related_name="social_audits",
+    )
+    platform = models.CharField(max_length=32, db_index=True)
+    profile_url = models.URLField(max_length=1000)
+    normalized_handle = models.CharField(max_length=255, blank=True)
+    fetch_method = models.CharField(max_length=64, blank=True)
+    fetch_status = models.CharField(max_length=16, choices=FETCH_STATUS_CHOICES, default="pending")
+    profile_name = models.CharField(max_length=500, blank=True)
+    biography = models.TextField(blank=True)
+    location = models.CharField(max_length=255, blank=True)
+    follower_count = models.PositiveIntegerField(null=True, blank=True)
+    external_urls_json = models.JSONField(default=list, blank=True)
+    extracted_contacts_json = models.JSONField(default=list, blank=True)
+    identity_score = models.PositiveSmallIntegerField(default=0)
+    content_hash = models.CharField(max_length=64, blank=True)
+    fetched_at = models.DateTimeField(null=True, blank=True)
+    failure_reason = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["platform", "-updated_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["lead", "platform", "profile_url"],
+                name="unique_social_profile_per_lead",
+            )
+        ]
 
 
 class Evidence(models.Model):
@@ -207,6 +635,13 @@ class Evidence(models.Model):
     book = models.ForeignKey(Book, on_delete=models.CASCADE, related_name="evidence", null=True, blank=True)
     author_profile = models.ForeignKey(
         AuthorProfile, on_delete=models.CASCADE, related_name="evidence", null=True, blank=True
+    )
+    contact_candidate = models.ForeignKey(
+        ContactCandidate,
+        on_delete=models.SET_NULL,
+        related_name="evidence",
+        null=True,
+        blank=True,
     )
     evidence_type = models.CharField(max_length=32, choices=EVIDENCE_TYPES)
     field_name = models.CharField(max_length=100)
@@ -348,26 +783,16 @@ class EmailSender(TimestampedModel):
         return self.is_active and (self.sent_today < self.daily_limit)
 
     def set_smtp_password(self, raw_password: str) -> None:
-        self.smtp_password_encrypted = django.core.signing.dumps(raw_password)
+        self.smtp_password_encrypted = _encrypt_credential(raw_password)
 
     def get_smtp_password(self) -> str:
-        if not self.smtp_password_encrypted:
-            return ""
-        try:
-            return django.core.signing.loads(self.smtp_password_encrypted)
-        except Exception:
-            return ""
+        return _decrypt_credential(self.smtp_password_encrypted)
 
     def set_imap_password(self, raw_password: str) -> None:
-        self.imap_password_encrypted = django.core.signing.dumps(raw_password)
+        self.imap_password_encrypted = _encrypt_credential(raw_password)
 
     def get_imap_password(self) -> str:
-        if not self.imap_password_encrypted:
-            return ""
-        try:
-            return django.core.signing.loads(self.imap_password_encrypted)
-        except Exception:
-            return ""
+        return _decrypt_credential(self.imap_password_encrypted)
 
     def __str__(self) -> str:
         return f"{self.name} ({self.smtp_username})"
@@ -444,4 +869,3 @@ class CampaignActivity(TimestampedModel):
 
     def __str__(self) -> str:
         return f"{self.activity_type} for {self.enrollment}"
-

@@ -1,10 +1,23 @@
 from __future__ import annotations
 
 from leadfinder.services.amazon.amazon_url_parser import extract_asin, is_amazon_url
-from leadfinder.services.pipeline.source_audit import evidence_source_is_trusted_for_contact
+from leadfinder.services.eligibility import EligibilityPolicy
+from leadfinder.services.pipeline.source_audit import evidence_source_is_trusted_for_contact, is_corporate_author_entity
 
 
-VERIFIED_CONTACT_EVIDENCE_TYPES = {"contact_page", "official_author_site", "publisher_site", "groq_extraction", "manual"}
+VERIFIED_CONTACT_EVIDENCE_TYPES = {
+    "contact_page",
+    "official_author_site",
+    "publisher_site",
+    "social_profile",
+    "groq_extraction",
+    "manual",
+}
+
+
+def _lead_evidence(lead) -> list:
+    """All evidence for a lead; uses the prefetch cache when available (no N+1)."""
+    return list(lead.evidence.all())
 
 
 def has_verified_amazon_book_url(book) -> bool:
@@ -19,33 +32,41 @@ def has_verified_amazon_book_url(book) -> bool:
 
 def contact_field_sources(lead) -> dict[str, bool]:
     fields = ["public_email", "public_phone", "location"]
-    return {
-        field: (
-            lead.evidence.filter(field_name=field, field_value=getattr(lead, field), source_url__gt="").exists()
-            if field == "location"
-            else has_verified_contact_source(
+    evidence = None
+    result = {}
+    for field in fields:
+        value = getattr(lead, field)
+        if not value:
+            continue
+        if field == "location":
+            if evidence is None:
+                evidence = _lead_evidence(lead)
+            result[field] = any(
+                item.field_name == field and item.field_value == value and item.source_url
+                for item in evidence
+            )
+        else:
+            result[field] = has_verified_contact_source(
                 lead,
                 field,
-                getattr(lead, field),
+                value,
                 min_confidence=0.55 if field == "public_phone" else 0.6,
             )
-        )
-        for field in fields
-        if getattr(lead, field)
-    }
+    return result
 
 
 def has_verified_contact_source(lead, field_name: str, value: str, min_confidence: float = 0.6) -> bool:
     if not value:
         return False
-    evidence = lead.evidence.filter(
-        field_name=field_name,
-        field_value=value,
-        source_url__gt="",
-        evidence_type__in=VERIFIED_CONTACT_EVIDENCE_TYPES,
-        confidence__gte=min_confidence,
-    )
-    for item in evidence:
+    for item in _lead_evidence(lead):
+        if not (
+            item.field_name == field_name
+            and item.field_value == value
+            and item.source_url
+            and item.evidence_type in VERIFIED_CONTACT_EVIDENCE_TYPES
+            and item.confidence >= min_confidence
+        ):
+            continue
         if evidence_source_is_trusted_for_contact(
             author_name=lead.book.author_name,
             book_title=lead.book.title,
@@ -79,6 +100,8 @@ def lead_verification_errors(
         errors.append("Missing a verified Amazon marketplace book URL.")
     if not book.title or not book.author_name:
         errors.append("Missing title or author.")
+    if book.author_name and is_corporate_author_entity(book.author_name):
+        errors.append("Author is a publisher or company, not an individual author.")
     if book.is_childrens_book is False:
         errors.append("Book was classified as not a children's book.")
     if author and author.identity_confidence < 0.65:
@@ -116,7 +139,18 @@ def can_approve_lead(lead, allow_incomplete_video: bool = False, manual_identity
     errors: list[str] = []
     book = lead.book
     author = lead.author_profile
-    if not has_verified_amazon_book_url(book) and not book.evidence.exists():
+    eligibility = EligibilityPolicy.evaluate(lead)
+    if not eligibility.is_verified_ready:
+        errors.extend(
+            "Lead has no current system-verified contact."
+            if code in {
+                EligibilityPolicy.REASON_NO_VERIFIED_CONTACT,
+                EligibilityPolicy.REASON_IMPORT_AWAITING_VERIFICATION,
+            }
+            else "Lead is marked do-not-contact."
+            for code in eligibility.reason_codes
+        )
+    if not has_verified_amazon_book_url(book) and not any(True for _ in book.evidence.all()):
         errors.append("Lead needs an Amazon URL or strong book source.")
     if not book.author_name:
         errors.append("Lead needs an author name.")

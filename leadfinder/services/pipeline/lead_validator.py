@@ -157,6 +157,61 @@ def validate_phone_number(phone_str: str, default_region: str = "US") -> str | N
     return None
 
 
+# North-American fictional exchange (any area code + 555-0100–555-0199) and
+# common placeholder patterns.
+_FAKE_PHONE_RE = re.compile(r"^\+1\d{3}55501\d\d$")
+_PLACEHOLDER_PHONE_RE = re.compile(r"^\+1(\d)\1{9}$")
+
+
+def phone_number_details(phone_str: str, default_region: str = "US") -> dict:
+    """Rich validation: E.164, line type, region, and fake/premium screening.
+
+    Returns ``{"valid": bool, "e164": str, "line_type": str, "region": str,
+    "is_fake": bool, "is_premium": bool}``.  ``line_type`` is one of
+    ``mobile``, ``landline``, ``voip``, ``toll_free``, ``premium_rate``,
+    ``unknown``.  Premium-rate and fictional numbers are never usable for
+    outreach, so ``valid`` is False for them even when the number parses.
+    """
+
+    details = {"valid": False, "e164": "", "line_type": "unknown", "region": "", "is_fake": False, "is_premium": False}
+    if not phone_str:
+        return details
+    try:
+        parsed = phonenumbers.parse(phone_str.strip(), default_region)
+    except Exception:
+        return details
+    if not phonenumbers.is_valid_number(parsed):
+        return details
+
+    from phonenumbers import number_type as _number_type
+    from phonenumbers import PhoneNumberType, region_code_for_number
+
+    e164 = phonenumbers.format_number(parsed, phonenumbers.PhoneNumberFormat.E164)
+    kind = _number_type(parsed)
+    line_type = {
+        PhoneNumberType.MOBILE: "mobile",
+        PhoneNumberType.FIXED_LINE: "landline",
+        PhoneNumberType.FIXED_LINE_OR_MOBILE: "landline",
+        PhoneNumberType.VOIP: "voip",
+        PhoneNumberType.TOLL_FREE: "toll_free",
+        PhoneNumberType.PREMIUM_RATE: "premium_rate",
+    }.get(kind, "unknown")
+
+    is_premium = kind == PhoneNumberType.PREMIUM_RATE
+    is_fake = bool(_FAKE_PHONE_RE.match(e164) or _PLACEHOLDER_PHONE_RE.match(e164))
+    details.update(
+        {
+            "valid": not (is_premium or is_fake),
+            "e164": e164,
+            "line_type": line_type,
+            "region": region_code_for_number(parsed) or "",
+            "is_fake": is_fake,
+            "is_premium": is_premium,
+        }
+    )
+    return details
+
+
 def validate_lead_compliance(lead) -> list[str]:
     """
     Enforces CASL (Canada's Anti-Spam Legislation) and CAN-SPAM (US anti-spam)

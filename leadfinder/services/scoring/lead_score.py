@@ -118,6 +118,14 @@ def score_lead(data: dict) -> tuple[int, str, list[str]]:
     if other_books and len(other_books) > 0:
         service_needs.append("Series branding")
 
+    # Audience-size signal: a real social presence with a tiny following means
+    # the author is active but under-marketed — a strong service-fit signal.
+    # Authors with large audiences already have marketing reach; no bonus.
+    max_followers = data.get("max_followers")
+    has_social_presence = any(_truthy(data, key) for key in ["instagram_url", "tiktok_url", "youtube_url", "facebook_url"])
+    if max_followers is not None and has_social_presence and max_followers < 5000:
+        service_needs.append("Social media growth")
+
     # Add 5 points per service need, capped at 25 points
     service_points = min(25, len(service_needs) * 5)
     score += service_points
@@ -229,7 +237,16 @@ def score_lead(data: dict) -> tuple[int, str, list[str]]:
 def score_from_lead(lead) -> tuple[int, str]:
     book = lead.book
     author = lead.author_profile
-    
+
+    # Largest observed audience across audited social profiles (None when
+    # no profile exposed a follower/subscriber count).
+    follower_counts = [
+        count
+        for count in lead.social_audits.values_list("follower_count", flat=True)
+        if count is not None
+    ]
+    max_followers = max(follower_counts) if follower_counts else None
+
     score, tier, service_needs = score_lead(
         {
             "is_childrens_book": book.is_childrens_book,
@@ -262,6 +279,7 @@ def score_from_lead(lead) -> tuple[int, str]:
             "video_status": lead.video_status,
             "identity_confidence": author.identity_confidence if author else 0,
             "extraction_confidence": lead.extraction_confidence,
+            "max_followers": max_followers,
             "do_not_contact": lead.do_not_contact,
             "manual_review_status": lead.manual_review_status,
         }

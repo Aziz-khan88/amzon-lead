@@ -66,10 +66,9 @@ EXPORT_COLUMNS = [
     "contact_page_url",
     "contact_source_url",
     "contact_confidence",
-    "lead_score",
-    "lead_tier",
-    "validation_status",
-    "validation_notes",
+    "verification_score",
+    "verification_status",
+    "verification_reason",
     "suggested_first_line",
     "all_source_urls",
 ]
@@ -121,25 +120,26 @@ class Command(BaseCommand):
         limit = max(1, min(int(options["limit"]), 700))
 
         queryset = (
-            Lead.objects.select_related("book", "author_profile")
+            Lead.objects.select_related("book", "author_profile", "primary_contact")
             .prefetch_related("evidence")
             .exclude(book__amazon_book_url="")
             .exclude(book__author_name="")
             .filter(do_not_contact=False)
-            .order_by("-lead_score", "-extraction_confidence", "-created_at")
+            .filter(verification_status="verified")
+            .order_by("-verification_score", "-created_at")
         )
 
         rows: list[dict[str, object]] = []
         seen: set[str] = set()
-        rejected = 0
+        skipped = 0
         for lead in queryset:
             if not author_name_is_outreach_usable(lead.book.author_name):
-                rejected += 1
+                skipped += 1
                 continue
             email_evidence = matching_contact_evidence(lead, "public_email")
             phone_evidence = matching_contact_evidence(lead, "public_phone")
             if not email_evidence and not phone_evidence:
-                rejected += 1
+                skipped += 1
                 continue
             contact_evidence = email_evidence or phone_evidence
             public_email = email_evidence.field_value if email_evidence else ""
@@ -163,10 +163,9 @@ class Command(BaseCommand):
                     "contact_page_url": author.contact_page_url if author else "",
                     "contact_source_url": contact_evidence.source_url,
                     "contact_confidence": contact_evidence.confidence,
-                    "lead_score": lead.lead_score,
-                    "lead_tier": lead.lead_tier,
-                    "validation_status": "needs_manual_review",
-                    "validation_notes": "Required fields present; contact source mentions the author and passed basic syntax/domain checks.",
+                    "verification_score": lead.verification_score,
+                    "verification_status": lead.verification_status,
+                    "verification_reason": lead.verification_reason,
                     "suggested_first_line": lead.suggested_first_line,
                     "all_source_urls": "; ".join(all_urls),
                 }
@@ -179,4 +178,4 @@ class Command(BaseCommand):
             writer.writeheader()
             writer.writerows(rows)
 
-        self.stdout.write(self.style.SUCCESS(f"Exported {len(rows)} leads to {output}. Rejected {rejected} weak rows."))
+        self.stdout.write(self.style.SUCCESS(f"Exported {len(rows)} verified leads to {output}. Skipped {skipped} rows."))

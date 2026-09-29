@@ -1,48 +1,217 @@
 {% extends "base.html" %}
+{% block title %}Tools & Settings - Book Trailer Lead Finder{% endblock %}
 {% block content %}
-<div class="page-header">
+<div class="page-header mb-4">
   <div>
-    <p class="eyebrow">Diagnostics</p>
+    <p class="eyebrow"><i class="ph-bold ph-gear text-teal"></i> Diagnostics & System Configuration</p>
     <h1>Tools and Settings</h1>
+    <p class="page-subtitle">Configure API keys, web search providers, and verify scraping tool availability.</p>
   </div>
 </div>
-<div class="two-column">
-  <section class="panel">
-    <h2>API Keys</h2>
-    <table class="table table-sm align-middle">
-      <tr><th>SEARCH_PROVIDER</th><td>{{ search_provider }}</td></tr>
-      {% for name, is_set in keys.items %}
-        <tr><th>{{ name }}</th><td><span class="status-pill {% if is_set %}status-completed{% else %}status-pending{% endif %}">{% if is_set %}Configured{% else %}Missing{% endif %}</span></td></tr>
-      {% endfor %}
-    </table>
-  </section>
-  <section class="panel">
-    <h2>Local Checks</h2>
-    <div class="command-list">
-      {% for check in local_checks %}
-        <div class="command-item">
-          <strong>{{ check.label }}</strong>
-          <code>{{ check.command }}</code>
+
+<form method="post" class="mb-4">
+  {% csrf_token %}
+  <div class="row g-4">
+    <div class="col-lg-7">
+      <section class="panel p-4" style="background: #ffffff; border: 1px solid #e2ebe6; border-radius: 16px; box-shadow: 0 10px 30px rgba(15, 45, 30, 0.05);">
+        <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom">
+          <div>
+            <h2 class="h5 font-weight-700 mb-0 text-dark"><i class="ph-bold ph-key text-teal me-2"></i> API Keys & Provider Settings</h2>
+            <small class="text-muted">Replace a secret without ever displaying its stored value. Blank secret fields are left unchanged.</small>
+          </div>
+          <button type="submit" class="btn btn-primary btn-sm px-3 font-weight-700">
+            <i class="ph-bold ph-floppy-disk"></i> Save Settings
+          </button>
         </div>
-      {% endfor %}
+
+        <div class="mb-3">
+          <label class="form-label font-weight-700 text-dark small mb-1">SEARCH_PROVIDER</label>
+          <select name="SEARCH_PROVIDER" class="form-select form-select-sm">
+            <option value="tavily" {% if current_env.SEARCH_PROVIDER == 'tavily' %}selected{% endif %}>Tavily (Recommended)</option>
+            <option value="ddgs" {% if current_env.SEARCH_PROVIDER == 'ddgs' %}selected{% endif %}>DDGS (Keyless Public)</option>
+            <option value="google" {% if current_env.SEARCH_PROVIDER == 'google' %}selected{% endif %}>Google Custom Search</option>
+            <option value="brave" {% if current_env.SEARCH_PROVIDER == 'brave' %}selected{% endif %}>Brave Search</option>
+          </select>
+          <small class="text-muted d-block mt-1">Default search provider used during book discovery and author bio-link harvesting.</small>
+        </div>
+
+        <div class="mb-3">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <label class="form-label font-weight-700 text-dark small mb-0">GROQ_API_KEY</label>
+            {% if keys.GROQ_API_KEY %}
+              <span class="badge bg-success-subtle text-success border border-success-subtle"><i class="ph-fill ph-check-circle"></i> Configured</span>
+            {% else %}
+              <span class="badge bg-warning-subtle text-warning border border-warning-subtle"><i class="ph-fill ph-warning-circle"></i> Missing</span>
+            {% endif %}
+          </div>
+          <input type="password" name="GROQ_API_KEY" class="form-control form-control-sm" placeholder="Enter a replacement key" autocomplete="new-password">
+          <small class="text-muted d-block mt-1">Used for 1-click AI Outreach Pitch Generator.</small>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label font-weight-700 text-dark small mb-1">GROQ_MODEL</label>
+          <select name="GROQ_MODEL" class="form-select form-select-sm">
+            <option value="llama-3.3-70b-versatile" {% if current_env.GROQ_MODEL == 'llama-3.3-70b-versatile' or not current_env.GROQ_MODEL %}selected{% endif %}>llama-3.3-70b-versatile (Recommended)</option>
+            <option value="llama-3.1-70b-versatile" {% if current_env.GROQ_MODEL == 'llama-3.1-70b-versatile' %}selected{% endif %}>llama-3.1-70b-versatile</option>
+            <option value="llama3-8b-8192" {% if current_env.GROQ_MODEL == 'llama3-8b-8192' %}selected{% endif %}>llama3-8b-8192 (Fast)</option>
+            <option value="mixtral-8x7b-32768" {% if current_env.GROQ_MODEL == 'mixtral-8x7b-32768' %}selected{% endif %}>mixtral-8x7b-32768</option>
+            <option value="gemma2-9b-it" {% if current_env.GROQ_MODEL == 'gemma2-9b-it' %}selected{% endif %}>gemma2-9b-it</option>
+          </select>
+          <small class="text-muted d-block mt-1">Select the Groq LLM model architecture used for generating personalized author outreach emails.</small>
+        </div>
+
+        <div class="mb-3">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <label class="form-label font-weight-700 text-dark small mb-0">TAVILY_API_KEY</label>
+            {% if keys.TAVILY_API_KEY %}
+              <span class="badge bg-success-subtle text-success border border-success-subtle"><i class="ph-fill ph-check-circle"></i> Configured</span>
+            {% else %}
+              <span class="badge bg-warning-subtle text-warning border border-warning-subtle"><i class="ph-fill ph-warning-circle"></i> Missing</span>
+            {% endif %}
+          </div>
+          <input type="password" name="TAVILY_API_KEY" class="form-control form-control-sm" placeholder="Enter a replacement key" autocomplete="new-password">
+          <small class="text-muted d-block mt-1">Powers fast multi-query web search and author contact page discovery.</small>
+        </div>
+
+        <div class="row g-2 mb-3">
+          <div class="col-md-6">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <label class="form-label font-weight-700 text-dark small mb-0">GOOGLE_API_KEY</label>
+              {% if keys.GOOGLE_API_KEY %}
+                <span class="badge bg-success-subtle text-success border border-success-subtle">Configured</span>
+              {% else %}
+                <span class="badge bg-secondary-subtle text-muted border border-secondary-subtle">Missing</span>
+              {% endif %}
+            </div>
+            <input type="password" name="GOOGLE_API_KEY" class="form-control form-control-sm" placeholder="Enter a replacement key" autocomplete="new-password">
+          </div>
+          <div class="col-md-6">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <label class="form-label font-weight-700 text-dark small mb-0">GOOGLE_CSE_ID</label>
+              {% if keys.GOOGLE_CSE_ID %}
+                <span class="badge bg-success-subtle text-success border border-success-subtle">Configured</span>
+              {% else %}
+                <span class="badge bg-secondary-subtle text-muted border border-secondary-subtle">Missing</span>
+              {% endif %}
+            </div>
+            <input type="password" name="GOOGLE_CSE_ID" class="form-control form-control-sm" placeholder="Enter a replacement ID" autocomplete="new-password">
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <label class="form-label font-weight-700 text-dark small mb-0">YOUTUBE_API_KEY</label>
+            {% if keys.YOUTUBE_API_KEY %}
+              <span class="badge bg-success-subtle text-success border border-success-subtle"><i class="ph-fill ph-check-circle"></i> Configured</span>
+            {% else %}
+              <span class="badge bg-secondary-subtle text-muted border border-secondary-subtle">Missing</span>
+            {% endif %}
+          </div>
+          <input type="password" name="YOUTUBE_API_KEY" class="form-control form-control-sm" placeholder="Enter a replacement key" autocomplete="new-password">
+          <small class="text-muted d-block mt-1">Used to check public book trailer videos and author YouTube channels.</small>
+        </div>
+
+        <div class="mb-3">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <label class="form-label font-weight-700 text-dark small mb-0">GOOGLE_BOOKS_API_KEY</label>
+            {% if keys.GOOGLE_BOOKS_API_KEY %}
+              <span class="badge bg-success-subtle text-success border border-success-subtle"><i class="ph-fill ph-check-circle"></i> Configured</span>
+            {% else %}
+              <span class="badge bg-secondary-subtle text-muted border border-secondary-subtle">Missing</span>
+            {% endif %}
+          </div>
+          <input type="password" name="GOOGLE_BOOKS_API_KEY" class="form-control form-control-sm" placeholder="Enter a replacement key" autocomplete="new-password">
+        </div>
+
+        <div class="mb-3">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <label class="form-label font-weight-700 text-dark small mb-0">BRAVE_API_KEY</label>
+            {% if keys.BRAVE_API_KEY %}
+              <span class="badge bg-success-subtle text-success border border-success-subtle"><i class="ph-fill ph-check-circle"></i> Configured</span>
+            {% else %}
+              <span class="badge bg-secondary-subtle text-muted border border-secondary-subtle">Missing</span>
+            {% endif %}
+          </div>
+          <input type="password" name="BRAVE_API_KEY" class="form-control form-control-sm" placeholder="Enter a replacement key" autocomplete="new-password">
+        </div>
+
+        <div class="row g-2 mb-3">
+          <div class="col-md-6">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <label class="form-label font-weight-700 text-dark small mb-0">AMAZON_CREATORS_CLIENT_ID</label>
+              {% if keys.AMAZON_CREATORS_CLIENT_ID %}
+                <span class="badge bg-success-subtle text-success border border-success-subtle">Configured</span>
+              {% else %}
+                <span class="badge bg-secondary-subtle text-muted border border-secondary-subtle">Missing</span>
+              {% endif %}
+            </div>
+            <input type="password" name="AMAZON_CREATORS_CLIENT_ID" class="form-control form-control-sm" placeholder="Enter a replacement client ID" autocomplete="new-password">
+          </div>
+          <div class="col-md-6">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <label class="form-label font-weight-700 text-dark small mb-0">AMAZON_CREATORS_CLIENT_SECRET</label>
+              {% if keys.AMAZON_CREATORS_CLIENT_SECRET %}
+                <span class="badge bg-success-subtle text-success border border-success-subtle">Configured</span>
+              {% else %}
+                <span class="badge bg-secondary-subtle text-muted border border-secondary-subtle">Missing</span>
+              {% endif %}
+            </div>
+            <input type="password" name="AMAZON_CREATORS_CLIENT_SECRET" class="form-control form-control-sm" placeholder="Enter a replacement secret" autocomplete="new-password">
+          </div>
+        </div>
+
+        <div class="text-end mt-4 pt-2 border-top">
+          <div class="d-flex gap-2 justify-content-end align-items-center flex-wrap mb-2">
+            <button type="submit" name="settings_action" value="test" class="btn btn-outline-secondary btn-sm">
+              <i class="ph-bold ph-check-circle"></i> Test configuration
+            </button>
+            <label class="visually-hidden" for="remove-key">Configured secret to remove</label>
+            <select name="remove_key" id="remove-key" class="form-select form-select-sm" style="max-width: 220px;">
+              <option value="">Remove a configured secret…</option>
+              {% for key, configured in keys.items %}{% if configured %}<option value="{{ key }}">{{ key }}</option>{% endif %}{% endfor %}
+            </select>
+            <button type="submit" name="settings_action" value="remove" class="btn btn-outline-danger btn-sm">Remove</button>
+          </div>
+          <button type="submit" class="btn btn-primary px-4 font-weight-700">
+            <i class="ph-bold ph-floppy-disk"></i> Save Configuration
+          </button>
+        </div>
+      </section>
     </div>
-  </section>
-</div>
-<section class="panel">
-  <h2>Scraping Tools</h2>
-  <div class="tool-grid">
-    {% for tool in scraping_tools %}
-      <div class="tool-card">
-        <div class="tool-card-header">
-          <strong>{{ tool.name }}</strong>
-          <span>{{ tool.status }}</span>
+
+    <div class="col-lg-5">
+      <section class="panel p-4 mb-4" style="background: #ffffff; border: 1px solid #e2ebe6; border-radius: 16px;">
+        <h2 class="h5 font-weight-700 mb-3 text-dark"><i class="ph-bold ph-terminal-window text-teal me-2"></i> Local CLI Diagnostics</h2>
+        <div class="command-list d-flex flex-column gap-2">
+          {% for check in local_checks %}
+            <div class="command-item p-2.5" style="background: #f8fbf9; border: 1px solid #e2ebe6; border-radius: 8px;">
+              <strong class="d-block text-dark small font-weight-700">{{ check.label }}</strong>
+              <code class="small text-teal d-block mt-1">{{ check.command }}</code>
+            </div>
+          {% endfor %}
         </div>
-        <p>{{ tool.purpose }}</p>
-      </div>
-    {% endfor %}
+      </section>
+
+      <section class="panel p-4" style="background: #ffffff; border: 1px solid #e2ebe6; border-radius: 16px;">
+        <h2 class="h5 font-weight-700 mb-3 text-dark"><i class="ph-bold ph-wrench text-teal me-2"></i> Scraping Engines</h2>
+        <div class="tool-grid d-flex flex-column gap-2.5">
+          {% for tool in scraping_tools %}
+            <div class="tool-card p-3" style="background: #f8fbf9; border: 1px solid #e2ebe6; border-radius: 10px;">
+              <div class="tool-card-header d-flex justify-content-between align-items-center mb-1">
+                <strong class="text-dark font-weight-700">{{ tool.name }}</strong>
+                <span class="badge bg-secondary-subtle text-muted border border-secondary-subtle small">{{ tool.status }}</span>
+              </div>
+              <p class="small text-muted mb-0" style="font-size: 0.8rem;">{{ tool.purpose }}</p>
+            </div>
+          {% endfor %}
+        </div>
+      </section>
+    </div>
   </div>
-</section>
-<div class="alert alert-info">
-  This app uses public sources only. It does not scrape Amazon product pages, bypass login walls or rate limits, use private enrichment databases, or auto-send outreach.
+</form>
+
+<div class="alert alert-info p-3" style="background: #eef7ff; border: 1px solid #bae0ff; border-radius: 10px; color: #003a8c;">
+  <i class="ph-fill ph-info text-primary me-1"></i>
+  This app uses public sources only. It does not scrape Amazon product pages without compliance, bypass login walls or rate limits, use private databases, or auto-send unauthorized emails.
 </div>
 {% endblock %}

@@ -31,13 +31,26 @@ def get_random_headers() -> dict[str, str]:
         "User-Agent": random.choice(USER_AGENTS),
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
         "Accept-Language": "en-US,en;q=0.9",
-        "Accept-Encoding": "gzip, deflate, br",
+        "Accept-Encoding": "gzip, deflate",
         "Connection": "keep-alive",
         "Upgrade-Insecure-Requests": "1",
         "Sec-Ch-Ua-Mobile": "?0",
         "Sec-Ch-Ua-Platform": '"Windows"',
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "none",
+        "Sec-Fetch-User": "?1",
         "Cache-Control": "max-age=0",
     }
+
+
+def is_direct_amazon_scrape_enabled() -> bool:
+    val = os.getenv("AMAZON_DIRECT_SCRAPE_ENABLED")
+    if val is not None:
+        return val.strip().lower() in ("1", "true", "yes")
+    from django.conf import settings
+    return bool(getattr(settings, "AMAZON_DIRECT_SCRAPE_ENABLED", False))
+
 
 
 def is_blocked(soup: BeautifulSoup) -> bool:
@@ -90,104 +103,12 @@ def extract_review_count(text: str) -> int | None:
 
 
 def fetch_metadata_from_free_apis(asin: str) -> dict | None:
-    """
-    Attempts to fetch book metadata from free API providers (Open Library and Google Books) using ASIN as ISBN.
-    Returns a dict with scraped fields if successful, otherwise None.
-    """
-    # Verify the ASIN looks like a standard ISBN-10 (10 chars, can end with X/x) or ISBN-13
-    clean_asin = re.sub(r"[^0-9Xx]", "", asin)
-    if len(clean_asin) not in (10, 13):
-        return None
+    """Resolve metadata through the exact-identifier public catalog reconciler.
 
-    # 1. Try Open Library API
-    url_ol = f"https://openlibrary.org/api/books?bibkeys=ISBN:{clean_asin}&format=json&jscmd=data"
-    try:
-        response = requests.get(url_ol, timeout=10)
-        if response.status_code == 200:
-            data = response.json()
-            key = f"ISBN:{clean_asin}"
-            if key in data:
-                info = data[key]
-                authors = []
-                for author_data in info.get("authors", []):
-                    name = author_data.get("name")
-                    if name and is_valid_author_name(name):
-                        authors.append({"name": name, "url": author_data.get("url", "")})
-                
-                if authors:
-                    # Successfully found book details
-                    title = info.get("title", "")
-                    publisher = ""
-                    publishers = info.get("publishers", [])
-                    if publishers:
-                        publisher = publishers[0].get("name", "")
-                    
-                    cover_image_url = ""
-                    cover_data = info.get("cover", {})
-                    if cover_data:
-                        cover_image_url = cover_data.get("large") or cover_data.get("medium") or cover_data.get("small") or ""
-
-                    description = ""
-                    excerpts = info.get("excerpts", [])
-                    if excerpts:
-                        description = excerpts[0].get("text", "")
-                    elif "notes" in info:
-                        description = info["notes"]
-
-                    return {
-                        "title": title,
-                        "authors": authors,
-                        "publisher": publisher,
-                        "publication_date": info.get("publish_date", ""),
-                        "cover_image_url": cover_image_url,
-                        "description": description,
-                        "scraped_successfully": True,
-                    }
-    except Exception as exc:
-        logger.warning(f"Error fetching from Open Library for ASIN {asin}: {exc}")
-
-    # 2. Try Google Books API (free public endpoint)
-    url_gb = f"https://www.googleapis.com/books/v1/volumes?q=isbn:{clean_asin}"
-    try:
-        response = requests.get(url_gb, timeout=10)
-        if response.status_code == 200:
-            data = response.json()
-            if "items" in data:
-                volume_info = data["items"][0]["volumeInfo"]
-                authors = []
-                for author_name in volume_info.get("authors", []):
-                    if author_name and is_valid_author_name(author_name):
-                        authors.append({"name": author_name, "url": ""})
-                
-                if authors:
-                    title = volume_info.get("title", "")
-                    publisher = volume_info.get("publisher", "")
-                    cover_image_url = ""
-                    image_links = volume_info.get("imageLinks", {})
-                    if image_links:
-                        cover_image_url = image_links.get("extraLarge") or image_links.get("large") or image_links.get("medium") or image_links.get("small") or image_links.get("thumbnail") or ""
-
-                    return {
-                        "title": title,
-                        "authors": authors,
-                        "publisher": publisher,
-                        "publication_date": volume_info.get("publishedDate", ""),
-                        "cover_image_url": cover_image_url,
-                        "description": volume_info.get("description", ""),
-                        "scraped_successfully": True,
-                    }
-    except Exception as exc:
-        logger.warning(f"Error fetching from Google Books for ASIN {asin}: {exc}")
-
-    return None
-
-
-def scrape_amazon_book_page(asin: str, use_ai: bool = True, book_title: str = "") -> dict:
-    """Compatibility wrapper that never requests an Amazon product page.
-
-    Older commands still import this function. Keep them compliant by routing
-    ISBNs through public catalogs and other identifiers through indexed public
-    search evidence. The legacy HTML parser below is intentionally bypassed.
+    This legacy compatibility function used to accept the first Google Books
+    result, even when its ISBN did not match. Routing it through the shared
+    resolver keeps every caller on the same checksum, alias, and source-agreement
+    rules without requiring an API key.
     """
     from leadfinder.services.books.isbn_intelligence import (
         analyze_identifier,
@@ -196,15 +117,12 @@ def scrape_amazon_book_page(asin: str, use_ai: bool = True, book_title: str = ""
     )
 
     identifier = analyze_identifier(asin)
-    if identifier.valid and identifier.identifier_type in {"isbn10", "isbn13"}:
-        resolved = public_resolution_to_book_data(resolve_free_metadata(identifier.canonical))
-        if resolved and resolved.get("authors"):
-            return {"asin": identifier.canonical, "source": "public_catalogs", **resolved}
-    fallback = fallback_amazon_book_page(asin, use_ai=use_ai, book_title=book_title)
-    fallback["direct_amazon_fetch"] = False
-    return fallback
+    if not identifier.valid or identifier.identifier_type not in {"isbn10", "isbn13"}:
+        return None
+    result = public_resolution_to_book_data(resolve_free_metadata(identifier.canonical))
+    return result if result and result.get("authors") else None
 
-    # Legacy parser retained temporarily for migration reference; unreachable.
+def direct_scrape_amazon_book(asin: str) -> dict:
     url = f"https://www.amazon.com/dp/{asin}"
     result = {
         "asin": asin,
@@ -239,8 +157,6 @@ def scrape_amazon_book_page(asin: str, use_ai: bool = True, book_title: str = ""
 
             # Authors & Contributors
             raw_creators = []
-            
-            # 1. Byline links
             byline = soup.find(id="bylineInfo")
             if byline:
                 for link in byline.find_all("a"):
@@ -249,7 +165,6 @@ def scrape_amazon_book_page(asin: str, use_ai: bool = True, book_title: str = ""
                     if text:
                         raw_creators.append((text, href))
             
-            # 2. Add other elements if they match selector
             for link in soup.select("a.contributorNameID, a.author-link, .author .a-link-normal, .contributorNameLink"):
                 href = link.get("href", "")
                 text = link.get_text(strip=True)
@@ -265,7 +180,6 @@ def scrape_amazon_book_page(asin: str, use_ai: bool = True, book_title: str = ""
                             author_url = f"https://www.amazon.com{href}"
                         else:
                             author_url = href
-                    # Avoid adding duplicates
                     if not any(a["name"] == cleaned for a in result["authors"]):
                         result["authors"].append({"name": cleaned, "url": author_url})
 
@@ -273,21 +187,17 @@ def scrape_amazon_book_page(asin: str, use_ai: bool = True, book_title: str = ""
             if rating_node:
                 result["rating"] = extract_rating(rating_node.get_text(strip=True))
 
-            # Review Count
             reviews_node = soup.select_one("#acrCustomerReviewText")
             if reviews_node:
                 result["review_count"] = extract_review_count(reviews_node.get_text(strip=True))
 
-            # Description
             desc_node = soup.select_one("#bookDescription_feature_div .a-expander-content, #bookDescription_feature_div")
             if desc_node:
                 result["description"] = desc_node.get_text(" ", strip=True)
 
-            # Cover Image
             img_node = soup.select_one("#imgBlkFront, #landingImage, #imageBlockOuter img")
             if img_node:
                 result["cover_image_url"] = img_node.get("src", img_node.get("data-a-dynamic-image", ""))
-                # If dynamic image is a dict, parse it
                 if result["cover_image_url"].startswith("{"):
                     try:
                         urls = list(json.loads(result["cover_image_url"]).keys())
@@ -296,16 +206,13 @@ def scrape_amazon_book_page(asin: str, use_ai: bool = True, book_title: str = ""
                     except Exception:
                         pass
 
-            # Publisher and publication date
             bullets = soup.select("#detailBullets_feature_div li, #productDetails_db_sections tr")
             for bullet in bullets:
                 text = bullet.get_text(" ", strip=True)
                 if "publisher" in text.lower():
-                    # Format: Publisher : Knopf Books for Young Readers (September 13, 2005)
                     parts = text.split(":")
                     if len(parts) > 1:
                         val = parts[1].strip()
-                        # Extract date in parentheses if exists
                         date_match = re.search(r"\(([^)]+)\)", val)
                         if date_match:
                             result["publication_date"] = date_match.group(1).strip()
@@ -316,26 +223,39 @@ def scrape_amazon_book_page(asin: str, use_ai: bool = True, book_title: str = ""
                     parts = text.split(":")
                     if len(parts) > 1:
                         result["publication_date"] = parts[1].strip()
-
         else:
-            logger.warning(f"Amazon product page direct fetch blocked or failed with status {response.status_code} for ASIN {asin}.")
+            logger.warning(f"Amazon product page direct fetch blocked or status {response.status_code} for ASIN {asin}.")
     except Exception as exc:
         logger.error(f"Error scraping Amazon product page direct fetch: {exc}")
 
-    # Fallback to free book APIs (Open Library & Google Books) first if direct scrape is incomplete/failed/blocked
-    if not result.get("scraped_successfully") or not result.get("authors"):
-        logger.info(f"Direct Amazon scraping incomplete or blocked. Trying free book APIs for ASIN {asin}")
-        api_data = fetch_metadata_from_free_apis(asin)
-        if api_data:
-            result.update(api_data)
-
-    # Fallback to search engines if both direct scrape and free APIs failed
-    if not result.get("scraped_successfully") or not result.get("authors"):
-        logger.info(f"Triggering search engine and AI fallback for ASIN {asin}")
-        fallback_data = fallback_amazon_book_page(asin, use_ai=use_ai, book_title=book_title)
-        result.update(fallback_data)
-
     return result
+
+
+def scrape_amazon_book_page(asin: str, use_ai: bool = True, book_title: str = "") -> dict:
+    from leadfinder.services.books.isbn_intelligence import (
+        analyze_identifier,
+        public_resolution_to_book_data,
+        resolve_free_metadata,
+    )
+
+    identifier = analyze_identifier(asin)
+    if identifier.valid and identifier.identifier_type in {"isbn10", "isbn13"}:
+        resolved = public_resolution_to_book_data(resolve_free_metadata(identifier.canonical))
+        if resolved and resolved.get("authors"):
+            return {"asin": identifier.canonical, "source": "public_catalogs", "direct_amazon_fetch": False, **resolved}
+
+    # If direct Amazon scraping is enabled (AMAZON_DIRECT_SCRAPE_ENABLED=1), attempt direct fetch
+    if is_direct_amazon_scrape_enabled():
+        direct_result = direct_scrape_amazon_book(asin)
+        if direct_result.get("scraped_successfully") and direct_result.get("authors"):
+            direct_result["direct_amazon_fetch"] = True
+            return direct_result
+
+    # Fallback to search engine and public catalog synthesis
+    fallback = fallback_amazon_book_page(asin, use_ai=use_ai, book_title=book_title)
+    fallback["direct_amazon_fetch"] = False
+    return fallback
+
 
 
 def run_ai_extraction_on_results(results, asin: str) -> dict | None:
@@ -391,22 +311,26 @@ def extract_metadata_from_results(results, asin: str, book_title: str = "") -> d
     if not results:
         return extracted
 
+    usable_results = [result for result in results if not _is_generic_or_blocked_book_result(result)]
+    if not usable_results:
+        return extracted
+
     # Title guess
-    first_title = results[0].title
+    first_title = usable_results[0].title
     # Clean up standard search title format
     first_title = re.sub(r"\s*[:|-]\s*Amazon\..*$", "", first_title, flags=re.I)
     first_title = re.sub(r"\s*\([^)]*Paperback[^)]*\)", "", first_title, flags=re.I)
     extracted["title"] = first_title.split(":")[0].split("by")[0].strip()
 
     # Rating & reviews regex from snippet
-    for text in [r.snippet or "" for r in results] + [r.title for r in results]:
+    for text in [r.snippet or "" for r in usable_results] + [r.title for r in usable_results]:
         if not extracted["rating"]:
             extracted["rating"] = extract_rating(text)
         if not extracted["review_count"]:
             extracted["review_count"] = extract_review_count(text)
 
     # 1. Author guess - check colon format first!
-    for r in results:
+    for r in usable_results:
         colon_authors = extract_authors_from_colon_format(r.title)
         for ca in colon_authors:
             cleaned = clean_author_name(ca)
@@ -422,7 +346,7 @@ def extract_metadata_from_results(results, asin: str, book_title: str = "") -> d
 
     # 2. Fallback to searching snippets and titles for 'by [Capitalized Name]'
     if not extracted["authors"]:
-        for text in [r.snippet or "" for r in results] + [r.title for r in results]:
+        for text in [r.snippet or "" for r in usable_results] + [r.title for r in usable_results]:
             # Regex to find 'by [Name]'
             for match in re.finditer(r"\bby\s+([A-Z][a-zA-Z.'-]{1,30}(?:\s+[A-Z][a-zA-Z.'-]{1,30}){1,3})", text):
                 cand = clean_author_name(match.group(1))
@@ -440,7 +364,7 @@ def extract_metadata_from_results(results, asin: str, book_title: str = "") -> d
 
     # 3. Heuristic: Check if the title starts with a capitalized name sequence before standard separators
     if not extracted["authors"]:
-        for r in results:
+        for r in usable_results:
             title_clean = re.split(r"\s+[-|(|:|;]\s+", r.title)[0].strip()
             match = re.match(r"^([A-Z][a-zA-Z.'-]{1,30}(?:\s+[A-Z][a-zA-Z.'-]{1,30}){1,3})$", title_clean)
             if match:
@@ -457,7 +381,7 @@ def extract_metadata_from_results(results, asin: str, book_title: str = "") -> d
 
     # 4. Heuristic: Check if snippet starts with "[Name] is a/an ..."
     if not extracted["authors"]:
-        for r in results:
+        for r in usable_results:
             snippet = (r.snippet or "").strip()
             match = re.match(r"^([A-Z][a-zA-Z.'-]{1,30}(?:\s+[A-Z][a-zA-Z.'-]{1,30}){1,3})\s+is\s+(?:a|an)\s+", snippet, re.I)
             if match:
@@ -473,6 +397,53 @@ def extract_metadata_from_results(results, asin: str, book_title: str = "") -> d
                         break
 
     return extracted
+
+
+
+def _is_generic_or_blocked_book_result(result) -> bool:
+    """Reject access walls and generic marketplace pages as book metadata.
+
+    A search engine can return an Amazon sign-in, captcha, or category page for
+    a syntactically-valid ASIN.  Those pages have no relationship to the book
+    and must never become a title or author in the lead pipeline.
+    """
+
+    text = " ".join(
+        str(value or "")
+        for value in (
+            getattr(result, "title", ""),
+            getattr(result, "snippet", ""),
+            getattr(result, "url", ""),
+        )
+    ).lower()
+    blocked_markers = (
+        "amazon sign-in",
+        "sign in to amazon",
+        "amazon captcha",
+        "robot check",
+        "not a robot",
+        "enter the characters",
+        "amazon.com: books",
+        "amazon.com books",
+    )
+    return any(marker in text for marker in blocked_markers)
+
+
+def _result_has_exact_identifier_evidence(result, identifier: str) -> bool:
+    """Return whether a result explicitly ties its metadata to this identifier."""
+
+    identifier = (identifier or "").strip().upper()
+    if not identifier or _is_generic_or_blocked_book_result(result):
+        return False
+    url = str(getattr(result, "url", "") or "")
+    haystack = " ".join(
+        (url, str(getattr(result, "title", "") or ""), str(getattr(result, "snippet", "") or ""))
+    ).upper()
+    return identifier in haystack
+
+
+def _is_placeholder_book_title(title: str) -> bool:
+    return bool(re.fullmatch(r"\s*Book for (?:ASIN|ISBN10|ISBN13) [A-Z0-9-]+\s*", title or "", re.I))
 
 
 
@@ -496,7 +467,12 @@ def fallback_amazon_book_page(asin: str, use_ai: bool = True, book_title: str = 
         logger.info(f"Fallback Attempt 1: site:amazon.com {asin}")
         query1 = f"site:amazon.com {asin}"
         results1 = provider.search(query1, max_results=3)
-        results1 = [r for r in results1 if "amazon." in r.url.lower()]
+        results1 = [
+            result
+            for result in results1
+            if "amazon." in result.url.lower()
+            and _result_has_exact_identifier_evidence(result, asin)
+        ]
         
         if results1:
             extracted = extract_metadata_from_results(results1, asin, book_title)
@@ -517,28 +493,9 @@ def fallback_amazon_book_page(asin: str, use_ai: bool = True, book_title: str = 
         query2 = f"{asin}"
         results2 = provider.search(query2, max_results=5)
         
-        book_keywords = [
-            "book", "author", "illustrator", "novel", "literature", "reading", "paperback", 
-            "hardcover", "asin", "isbn", "illustrated", "fiction", "series", "set", "publisher", 
-            "goodreads", "fantasticfiction", "barnes", "noble", "library"
-        ]
         valid_results2 = []
         for r in results2:
-            url_lower = r.url.lower()
-            title_lower = r.title.lower()
-            snippet_lower = (r.snippet or "").lower()
-            is_valid = (
-                "amazon." in url_lower
-                or asin.lower() in url_lower
-                or asin.lower() in title_lower
-                or asin.lower() in snippet_lower
-                or any(domain in url_lower for domain in [
-                    "goodreads.com", "fantasticfiction.com", "fantasticfiction.co.uk", 
-                    "barnesandnoble.com", "books.google.com", "librarything.com", "openlibrary.org"
-                ])
-                or any(kw in url_lower or kw in title_lower or kw in snippet_lower for kw in book_keywords)
-            )
-            if is_valid:
+            if _result_has_exact_identifier_evidence(r, asin):
                 valid_results2.append(r)
                 
         if valid_results2:
@@ -555,7 +512,11 @@ def fallback_amazon_book_page(asin: str, use_ai: bool = True, book_title: str = 
             return fallback_res
 
         # --- ATTEMPT 3: Target Book Title (if provided) with 'author' keywords ---
-        if book_title and book_title.lower() != "missing" and book_title.lower() != "unknown":
+        if (
+            book_title
+            and book_title.lower() not in {"missing", "unknown"}
+            and not _is_placeholder_book_title(book_title)
+        ):
             logger.info(f"Fallback Attempt 3: Search using book title: {book_title} author")
             clean_search_title = re.sub(r"\s*[:|-]\s*Amazon\..*$", "", book_title, flags=re.I)
             clean_search_title = re.sub(r"\s*\([^)]*Paperback[^)]*\)", "", clean_search_title, flags=re.I)
@@ -583,21 +544,7 @@ def fallback_amazon_book_page(asin: str, use_ai: bool = True, book_title: str = 
     return fallback_res
 
 
-def scrape_amazon_author_page(url_or_slug: str, use_ai: bool = True) -> dict:
-    """Return an explicit non-result; direct Amazon author fetches are disabled."""
-    if not url_or_slug:
-        return {}
-
-    return {
-        "amazon_author_url": url_or_slug if str(url_or_slug).startswith("http") else "",
-        "author_bio": "",
-        "author_image_url": "",
-        "other_books": [],
-        "scraped_successfully": False,
-        "warnings": ["Direct Amazon Author-page fetching is disabled by the public-source policy."],
-    }
-
-    # Legacy parser retained temporarily for migration reference; unreachable.
+def direct_scrape_amazon_author(url_or_slug: str, use_ai: bool = True) -> dict:
     url = url_or_slug
     if not url.startswith("http"):
         # Assume it's a slug/name or ID
@@ -647,7 +594,7 @@ def scrape_amazon_author_page(url_or_slug: str, use_ai: bool = True) -> dict:
                             result["other_books"].append(title)
 
         else:
-            logger.warning(f"Amazon author page fetch blocked or failed with status {response.status_code} for URL {url}.")
+            logger.warning(f"Amazon author page fetch blocked or status {response.status_code} for URL {url}.")
     except Exception as exc:
         logger.error(f"Error scraping Amazon author page direct fetch: {exc}")
 
@@ -658,6 +605,26 @@ def scrape_amazon_author_page(url_or_slug: str, use_ai: bool = True) -> dict:
         result.update(fallback_data)
 
     return result
+
+
+def scrape_amazon_author_page(url_or_slug: str, use_ai: bool = True, allow_direct: bool = False) -> dict:
+    if not url_or_slug:
+        return {}
+
+    from django.conf import settings
+    if not allow_direct and not getattr(settings, "APP_ENABLE_DIRECT_AMAZON_AUTHOR_FETCH", False):
+        return {
+            "amazon_author_url": url_or_slug if str(url_or_slug).startswith("http") else "",
+            "author_bio": "",
+            "author_image_url": "",
+            "other_books": [],
+            "scraped_successfully": False,
+            "warnings": ["Direct Amazon Author-page fetching is disabled by the public-source policy."],
+        }
+
+    return direct_scrape_amazon_author(url_or_slug, use_ai=use_ai)
+
+
 
 
 def fallback_amazon_author_page(url: str, use_ai: bool = True) -> dict:

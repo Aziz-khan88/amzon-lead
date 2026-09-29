@@ -1,19 +1,67 @@
 {% extends "base.html" %}
-{% block content %}
-<div class="page-header align-items-center mb-4">
-  <div>
-    <p class="eyebrow"><i class="ph-bold ph-book-open text-teal"></i> Lead Details & Intelligence</p>
-    <h1>{{ lead.book.title }}</h1>
+{% block title %}{{ lead.book.title }} - Lead Details{% endblock %}
+{% block topbar_page_actions %}
+  <div class="topbar-page-actions lead-detail-topbar-actions">
+    <a class="btn btn-outline-primary" href="{% url 'leadfinder:export_leads_csv' %}?limit=700">
+      <i class="ph ph-download-simple"></i> Export CSV
+    </a>
+    <a class="btn btn-primary" href="{% url 'leadfinder:export_leads_xlsx' %}?limit=700">
+      <i class="ph ph-tray"></i> Export Excel
+    </a>
+    <button class="btn btn-outline-primary icon-only" type="button" aria-label="More actions" title="More actions">
+      <i class="ph ph-dots-three-vertical"></i>
+    </button>
   </div>
-  <div>
-    <span class="score-badge score-{{ lead.lead_tier }} p-2.5 px-4" style="font-size: 1.3rem;">
-      <i class="ph-fill ph-fire text-teal"></i> {{ lead.lead_score }} <span class="text-muted mx-1">|</span> <span style="font-size: 0.95rem; text-transform: uppercase;">{{ lead.lead_tier }}</span>
-    </span>
+{% endblock %}
+{% block content %}
+<div class="lead-detail-page">
+<div class="lead-detail-command">
+  <div class="lead-detail-breadcrumb">
+    <a href="{% url 'leadfinder:lead_list' %}">Leads</a>
+    <i class="ph ph-caret-right"></i>
+    <span>Lead Details</span>
+  </div>
+  <div class="lead-detail-title-row">
+    <div>
+      <h1>{{ lead.book.title }}</h1>
+      <div class="lead-detail-meta-row">
+        <span class="lead-status-chip status-{{ lead.verification_status }}"><i class="ph-fill ph-shield-check"></i> {{ lead.get_verification_status_display }}</span>
+        <span>Lead ID: {{ lead.id }}</span>
+      </div>
+    </div>
   </div>
 </div>
 
+{% if current_assignment %}
+<section class="lead-task-panel">
+  <div class="lead-task-summary">
+    <span class="person-avatar">{{ current_assignment.assigned_to.first_name|first|default:current_assignment.assigned_to.username|first|upper }}</span>
+    <div><p class="eyebrow">Assigned lead task</p><h2>{{ current_assignment.assigned_to.get_full_name|default:current_assignment.assigned_to.username }}</h2><small>Assigned {{ current_assignment.assigned_at|date:"M d, Y g:i A" }}{% if current_assignment.assigned_by %} by {{ current_assignment.assigned_by.get_full_name|default:current_assignment.assigned_by.username }}{% endif %}</small></div>
+    <span class="task-status task-{{ current_assignment.status }}">{{ current_assignment.get_status_display }}</span>
+  </div>
+  <form method="post" action="{% url 'leadfinder:lead_assignment_update' current_assignment.id %}" class="lead-task-form">
+    {% csrf_token %}
+    <label>Task status {{ assignment_form.status }}</label>
+    <label>Contact data quality {{ assignment_form.contact_quality }}</label>
+    <label class="task-notes">Work notes {{ assignment_form.notes }}</label>
+    <button class="btn btn-primary" type="submit"><i class="ph ph-check"></i> Save task update</button>
+  </form>
+</section>
+{% elif is_sales %}
+<div class="alert alert-warning">This lead no longer has an active assignment.</div>
+{% endif %}
+
+<nav class="detail-jump-nav" aria-label="Lead detail sections">
+  <a href="#lead-overview"><i class="ph-bold ph-user-focus"></i><span>Overview</span></a>
+  <a href="#lead-pitch"><i class="ph-bold ph-paper-plane-tilt"></i><span>Pitch</span></a>
+  <a href="#lead-audit"><i class="ph-bold ph-shield-check"></i><span>Contact audit</span></a>
+  <a href="#lead-contacts"><i class="ph-bold ph-address-book"></i><span>Contacts</span></a>
+  <a href="#lead-controls"><i class="ph-bold ph-sliders"></i><span>Review</span></a>
+  <a href="#lead-portfolio"><i class="ph-bold ph-books"></i><span>Portfolio</span></a>
+</nav>
+
 <!-- Section 1: Lead Header Info Card -->
-<div class="author-header-card">
+<div class="author-header-card" id="lead-overview">
   {% if lead.book.cover_image_url %}
     <div>
       <img class="cover" src="{{ lead.book.cover_image_url }}" alt="{{ lead.book.title }} Cover">
@@ -117,10 +165,10 @@
   </div>
 </div>
 
-<div class="row g-4">
+<div class="row g-4 lead-detail-layout">
   <!-- Left Side: Pitch Brief & Review -->
   <div class="col-lg-8">
-    <section class="panel">
+    <section class="panel lead-brief-panel">
       <div class="detail-section-title">
         <i class="ph-bold ph-briefcase"></i> Outreach Sales Brief
       </div>
@@ -184,7 +232,7 @@
     </section>
 
     <!-- Component 4: Interactive Multi-Angle Outreach Hub -->
-    <section class="panel" style="border-color: rgba(20, 184, 166, 0.25);">
+    <section class="panel lead-pitch-panel" id="lead-pitch" style="border-color: rgba(20, 184, 166, 0.25);">
       <div class="detail-section-title">
         <i class="ph-fill ph-paper-plane text-teal"></i> Interactive Outreach Pitch Center
       </div>
@@ -329,7 +377,7 @@ Warm regards,
     </section>
 
     <!-- Section: Contact Audit Details -->
-    <section class="panel">
+    <section class="panel lead-audit-panel" id="lead-audit">
       <div class="detail-section-title">
         <i class="ph-bold ph-clipboard-text"></i> Author Contact Audit
       </div>
@@ -478,7 +526,7 @@ Warm regards,
                         <!-- Scraped Sources Collapsible Button -->
                         {% if item.consensus_sources %}
                           <div class="mt-1">
-                            <button class="btn btn-xs btn-outline-teal text-teal py-0.5 px-2 d-inline-flex align-items-center gap-1" onclick="toggleConsensusSources('{{ key }}')" style="font-size: 0.68rem; font-weight: 700; border-radius: 4px;">
+                            <button type="button" class="btn btn-xs btn-outline-teal text-teal py-0.5 px-2 d-inline-flex align-items-center gap-1" onclick="toggleConsensusSources('{{ key }}')" style="font-size: 0.68rem; font-weight: 700; border-radius: 4px;">
                               <i class="ph-bold ph-database" style="font-size: 0.62rem;"></i>
                               <span>Show Scraped Sources ({{ item.consensus_sources|length }})</span>
                               <i class="ph ph-caret-down ms-0.5" id="chevron-{{ key }}" style="font-size: 0.58rem; transition: transform 0.2s ease;"></i>
@@ -542,7 +590,7 @@ Warm regards,
                                 <!-- Collapsible Alt Sources Toggle -->
                                 {% if alt.sources %}
                                   <div class="mt-1 text-end">
-                                    <button class="btn btn-xs btn-link p-0 text-muted hover-teal" onclick="toggleConsensusSources('{{ key }}-alt-{{ forloop.counter }}')" style="font-size: 0.62rem; text-decoration: none;">
+                                    <button type="button" class="btn btn-xs btn-link p-0 text-muted hover-teal" onclick="toggleConsensusSources('{{ key }}-alt-{{ forloop.counter }}')" style="font-size: 0.62rem; text-decoration: none;">
                                       <span>Show Sources ({{ alt.sources|length }})</span>
                                       <i class="ph ph-caret-down ms-0.5" id="chevron-{{ key }}-alt-{{ forloop.counter }}" style="font-size: 0.55rem; transition: transform 0.2s ease;"></i>
                                     </button>
@@ -606,7 +654,7 @@ Warm regards,
                   </td>
                   <td class="text-end" data-label="Action">
                     {% if item.consensus_value %}
-                      <button class="btn btn-sm btn-dark border border-secondary text-muted copy-btn-compact" onclick="copyConsensusText('consensus-val-{{ key }}', this)" title="Copy Consensus Value">
+                      <button type="button" class="btn btn-sm btn-dark border border-secondary text-muted copy-btn-compact" onclick="copyConsensusText('consensus-val-{{ key }}', this)" title="Copy Consensus Value">
                         <i class="ph ph-copy"></i>
                       </button>
                     {% else %}
@@ -688,7 +736,22 @@ Warm regards,
   </div>
 
   <!-- Right Side: Evidence Timeline & Review Panel -->
-  <div class="col-lg-4">
+  <div class="col-lg-4 lead-detail-sidebar">
+    <section class="panel lead-quality-card">
+      <div class="detail-section-title">
+        <i class="ph-bold ph-gauge"></i> Lead Quality Score
+      </div>
+      <div class="lead-quality-ring" style="--score: {{ lead.verification_score }}%;">
+        <div>
+          <strong>{{ lead.verification_score }}</strong>
+          <span>/100</span>
+        </div>
+      </div>
+      <strong class="lead-quality-label">
+        {% if lead.verification_status == 'verified' %}Good opportunity{% elif lead.verification_status == 'not_verified' %}Needs review{% else %}Good opportunity{% endif %}
+      </strong>
+      <small>Evidence quality is above average</small>
+    </section>
     <!-- Component 5: Amazon Creator Spotlight Card -->
     {% if lead.author_profile.amazon_author_url or lead.author_profile.author_bio or lead.author_profile.author_image_url or lead.author_profile.other_books %}
       <section class="panel amazon-spotlight-panel" style="border-color: rgba(251, 191, 36, 0.25); background: linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.8) 100%); backdrop-filter: blur(16px); position: relative; overflow: hidden; margin-bottom: 1.5rem;">
@@ -765,7 +828,7 @@ Warm regards,
       </section>
     {% endif %}
     <!-- Component 4: Premium Glassmorphic Representation Panel -->
-    <section class="panel" style="border-color: rgba(56, 189, 248, 0.25); background: rgba(17, 24, 39, 0.75);">
+    <section class="panel representation-panel" style="border-color: rgba(56, 189, 248, 0.25); background: rgba(17, 24, 39, 0.75);">
       <div class="detail-section-title">
         <i class="ph-bold ph-user-gear text-info"></i> Representation & Agency Contacts
       </div>
@@ -835,9 +898,9 @@ Warm regards,
     </section>
 
     <!-- Component: AI Audit & Verification Report -->
-    <section class="panel" style="border-color: rgba(20, 184, 166, 0.35); background: linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(13, 148, 136, 0.05) 100%);">
+    <section class="panel verification-report-card" style="border-color: rgba(20, 184, 166, 0.35); background: linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(13, 148, 136, 0.05) 100%);">
       <div class="detail-section-title text-teal">
-        <i class="ph-bold ph-shield-check text-teal"></i> AI Verification Report
+        <i class="ph-bold ph-shield-check text-teal"></i> Contact Verification Report
       </div>
       
       <div class="d-flex align-items-center gap-3 mb-3">
@@ -845,7 +908,7 @@ Warm regards,
         <div class="position-relative d-inline-flex align-items-center justify-content-center" style="width: 70px; height: 70px;">
           <svg style="transform: rotate(-90deg); width: 70px; height: 70px;">
             <circle cx="35" cy="35" r="28" stroke="rgba(255,255,255,0.06)" stroke-width="5" fill="transparent" />
-            <circle class="ai-progress-ring-circle" cx="35" cy="35" r="28" data-confidence="{{ lead.author_profile.identity_confidence|default:0 }}" stroke="var(--teal)" stroke-dasharray="175.92" stroke-dashoffset="175.92" stroke-width="5" fill="transparent" style="transition: stroke-dashoffset 1s ease-out; filter: drop-shadow(0 0 4px var(--teal-glow));" />
+            <circle class="ai-progress-ring-circle" cx="35" cy="35" r="28" data-confidence="{{ lead.verification_score|default:0 }}" stroke="var(--teal)" stroke-dasharray="175.92" stroke-dashoffset="175.92" stroke-width="5" fill="transparent" style="transition: stroke-dashoffset 1s ease-out; filter: drop-shadow(0 0 4px var(--teal-glow));" />
           </svg>
           <div class="position-absolute font-heading font-weight-800 text-teal" id="confidence-percentage" style="font-size: 1.1rem; top: 50%; left: 50%; transform: translate(-50%, -50%);">
             --%
@@ -853,14 +916,14 @@ Warm regards,
         </div>
         
         <div>
-          <span class="text-muted d-block small uppercase" style="letter-spacing: 0.5px;">Identity Match Score</span>
+          <span class="text-muted d-block small uppercase" style="letter-spacing: 0.5px;">Contact Verification Score</span>
           <strong class="text-white">
-            {% if lead.author_profile.identity_confidence >= 0.85 %}
-              Highly Verified Lead
-            {% elif lead.author_profile.identity_confidence >= 0.65 %}
-              Verified Lead
+            {% if lead.verification_status == 'verified' %}
+              Verified
+            {% elif lead.verification_status == 'not_verified' %}
+              Not verified
             {% else %}
-              Unverified / Review Needed
+              Other
             {% endif %}
           </strong>
         </div>
@@ -868,8 +931,17 @@ Warm regards,
       
       <div class="p-3 mb-3" style="background: rgba(15, 23, 42, 0.4); border: 1px solid var(--line); border-radius: 10px;">
         <span class="text-muted d-block small mb-1 uppercase" style="font-size: 0.72rem; font-weight: 700; letter-spacing: 0.5px;">Verification Logic & Reason</span>
-        <p class="text-light mb-0 small" style="line-height: 1.5;">{{ lead.author_profile.identity_reason|default:"No verification details logged." }}</p>
+        <p class="text-light mb-0 small" style="line-height: 1.5;">{{ lead.verification_reason|default:"No verification details logged." }}</p>
       </div>
+
+      {% if lead.primary_contact %}
+        <div class="p-3 mb-3" style="background: rgba(20, 184, 166, 0.05); border: 1px solid rgba(20, 184, 166, 0.2); border-radius: 10px;">
+          <span class="text-muted d-block small mb-1 uppercase">Selected primary contact</span>
+          <strong class="text-white">{{ lead.primary_contact.normalized_value }}</strong>
+          <span class="badge bg-secondary ms-2">{{ lead.primary_contact.get_channel_display }}</span>
+          <span class="badge bg-secondary ms-1">{{ lead.primary_contact.get_role_display }}</span>
+        </div>
+      {% endif %}
 
       <div class="mb-0">
         <span class="text-muted d-block small mb-2 uppercase" style="font-size: 0.72rem; font-weight: 700; letter-spacing: 0.5px;">Multi-Layered Verification Audits</span>
@@ -900,27 +972,72 @@ Warm regards,
       </div>
     </section>
 
-    <!-- Manual Review Action Console -->
-    <section class="panel" style="border-color: rgba(20, 184, 166, 0.25);">
+    <section class="panel" id="lead-contacts">
+      <div class="detail-section-title"><i class="ph-bold ph-address-book"></i> Contact Candidates</div>
+      <div class="table-responsive">
+        <table class="table table-sm align-middle">
+          <thead><tr><th>Primary</th><th>Contact</th><th>Role</th><th>Status</th><th>Score</th><th>Delivery</th><th>Reason</th></tr></thead>
+          <tbody>
+          {% for candidate in lead.contact_candidates.all %}
+            <tr>
+              <td>{% if candidate.is_primary %}<i class="ph-fill ph-check-circle text-success"></i>{% else %}—{% endif %}</td>
+              <td>{{ candidate.normalized_value }}</td>
+              <td>{{ candidate.get_role_display }}</td>
+              <td>{{ candidate.get_verification_status_display }}</td>
+              <td>{{ candidate.verification_score }}/100</td>
+              <td>{{ candidate.deliverability_status }}</td>
+              <td>{{ candidate.selected_reason|truncatechars:120 }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="7" class="text-muted">No email or phone candidate was found.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel social-audits-card">
+      <div class="detail-section-title"><i class="ph-bold ph-share-network"></i> Social Profile Audits</div>
+      <div class="table-responsive">
+        <table class="table table-sm align-middle">
+          <thead><tr><th>Platform</th><th>Profile</th><th>Fetch</th><th>Identity</th><th>Contacts</th><th>Details</th></tr></thead>
+          <tbody>
+          {% for audit in lead.social_audits.all %}
+            <tr>
+              <td>{{ audit.platform|title }}</td>
+              <td><a href="{{ audit.profile_url }}" target="_blank" rel="noopener">{{ audit.normalized_handle|default:audit.profile_name }}</a></td>
+              <td>{{ audit.get_fetch_status_display }}</td>
+              <td>{{ audit.identity_score }}/100</td>
+              <td>{{ audit.extracted_contacts_json|length }}</td>
+              <td>{{ audit.failure_reason|default:audit.biography|truncatechars:120 }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="6" class="text-muted">No social profile URLs were available for inspection.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Contact controls -->
+    <section class="panel lead-controls-panel" id="lead-controls" style="border-color: rgba(20, 184, 166, 0.25);">
       <div class="detail-section-title">
-        <i class="ph-bold ph-gavel"></i> Manual Review Console
+        <i class="ph-bold ph-sliders"></i> Contact Controls
       </div>
       
       <div class="mb-4">
         <span class="text-muted d-block small">Verification Status</span>
         <div class="d-flex align-items-center gap-2 mt-1">
-          {% if lead.manual_review_status == 'needs_review' %}
-            <span class="status-pill status-running py-1.5 px-3" style="font-size: 0.95rem;">
-              <i class="ph ph-circle-notch" style="display:inline-block;animation:ph-spin 1s linear infinite"></i> Needs Review
-            </span>
-          {% elif lead.manual_review_status == 'approved' %}
+          {% if lead.verification_status == 'verified' %}
             <span class="status-pill status-success py-1.5 px-3" style="font-size: 0.95rem;">
-              <i class="ph-fill ph-check-circle"></i> Approved Lead
+              <i class="ph-fill ph-check-circle"></i> Verified
             </span>
-          {% elif lead.manual_review_status == 'rejected' %}
+          {% elif lead.verification_status == 'not_verified' %}
             <span class="status-pill status-failed py-1.5 px-3" style="font-size: 0.95rem;">
-              <i class="ph-fill ph-x-circle"></i> Rejected Lead
+              <i class="ph-fill ph-x-circle"></i> Not verified
             </span>
+          {% else %}
+            <span class="status-pill status-running py-1.5 px-3" style="font-size: 0.95rem;"><i class="ph ph-question"></i> Other</span>
           {% endif %}
           
           {% if lead.do_not_contact %}
@@ -929,20 +1046,12 @@ Warm regards,
         </div>
       </div>
 
-      <div class="d-flex flex-wrap gap-2 mb-4">
-        <form method="post" action="{% url 'leadfinder:lead_action' lead.id 'approve' %}" class="flex-grow-1">
-          {% csrf_token %}
-          <button class="btn btn-primary w-100">
-            <i class="ph ph-check"></i> Approve
-          </button>
-        </form>
-        <form method="post" action="{% url 'leadfinder:lead_action' lead.id 'reject' %}" class="flex-grow-1">
-          {% csrf_token %}
-          <button class="btn btn-secondary w-100">
-            <i class="ph-bold ph-x"></i> Reject
-          </button>
-        </form>
-      </div>
+      <form method="post" action="{% url 'leadfinder:lead_action' lead.id 'reverify' %}" class="mb-2">
+        {% csrf_token %}
+        <button class="btn btn-primary w-100">
+          <i class="ph-bold ph-arrows-clockwise"></i> Reinspect Socials &amp; Reverify
+        </button>
+      </form>
 
       <form method="post" action="{% url 'leadfinder:lead_action' lead.id 'do-not-contact' %}" class="mb-2">
         {% csrf_token %}
@@ -976,7 +1085,7 @@ Warm regards,
     </section>
 
     <!-- Visual Vertical Step Tracker -->
-    <section class="panel">
+    <section class="panel extraction-path-card">
       <div class="detail-section-title">
         <i class="ph-bold ph-route"></i> Extraction Path Evidence
       </div>
@@ -1007,8 +1116,8 @@ Warm regards,
 </div>
 
 <!-- Component: Author Publishing Portfolio & Scrape Footprint -->
-<div class="col-12 mt-4 mb-4">
-  <section class="panel" style="border-color: rgba(251, 191, 36, 0.25); background: linear-gradient(180deg, rgba(17, 24, 39, 0.8) 0%, rgba(15, 23, 42, 0.95) 100%); backdrop-filter: blur(16px);">
+<div class="col-12 mt-4 mb-4" id="lead-portfolio">
+  <section class="panel lead-portfolio-panel" style="border-color: rgba(251, 191, 36, 0.25); background: linear-gradient(180deg, rgba(17, 24, 39, 0.8) 0%, rgba(15, 23, 42, 0.95) 100%); backdrop-filter: blur(16px);">
     <div class="detail-section-title text-amber">
       <i class="ph-bold ph-bookmarks text-warning"></i> Author's Global Publishing Portfolio & Scrape Footprint
     </div>
@@ -1173,11 +1282,10 @@ Warm regards,
                 {% if bk.has_lead %}
                   <div class="d-flex flex-column gap-1 align-items-start">
                     <a href="{% url 'leadfinder:lead_detail' bk.lead_id %}" class="btn btn-sm btn-outline-teal py-1 px-2.5 d-inline-flex align-items-center gap-1.5" style="border-radius: 6px; font-size: 0.8rem; font-weight: 700; transition: all 0.2s ease; text-decoration: none;">
-                      <i class="ph-fill ph-fire text-teal"></i> Lead #{{ bk.lead_score }}
+                      <i class="ph-fill ph-shield-check text-teal"></i> Verification {{ bk.verification_score }}/100
                     </a>
                     <div class="d-flex gap-1 flex-wrap mt-0.5">
-                      <span class="tier-pill tier-{{ bk.lead_tier }}" style="font-size: 0.68rem; padding: 0.15rem 0.4rem; border-radius: 4px;">{{ bk.lead_tier }}</span>
-                      <span class="status-pill {% if bk.manual_review_status == 'approved' %}status-success{% elif bk.manual_review_status == 'rejected' %}status-failed{% elif bk.manual_review_status == 'needs_review' %}status-running{% else %}status-pending{% endif %}" style="font-size: 0.68rem; padding: 0.15rem 0.4rem; border-radius: 4px;">{{ bk.manual_review_status|title }}</span>
+                      <span class="tier-pill tier-{{ bk.verification_status }}" style="font-size: 0.68rem; padding: 0.15rem 0.4rem; border-radius: 4px;">{{ bk.verification_status }}</span>
                     </div>
                   </div>
                 {% else %}
@@ -1197,6 +1305,7 @@ Warm regards,
       </table>
     </div>
   </section>
+</div>
 </div>
 
 <style>
@@ -1461,9 +1570,28 @@ Warm regards,
 }
 
 .copy-btn-compact {
+  align-items: center;
+  background: #1f2937 !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+  display: inline-flex;
+  gap: 0.35rem;
+  justify-content: center;
+  min-height: 2.15rem;
+  min-width: 2.45rem;
   transition: all 0.2s ease;
   padding: 0.25rem 0.5rem;
   font-size: 0.8rem;
+}
+.copy-btn-compact i {
+  color: currentColor !important;
+  opacity: 1;
+}
+.copy-btn-compact:hover,
+.copy-btn-compact:focus-visible {
+  background: #0f766e !important;
+  border-color: #0f766e !important;
+  color: #ffffff !important;
 }
 .copy-btn-compact.copied {
   background: var(--green) !important;
@@ -1485,15 +1613,20 @@ Warm regards,
   100% { box-shadow: 0 0 0 0 rgba(248, 113, 113, 0); }
 }
 .btn-outline-teal {
-  border: 1px solid rgba(20, 184, 166, 0.4);
-  background: rgba(20, 184, 166, 0.04);
-  color: #fff !important;
+  border: 1px solid rgba(20, 184, 166, 0.45);
+  background: rgba(20, 184, 166, 0.08);
+  color: #0f766e !important;
 }
 .btn-outline-teal:hover {
-  background: rgba(20, 184, 166, 0.15);
-  border-color: var(--teal);
+  background: rgba(20, 184, 166, 0.18);
+  border-color: #0f766e;
+  color: #0b4f49 !important;
   box-shadow: 0 0 10px rgba(20, 184, 166, 0.25);
   transform: translateY(-1px);
+}
+.btn-outline-teal i {
+  color: currentColor !important;
+  opacity: 1;
 }
 
 .consensus-sources-panel {
@@ -1628,7 +1761,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const ring = document.querySelector('.ai-progress-ring-circle');
     const pctText = document.getElementById('confidence-percentage');
     if (ring && pctText) {
-        const confidence = parseFloat(ring.getAttribute('data-confidence') || '0');
+        let confidence = parseFloat(ring.getAttribute('data-confidence') || '0');
+        if (confidence > 1) confidence = confidence / 100;
         const r = 28;
         const circumference = 2 * Math.PI * r; // ~175.92
         const offset = circumference - (confidence * circumference);

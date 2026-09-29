@@ -34,11 +34,14 @@ def search_openlibrary(
     year_end: int | None = None,
     max_books: int = 50,
     delay: float = 1.05,
+    sort_new: bool = False,
 ) -> list[dict]:
     """
     Search Open Library for books matching keyword + optional year range.
     NOTE: publish_year API param returns 0 results for most queries.
           We search without year filter and filter client-side.
+    ``sort_new=True`` asks Open Library to rank the newest publications first,
+    which pairs well with a year filter aimed at recent releases.
     """
     results: list[dict] = []
     seen_isbns: set[str] = set()
@@ -55,8 +58,10 @@ def search_openlibrary(
             "page": page,
             "fields": "title,author_name,isbn,first_publish_year,publish_year,cover_i,key",
         }
+        if sort_new:
+            params["sort"] = "new"
 
-        digest = sha256(f"{keyword.casefold()}:{page}:{per_page}".encode("utf-8")).hexdigest()[:24]
+        digest = sha256(f"{keyword.casefold()}:{page}:{per_page}:{int(sort_new)}".encode("utf-8")).hexdigest()[:24]
         cache_key = f"open-library-search:v1:{digest}"
         data = cache.get(cache_key)
         if not isinstance(data, dict):

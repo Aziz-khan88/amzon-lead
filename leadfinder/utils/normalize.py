@@ -42,7 +42,15 @@ BLACK_LISTED_AUTHOR_WORDS = {
     "learning", "learn",
     "hotmart", "infobooks", "pdfdrive", "epub", "spokeo", "whitepages", "radaris", "beenverified",
     "truthfinder", "intelius", "peoplefinders", "anyflip", "fliphtml5", "scribd", "slideshare",
-    "issuu", "target", "walmart", "linktree"
+    "issuu", "target", "walmart", "linktree",
+    # Unambiguous company/publisher tokens — a real person's name never
+    # contains these, so truncation here only strips corporate labels.
+    "publishing", "imprint", "books", "inc", "llc", "ltd", "llp", "corp", "corporation",
+    "company", "gmbh", "studios", "productions", "publications", "collective",
+    "enterprises", "partners", "associates", "foundation", "ministries", "ministry",
+    "institute", "academy", "network", "magazine", "journal", "store", "shop",
+    "official", "brand", "society", "association", "organization", "committee",
+    "department", "university", "college", "museum", "gallery", "disney",
 }
 
 
